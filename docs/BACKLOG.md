@@ -11,7 +11,7 @@
 | ID | Title | Type | Priority | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **OV-001** | Establish OmniVoice Engineering Project Control | Task | P0 | **Done** |
-| **OV-002** | Fix Console Call Details TypeError (`call.session_id`) | Bug | P0 | Planned |
+| **OV-002** | Fix Console Call Details TypeError (`call.session_id`) | Bug | P0 | **Done** |
 | **OV-003** | Fix Carrier Webhook URL Display in Console Modal | Bug | P0 | Planned |
 | **OV-004** | Audit & Reconcile Landing Page Marketing Claims | TechDebt | P1 | Planned |
 | **OV-005** | Real PSTN End-to-End Telephone Validation Test | Spike | P0 | Planned |
@@ -52,7 +52,7 @@
 ### [OV-002] Fix Console Call Details TypeError (`call.session_id`)
 * **Type:** Bug
 * **Priority:** P0
-* **Status:** Planned
+* **Status:** **Done**
 * **Dependencies:** OV-001
 * **Description:** In `omnivoice/static/app.js:629`, clicking a call record causes an unhandled JavaScript exception because it references `call.session_id` instead of `call.id`.
 * **Acceptance Criteria:**

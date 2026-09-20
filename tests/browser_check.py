@@ -1,6 +1,7 @@
 """Isolated browser workflow check. It never modifies the user's enterprise DB."""
 
 import json
+import sqlite3
 import tempfile
 import threading
 import time
@@ -59,6 +60,38 @@ def main():
                     page.locator("#submit-modal").click()
                     page.get_by_role("heading", name="Enterprise created", exact=True).wait_for()
                     page.locator("#close-modal").click()
+
+                    # Seed synthetic call record for call-details modal verification (OV-002)
+                    conn = sqlite3.connect(Path(directory) / "browser.db")
+                    try:
+                        tenant_row = conn.execute("SELECT id FROM tenants LIMIT 1").fetchone()
+                        assert tenant_row, "Tenant was not created"
+                        conn.execute(
+                            "INSERT INTO calls (id, tenant_id, provider, status, started, ended, metrics) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            (
+                                "c1234567890abcdef",
+                                tenant_row[0],
+                                "twilio",
+                                "completed",
+                                time.time() - 60,
+                                time.time(),
+                                json.dumps(
+                                    {
+                                        "turns": [
+                                            {
+                                                "final_transcript_to_first_audio_sent_ms": 320,
+                                                "user_transcript": "What are your business hours?",
+                                                "agent_response": "We are open 9am to 6pm Monday to Friday.",
+                                            }
+                                        ]
+                                    }
+                                ),
+                            ),
+                        )
+                        conn.commit()
+                    finally:
+                        conn.close()
+
                     page.locator('[data-page="knowledge"]').click()
                     page.get_by_role("button", name="Add FAQ").click()
                     page.get_by_label("Caller question").fill("What is this test?")
@@ -82,6 +115,10 @@ def main():
                     for name in ["calls", "actions", "settings", "overview"]:
                         page.locator(f'[data-page="{name}"]').click()
                         assert page.locator(f"#{name}").is_visible()
+                        if name == "calls":
+                            page.locator('#calls-list [data-call="c1234567890abcdef"]').click()
+                            page.get_by_role("heading", name="Call Session c123456789", exact=True).wait_for()
+                            page.locator("#close-modal").click()
                     page.get_by_role("button", name="Disconnect", exact=True).click()
                     page.set_viewport_size({"width": 390, "height": 844})
                     page.screenshot(path=str(artifacts / "console-mobile.png"), full_page=True)
@@ -97,6 +134,7 @@ def main():
                         "document upload",
                         "line registration",
                         "navigation",
+                        "call details modal",
                         "logout",
                         "mobile overflow",
                         "JavaScript errors",

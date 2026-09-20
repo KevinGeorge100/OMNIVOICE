@@ -212,7 +212,7 @@ function callRows(items) {
     const turns = c.metrics?.turns || [];
     const timings = turns.map(t => t.final_transcript_to_first_audio_sent_ms).filter(Number.isFinite);
     return `<tr>
-      <td><b>${esc(c.session_id.slice(0, 10))}…</b></td>
+      <td><b>${esc((c.id || "").slice(0, 10))}…</b></td>
       <td>${esc(c.provider)}</td>
       <td>${badge(c.status)}</td>
       <td>${turns.length}</td>
@@ -626,7 +626,7 @@ document.addEventListener("click", async event => {
           <p><strong>Reply:</strong> ${esc(t.agent_response || "—")}</p>
         </div>
       `).join("");
-      modal(`Call Session ${esc(call.session_id.slice(0, 10))}`, turns || "<p>No recorded turns.</p>", null);
+      modal(`Call Session ${esc((call.id || "").slice(0, 10))}`, turns || "<p>No recorded turns.</p>", null);
     }
   } catch (error) {
     notify(error.message);
