@@ -1,0 +1,16 @@
+services:
+  omnivoice:
+    build: .
+    ports: ["127.0.0.1:8000:8000"]
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models:ro
+    restart: unless-stopped
+    init: true
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+

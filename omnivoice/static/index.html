@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OmniVoice — Operations Console</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+  <aside class="sidebar">
+    <a class="brand" href="/">
+      <span class="brand-icon" aria-hidden="true">◖◗</span>
+      <div class="brand-info">
+        <span class="brand-text">omni<span>voice</span></span>
+        <span class="brand-sub">OPERATIONS CONSOLE</span>
+      </div>
+    </a>
+
+    <div class="workspace-section">
+      <div class="workspace-label-row">
+        <span class="workspace-tag">WORKSPACE</span>
+      </div>
+      <label class="sr-only" for="tenant-picker">Select enterprise workspace</label>
+      <div class="workspace-control">
+        <span class="workspace-avatar" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M3 21h18" />
+            <path d="M5 21V7l8-4v18" />
+            <path d="M19 21V11l-6-3" />
+            <path d="M9 9v.01" />
+            <path d="M9 12v.01" />
+            <path d="M9 15v.01" />
+            <path d="M9 18v.01" />
+          </svg>
+        </span>
+        <select id="tenant-picker">
+          <option value="">Select an enterprise</option>
+        </select>
+        <span class="workspace-chevron" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </span>
+      </div>
+    </div>
+
+    <nav aria-label="Main navigation">
+      <button class="nav active" data-page="overview">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="1.5" />
+            <rect x="14" y="3" width="7" height="7" rx="1.5" />
+            <rect x="3" y="14" width="7" height="7" rx="1.5" />
+            <rect x="14" y="14" width="7" height="7" rx="1.5" />
+          </svg></span>
+        Overview
+      </button>
+      <button class="nav" data-page="knowledge">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
+            <path d="M6 6h10" />
+            <path d="M6 10h10" />
+          </svg></span>
+        Knowledge base
+      </button>
+      <button class="nav" data-page="lines">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <path
+              d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+          </svg></span>
+        Phone lines
+      </button>
+      <button class="nav" data-page="calls">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <path d="M2 12h4l3-9 4 18 3-9h6" />
+          </svg></span>
+        Call activity
+      </button>
+      <button class="nav" data-page="actions">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <path d="M20 7h-9" />
+            <path d="m14 4-3 3 3 3" />
+            <path d="M4 17h9" />
+            <path d="m10 14 3 3-3 3" />
+          </svg></span>
+        Actions &amp; tools
+      </button>
+      <button class="nav" data-page="settings">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg></span>
+        Configuration
+      </button>
+    </nav>
+
+    <div class="side-bottom">
+      <div class="runtime-card">
+        <div class="runtime-status">
+          <span class="pulse-dot green" aria-hidden="true"></span>
+          <span class="runtime-title">Gateway Online</span>
+        </div>
+        <div class="runtime-meta">
+          <span>FastAPI · Port 8000</span>
+          <span>Silero VAD · FAISS Active</span>
+        </div>
+        <div class="runtime-foot">
+          <span class="runtime-version">v0.1.0-core</span>
+          <a href="/docs" target="_blank" rel="noopener" class="runtime-link">API Docs ↗</a>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <header>
+      <div class="breadcrumb">OmniVoice Console <span>/</span> <b id="crumb">Overview</b></div>
+      <div class="header-right">
+        <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-label="Toggle theme" title="Toggle between Dark and Light mode">
+          <span class="theme-toggle-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"/>
+              <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+          </span>
+          <span class="theme-toggle-text">Light mode</span>
+        </button>
+        <span id="connection-state" class="badge status-locked" data-status="locked" title="Admin authentication state">
+          <svg class="badge-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
+            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <span class="badge-text">Console locked</span>
+        </span>
+        <button class="secondary-btn" id="login-button">Connect console ↗</button>
+      </div>
+    </header>
+
+    <div class="content">
+      <section class="page-heading">
+        <div>
+          <div class="eyebrow">TELEPHONY INFRASTRUCTURE</div>
+          <h1 id="page-title">System Overview</h1>
+          <p id="page-description">Real-time telephony orchestration, regional speech pipelines, and enterprise knowledge.</p>
+        </div>
+        <button id="primary-action" class="primary-btn">＋ New enterprise</button>
+      </section>
+
+      <section id="overview" class="page active">
+        <!-- Live Voice Pipeline Operational Gateway Strip -->
+        <div class="system-health-banner">
+          <div class="health-header">
+            <div class="health-main">
+              <div class="health-badge"><span class="pulse-dot green" aria-hidden="true"></span> REAL-TIME VOICE PIPELINE</div>
+              <h2>Carrier Telephony &amp; Regional Inference Gateway</h2>
+              <p>Full-duplex speech orchestration for enterprise telephone lines. Low-latency streaming STT, neural VAD, and grounded retrieval.</p>
+            </div>
+            <div class="health-actions">
+              <button id="setup-button" class="action-trigger-btn">Quickstart Setup <span>↗</span></button>
+            </div>
+          </div>
+          <div class="health-metrics-grid">
+            <div class="health-metric-item">
+              <span class="metric-label">SIP Ingress / Egress</span>
+              <span class="metric-val">Exotel / Twilio PSTN</span>
+              <small class="metric-sub">Full-duplex WebSocket</small>
+            </div>
+            <div class="health-metric-item">
+              <span class="metric-label">Speech Engine</span>
+              <span class="metric-val">Sarvam AI (11 Languages)</span>
+              <small class="metric-sub">Streaming STT + Neural TTS</small>
+            </div>
+            <div class="health-metric-item">
+              <span class="metric-label">Neural VAD &amp; Interruption</span>
+              <span class="metric-val">Silero ONNX (&lt;20ms)</span>
+              <small class="metric-sub">&lt;50ms playback silence</small>
+            </div>
+            <div class="health-metric-item">
+              <span class="metric-label">Mouth-to-Ear Target</span>
+              <span class="metric-val accent-val">&lt;500ms</span>
+              <small class="metric-sub">P95 SLA threshold</small>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telephony & Inference Ecosystem Partners Strip -->
+        <div class="ecosystem-strip" aria-label="Telephony and inference ecosystem">
+          <span class="ecosystem-label">TELEPHONY &amp; INFERENCE PLATFORM</span>
+          <div class="ecosystem-logos">
+            <span class="eco-item">EXOTEL</span>
+            <span class="eco-dot">·</span>
+            <span class="eco-item">TWILIO</span>
+            <span class="eco-dot">·</span>
+            <span class="eco-item">SARVAM AI</span>
+            <span class="eco-dot">·</span>
+            <span class="eco-item">GROQ</span>
+            <span class="eco-dot">·</span>
+            <span class="eco-item">SILERO ONNX</span>
+            <span class="eco-dot">·</span>
+            <span class="eco-item">FAISS RETRIEVAL</span>
+          </div>
+        </div>
+
+        <!-- High-Density Metric Cards / Telemetry Grid with Actionable Zero-States -->
+        <div class="stats">
+          <article class="stat-card" data-go="lines">
+            <div class="stat-meta">
+              <span>Active calls</span>
+              <span class="stat-tag" id="hint-active">No active calls</span>
+            </div>
+            <strong id="stat-active" class="tabular-stat">0</strong>
+            <small>Concurrent live carrier sessions</small>
+          </article>
+          <article class="stat-card" data-go="calls">
+            <div class="stat-meta">
+              <span>Response latency · p95</span>
+              <span class="stat-tag" id="hint-latency">Measured on calls</span>
+            </div>
+            <strong id="stat-latency" class="tabular-stat">—</strong>
+            <small>Final transcript → first audio packet</small>
+          </article>
+          <article class="stat-card" data-go="knowledge">
+            <div class="stat-meta">
+              <span>Knowledge entries</span>
+              <span class="stat-tag" id="hint-knowledge">+ Upload docs</span>
+            </div>
+            <strong id="stat-knowledge" class="tabular-stat">0</strong>
+            <small>Indexed private vectors &amp; approved FAQs</small>
+          </article>
+          <article class="stat-card" data-go="knowledge">
+            <div class="stat-meta">
+              <span>Fast-path hit rate</span>
+              <span class="stat-tag" id="hint-cache">+ Add approved FAQ</span>
+            </div>
+            <strong id="stat-cache" class="tabular-stat">0%</strong>
+            <small>Direct replies bypassing LLM inference</small>
+          </article>
+        </div>
+
+        <!-- Technical Pipeline & Architecture Trace -->
+        <div class="overview-grid">
+          <article class="panel pipeline-panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Voice Pipeline Execution Trace</h3>
+                <p>Real-time turn orchestration latency breakdown and component budget.</p>
+              </div>
+              <span class="tiny-label">SLAS &amp; TARGETS</span>
+            </div>
+            <div class="pipeline-trace-grid">
+              <div class="trace-step">
+                <div class="step-num">01</div>
+                <div class="step-body">
+                  <div class="step-head">
+                    <b>SIP Trunking &amp; Audio Ingress</b>
+                    <span class="step-sla">&lt;20ms</span>
+                  </div>
+                  <div class="step-desc">Exotel / Twilio Webhook bidirectional audio streaming.</div>
+                  <div class="step-tech">Exotel / Twilio PSTN</div>
+                </div>
+              </div>
+              <div class="trace-step">
+                <div class="step-num">02</div>
+                <div class="step-body">
+                  <div class="step-head">
+                    <b>Neural VAD &amp; Interruption</b>
+                    <span class="step-sla">&lt;20ms VAD · &lt;50ms dispatch</span>
+                  </div>
+                  <div class="step-desc">Silero ONNX speech detection; immediate audio clearance on caller speech.</div>
+                  <div class="step-tech">Silero ONNX Model</div>
+                </div>
+              </div>
+              <div class="trace-step">
+                <div class="step-num">03</div>
+                <div class="step-body">
+                  <div class="step-head">
+                    <b>Streaming Regional STT</b>
+                    <span class="step-sla">p90 ~120ms</span>
+                  </div>
+                  <div class="step-desc">Chunked streaming speech-to-text supporting 11 Indian languages.</div>
+                  <div class="step-tech">Sarvam AI Streaming ASR</div>
+                </div>
+              </div>
+              <div class="trace-step">
+                <div class="step-num">04</div>
+                <div class="step-body">
+                  <div class="step-head">
+                    <b>Retrieval &amp; Fast-Path Cache</b>
+                    <span class="step-sla">&lt;2ms Cache · ~15ms FAISS</span>
+                  </div>
+                  <div class="step-desc">Approved FAQ exact match cache or FAISS vector semantic similarity.</div>
+                  <div class="step-tech">FAISS Dense Retrieval</div>
+                </div>
+              </div>
+              <div class="trace-step">
+                <div class="step-num">05</div>
+                <div class="step-body">
+                  <div class="step-head">
+                    <b>LLM Reasoning &amp; TTFT</b>
+                    <span class="step-sla">TTFT ~180ms</span>
+                  </div>
+                  <div class="step-desc">Grounded prompt execution, tool parameter extraction, and streaming tokens.</div>
+                  <div class="step-tech">Groq Llama 3 70B</div>
+                </div>
+              </div>
+              <div class="trace-step">
+                <div class="step-num">06</div>
+                <div class="step-body">
+                  <div class="step-head">
+                    <b>Neural TTS &amp; Audio Egress</b>
+                    <span class="step-sla">First frame ~120ms</span>
+                  </div>
+                  <div class="step-desc">Streaming regional speech synthesis sent to telephone carrier trunk.</div>
+                  <div class="step-tech">Sarvam Regional TTS</div>
+                </div>
+              </div>
+            </div>
+            <div class="panel-foot">
+              <span class="dot live-pulse"></span> Full-duplex voice orchestration &nbsp; · &nbsp; End-to-end turnaround budget: <strong>&lt;500ms</strong> mouth-to-ear
+            </div>
+          </article>
+
+          <!-- Interactive Launch Checklist with Progress -->
+          <article class="panel checklist-panel">
+            <div class="panel-heading">
+              <div>
+                <h3>Launch Checklist</h3>
+                <p id="checklist-progress-label">0 of 4 steps completed</p>
+              </div>
+              <span class="tiny-label" id="checklist-pct">0%</span>
+            </div>
+            <div class="checklist-bar-track" aria-hidden="true">
+              <div class="checklist-bar-fill" id="checklist-fill" style="width: 0%;"></div>
+            </div>
+            <div id="checklist" class="checklist">
+              <p class="subtle">Connect console to inspect workspace status.</p>
+            </div>
+          </article>
+        </div>
+
+        <!-- Recent Activity & Live Turn Sandbox -->
+        <article class="panel recent">
+          <div class="panel-heading">
+            <div>
+              <h3>Recent Conversations &amp; Live Sandbox</h3>
+              <p>Live session traces and interactive conversational turn simulator.</p>
+            </div>
+            <div class="panel-actions">
+              <button class="secondary-btn btn-sm" id="test-sandbox-btn">Simulate Test Turn ↗</button>
+              <button class="text-button" data-go="calls">View all calls ↗</button>
+            </div>
+          </div>
+          <div id="recent-calls" class="recent-calls-container">
+            <div class="empty compact">
+              <span>⌁</span>
+              <h4>Your next conversation starts here.</h4>
+              <p>Connect the console and select an enterprise to see call activity.</p>
+            </div>
+          </div>
+        </article>
+
+        <div class="target-note">
+          <span>ENGINEERING TARGETS</span> &lt;500ms voice turnaround <b>·</b> &lt;50ms interruption dispatch <b>·</b>
+          Performance is unverified until measured on live calls.
+        </div>
+      </section>
+
+      <section id="knowledge" class="page">
+        <div class="section-banner">
+          <span class="banner-icon">▤</span>
+          <div>
+            <h3>Enterprise Knowledge &amp; Grounding</h3>
+            <p>Upload business documents or approve FAQ answers for direct, inference-free replies.</p>
+          </div>
+          <button class="secondary-btn" id="add-faq">＋ Add FAQ</button>
+        </div>
+        <div id="knowledge-list" class="panel"></div>
+      </section>
+
+      <section id="lines" class="page">
+        <div class="section-banner">
+          <span class="banner-icon">⌁</span>
+          <div>
+            <h3>Telephony Lines &amp; Carrier Trunks</h3>
+            <p>Connect an existing Exotel or Twilio number to your enterprise agent.</p>
+          </div>
+        </div>
+        <div id="lines-list" class="panel"></div>
+      </section>
+
+      <section id="calls" class="page">
+        <div id="calls-list" class="panel"></div>
+      </section>
+
+      <section id="actions" class="page">
+        <div class="section-banner">
+          <span class="banner-icon">⇄</span>
+          <div>
+            <h3>Enterprise Tool Execution &amp; Safety</h3>
+            <p>Background reads run independently. Business writes wait for explicit caller confirmation.</p>
+          </div>
+        </div>
+        <h3 class="section-title">Registered tools</h3>
+        <div id="tools-list" class="panel"></div>
+        <h3 class="section-title">Action audit trail</h3>
+        <div id="actions-list" class="panel"></div>
+      </section>
+
+      <section id="settings" class="page">
+        <div id="configuration" class="panel"></div>
+        <article class="panel configuration-note">
+          <h3>Local development runtime</h3>
+          <p>The audio engine runs in FastAPI. This console manages enterprise knowledge and phone operations. Provider credentials remain on the server.</p>
+          <p>Configure private values in <code>C:\Projects\OMNIVOICE\.env</code>, then restart the engine. Setup instructions and API contracts are in the project README.</p>
+          <a href="/docs" target="_blank" rel="noopener">Open API reference ↗</a>
+        </article>
+      </section>
+
+      <footer>
+        <span>OMNIVOICE TECHNOLOGIES · TELEPHONY RUNTIME</span>
+        <span>Intelligence on the line · v0.1.0</span>
+      </footer>
+    </div>
+  </main>
+
+  <dialog id="modal">
+    <form id="modal-form">
+      <div class="modal-head">
+        <h2 id="modal-title"></h2>
+        <button class="close" type="button" id="close-modal" aria-label="Close dialog">×</button>
+      </div>
+      <div id="modal-body"></div>
+      <p id="form-error" class="error" role="alert"></p>
+      <div class="modal-actions">
+        <button class="secondary-btn" type="button" id="cancel-modal">Cancel</button>
+        <button class="primary-btn" type="submit" id="submit-modal">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" role="status" class="toast" hidden></div>
+  <script src="/static/app.js"></script>
+</body>
+
+</html>
