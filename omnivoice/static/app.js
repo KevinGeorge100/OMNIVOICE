@@ -614,7 +614,39 @@ document.addEventListener("click", async event => {
     if (target.dataset.connection) {
       const line = lines.find(l => l.id === target.dataset.connection);
       if (!line) return;
-      modal("Carrier connection details", `<div class="code-box"><strong>Inbound webhook URL</strong><code>${esc(window.location.origin)}/api/webhooks/${esc(line.provider)}/${esc(line.id)}</code><p class="help">Configure this URL in your carrier dashboard.</p></div>`, null);
+      try {
+        const info = await api(route(`lines/${line.id}/connection`));
+        if (line.provider === "twilio") {
+          modal(
+            "Twilio connection details",
+            `<div class="code-box">
+              <strong>Inbound Voice Webhook URL (HTTP POST)</strong>
+              <code>${esc(info.webhook_url)}</code>
+              <p class="help">Configure this URL in your Twilio Console under Phone Numbers &gt; Configure &gt; Voice &amp; Fax (A CALL COMES IN: Webhook).</p>
+            </div>`,
+            null
+          );
+        } else {
+          modal(
+            "Exotel connection details",
+            `<div class="code-box">
+              <strong>Voice Stream WebSocket URL</strong>
+              <code>${esc(info.stream_url)}</code>
+              <p class="help">Configure this WebSocket URL in your Exotel App Bazar / Voicebot flow applet.</p>
+            </div>`,
+            null
+          );
+        }
+      } catch (error) {
+        modal(
+          "Carrier connection details",
+          `<div class="code-box">
+            <p class="help" style="color: var(--danger);">${esc(error.message)}</p>
+            <p class="help">Configure <code>OMNI_PUBLIC_BASE_URL</code> (e.g. <code>https://voice.yourdomain.com</code>) in your server environment to generate valid carrier webhook and stream endpoints.</p>
+          </div>`,
+          null
+        );
+      }
     }
     if (target.dataset.call) {
       const call = calls.find(c => c.id === target.dataset.call);

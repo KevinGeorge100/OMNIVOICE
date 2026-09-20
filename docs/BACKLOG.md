@@ -12,7 +12,7 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **OV-001** | Establish OmniVoice Engineering Project Control | Task | P0 | **Done** |
 | **OV-002** | Fix Console Call Details TypeError (`call.session_id`) | Bug | P0 | **Done** |
-| **OV-003** | Fix Carrier Webhook URL Display in Console Modal | Bug | P0 | Planned |
+| **OV-003** | Fix Carrier Webhook URL Display in Console Modal | Bug | P0 | **Done** |
 | **OV-004** | Audit & Reconcile Landing Page Marketing Claims | TechDebt | P1 | Planned |
 | **OV-005** | Real PSTN End-to-End Telephone Validation Test | Spike | P0 | Planned |
 | **OV-006** | Instrument & Record Real-World Mouth-to-Ear Latency | Task | P1 | Planned |
@@ -29,7 +29,7 @@
 | **OV-017** | Production Observability & OpenTelemetry Tracing | Feature | P2 | Planned |
 | **OV-018** | Reconcile SDK Discrepancy (Build Python & TS SDKs) | Feature | P3 | Planned |
 | **OV-019** | Granular Multi-Tenant Role-Based Access Control | Security | P3 | Planned |
-| **OV-020** | Exotel WebSocket Token Query-to-Header Migration | Security | P2 | Planned |
+| **OV-020** | Harden Exotel WebSocket Stream Authentication | Security | P2 | Planned |
 
 ---
 
@@ -65,7 +65,7 @@
 ### [OV-003] Fix Carrier Webhook URL Display in Console Modal
 * **Type:** Bug
 * **Priority:** P0
-* **Status:** Planned
+* **Status:** **Done**
 * **Dependencies:** OV-001
 * **Description:** In `omnivoice/static/app.js:617`, the connection modal displays `${window.location.origin}/api/webhooks/${line.provider}/${line.id}` which does not exist in FastAPI routes.
 * **Acceptance Criteria:**
@@ -278,12 +278,22 @@
 
 ---
 
-### [OV-020] Exotel WebSocket Token Query-to-Header Migration
+### [OV-020] Harden Exotel WebSocket Stream Authentication
 * **Type:** Security
 * **Priority:** P2
 * **Status:** Planned
 * **Dependencies:** OV-003
-* **Description:** Migrate Exotel stream secrets from URL path parameters to secure header/ticket exchange to prevent credential leakage in proxy access logs.
+* **Description:**
+  * The current Exotel stream secret is embedded in the WebSocket URL path (`/ws/exotel/{line_id}/{token}`).
+  * URLs may be captured in reverse-proxy, gateway, firewall, or infrastructure access logs.
+  * A production-ready design must minimize credential exposure while remaining compatible with Exotel's actual carrier capabilities (as Exotel audio stream applets do not support custom WebSocket handshake authorization headers).
+* **Potential Approaches to Investigate:**
+  * Short-lived or single-use stream tickets.
+  * Signed expiring tokens.
+  * Aggressive token rotation.
+  * Reverse-proxy / access-log redaction.
+  * Gateway-mediated token exchange.
+  * Any authentication mechanism officially supported by Exotel.
 * **Acceptance Criteria:**
-  1. Single-use short-lived ticket generated for carrier connection.
-  2. URL path no longer exposes permanent stream secrets.
+  1. Permanent line credentials are no longer exposed in plaintext across infrastructure logs.
+  2. Carrier connectivity remains fully compatible with Exotel's real carrier capabilities.

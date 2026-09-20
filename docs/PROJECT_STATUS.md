@@ -45,7 +45,7 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 ## 3. Known Bugs & Deficiencies
 
 1. ~~**Console Call Session ID TypeError**~~: *(Resolved in OV-002)* In `omnivoice/static/app.js:629`, clicking a call record referenced `call.session_id.slice(...)`. Reconciled to use `(call.id || "").slice(...)` matching the API response schema.
-2. **Incorrect Carrier Webhook URL in Console**: In `omnivoice/static/app.js:617`, the connection modal displays a non-existent URL (`/api/webhooks/${line.provider}/${line.id}`). The real endpoints are `/telephony/twilio/{line_id}` and `/ws/exotel/{line_id}/{token}`.
+2. ~~**Incorrect Carrier Webhook URL in Console**~~: *(Resolved in OV-003)* In `omnivoice/static/app.js:617`, the connection modal previously displayed a non-existent `/api/webhooks/...` path. Reconciled to fetch carrier-specific configurations from `/api/tenants/{tenant_id}/lines/{line_id}/connection` (`/telephony/twilio/{line_id}` for Twilio and `/ws/exotel/{line_id}/{stream_secret}` for Exotel) using configured `OMNI_PUBLIC_BASE_URL`.
 3. **Exotel Token in URL Path**: In `omnivoice/app.py:465`, the streaming secret is passed in the URL path (`/ws/exotel/{line_id}/{token}`), risking exposure in proxy and intermediate gateway access logs.
 4. **Database Lock Contention**: In `omnivoice/store.py:48`, all database operations are serialized through a single `asyncio.Lock()`, creating potential event loop latency spikes during concurrent call activity.
 

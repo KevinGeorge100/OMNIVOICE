@@ -25,6 +25,7 @@ def main():
             database=Path(directory) / "browser.db",
             admin_token="isolated-browser-test-token",
             semantic_enabled=False,
+            public_base_url="https://voice.example.com",
         )
         with (artifacts / "browser-server.log").open("w") as log:
             log.write("Browser workflow uses an isolated in-process ASGI server.\n")
@@ -108,10 +109,32 @@ def main():
                     page.locator("#submit-modal").click()
                     page.get_by_role("cell", name="qa.txt", exact=True).wait_for()
                     page.locator('[data-page="lines"]').click()
+
+                    # Register Exotel line and verify connection modal
                     page.get_by_role("button", name="Connect number").click()
                     page.get_by_label("Phone number (E.164)").fill("+12025550199")
                     page.locator("#submit-modal").click()
                     page.get_by_role("cell", name="+12025550199", exact=True).wait_for()
+                    page.locator('tr:has-text("+12025550199") button:has-text("Connection details")').click()
+                    page.get_by_role("heading", name="Exotel connection details", exact=True).wait_for()
+                    exotel_content = page.locator("#modal-body").inner_text()
+                    assert "wss://voice.example.com/ws/exotel/" in exotel_content
+                    assert "/api/webhooks/" not in exotel_content
+                    page.locator("#close-modal").click()
+
+                    # Register Twilio line and verify connection modal
+                    page.get_by_role("button", name="Connect number").click()
+                    page.locator('select[name="provider"]').select_option("twilio")
+                    page.get_by_label("Phone number (E.164)").fill("+12025550188")
+                    page.locator("#submit-modal").click()
+                    page.get_by_role("cell", name="+12025550188", exact=True).wait_for()
+                    page.locator('tr:has-text("+12025550188") button:has-text("Connection details")').click()
+                    page.get_by_role("heading", name="Twilio connection details", exact=True).wait_for()
+                    twilio_content = page.locator("#modal-body").inner_text()
+                    assert "https://voice.example.com/telephony/twilio/" in twilio_content
+                    assert "/api/webhooks/" not in twilio_content
+                    page.locator("#close-modal").click()
+
                     for name in ["calls", "actions", "settings", "overview"]:
                         page.locator(f'[data-page="{name}"]').click()
                         assert page.locator(f"#{name}").is_visible()
@@ -133,6 +156,7 @@ def main():
                         "FAQ approval",
                         "document upload",
                         "line registration",
+                        "carrier connection modal",
                         "navigation",
                         "call details modal",
                         "logout",

@@ -251,13 +251,14 @@ def create_app(settings=None):
         if not base.startswith("https://"):
             raise HTTPException(409, "Set OMNI_PUBLIC_BASE_URL to your public HTTPS origin first")
         if line["provider"] == "twilio":
-            return {"webhook_url": base + "/telephony/twilio/" + line_id}
+            return {"provider": "twilio", "webhook_url": base + "/telephony/twilio/" + line_id}
         return {
+            "provider": "exotel",
             "stream_url": base.replace("https://", "wss://", 1)
             + "/ws/exotel/"
             + line_id
             + "/"
-            + line["stream_secret"]
+            + line["stream_secret"],
         }
 
     @app.get("/api/tenants/{tenant_id}/calls")
