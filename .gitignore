@@ -9,6 +9,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 artifacts/
+landing/node_modules/
+landing/.next/
+landing/out/
 
 # Personal reference, internal reviews, budgets, and operational guides
 docs/INTERIM_REVIEW_2.md
