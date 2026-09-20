@@ -1,235 +1,276 @@
 "use client";
 
-import { useState } from "react";
-import { Volume2, CheckCircle2, ShieldCheck, ShoppingBag, Stethoscope, Landmark, RefreshCw } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
 
-interface Scenario {
-  id: string;
-  title: string;
-  industry: string;
-  icon: typeof ShoppingBag;
-  callerTurn: string;
-  agentTurn: string;
-  actionRequired: boolean;
-  confirmationPhrase?: string;
-  waterfall: { step: string; ms: string; hit?: boolean }[];
+type ScenarioKey = "banking" | "healthcare" | "ecommerce" | "logistics";
+
+interface Turn {
+  role: "caller" | "agent" | "event";
+  text: string;
+  event?: string;
+  ms?: string;
 }
 
-const SCENARIOS: Scenario[] = [
-  {
-    id: "delivery",
-    title: "Quick Commerce & Delivery",
-    industry: "E-Commerce",
-    icon: ShoppingBag,
-    callerTurn: "Bhaiya mera order kahan pahuncha hai? Kya delivery address change kar sakte ho?",
-    agentTurn: "Aapka order 12 minute mein deliver ho jayega. Address change karne ke liye kripya bolein: 'Haan, naya address confirm karein'.",
-    actionRequired: true,
-    confirmationPhrase: "Haan, naya address confirm karein",
+interface PipelineEvent {
+  label: string;
+  ms: string;
+  type: "normal" | "hit" | "gate";
+}
+
+interface Scenario {
+  label: string;
+  industry: string;
+  turns: Turn[];
+  waterfall: PipelineEvent[];
+}
+
+const SCENARIOS: Record<ScenarioKey, Scenario> = {
+  banking: {
+    label: "Banking",
+    industry: "BFSI · Account Enquiry",
+    turns: [
+      { role: "caller", text: "Mera savings account ka balance kitna hai?" },
+      { role: "event", text: "SPEECH DETECTED", ms: "+0ms" },
+      { role: "event", text: "STT PARTIAL: \"Mera savings…\"", ms: "+89ms" },
+      { role: "event", text: "STT FINAL · FAISS RETRIEVAL", ms: "+148ms" },
+      { role: "event", text: "LLM STREAM START", ms: "+312ms" },
+      { role: "agent", text: "Aapke savings account mein abhi ₹18,450 hain. Kya aap pichle 3 transactions dekhna chahte hain?" },
+      { role: "event", text: "TTS START · STREAMING AUDIO", ms: "+418ms" },
+    ],
     waterfall: [
-      { step: "Silero VAD", ms: "19ms" },
-      { step: "Sarvam Streaming ASR", ms: "112ms" },
-      { step: "Grounded Delivery Check", ms: "12ms" },
-      { step: "Groq Llama 3.1 TTFT", ms: "172ms" },
-      { step: "Hindi Regional TTS", ms: "110ms" },
-      { step: "Pipeline Budget Total", ms: "425ms", hit: true },
+      { label: "Silero VAD", ms: "17ms", type: "normal" },
+      { label: "Sarvam Streaming ASR", ms: "112ms", type: "normal" },
+      { label: "FAISS Retrieval", ms: "~15ms", type: "normal" },
+      { label: "Groq Llama 3.1 TTFT", ms: "172ms", type: "normal" },
+      { label: "Sarvam TTS chunk 1", ms: "102ms", type: "hit" },
+      { label: "Pipeline budget total", ms: "<500ms target", type: "hit" },
     ],
   },
-  {
-    id: "clinic",
-    title: "Healthcare Clinic Booking",
-    industry: "HealthTech",
-    icon: Stethoscope,
-    callerTurn: "Dr. Sharma ke paas kal shaam 6 baje ka appointment mil sakta hai?",
-    agentTurn: "Haan, kal shaam 6:00 PM ka slot available hai. Booking confirm karne ke liye bole: 'Haan, doctor appointment confirm karein'.",
-    actionRequired: true,
-    confirmationPhrase: "Haan, doctor appointment confirm karein",
+  healthcare: {
+    label: "Healthcare",
+    industry: "Healthcare · Appointment",
+    turns: [
+      { role: "caller", text: "Kal subah 10 baje ka doctor appointment book kar sakte hain?" },
+      { role: "event", text: "SPEECH DETECTED", ms: "+0ms" },
+      { role: "event", text: "STT FINAL · ACTION STAGED", ms: "+220ms" },
+      { role: "event", text: "CONFIRMATION REQUIRED", ms: "+380ms" },
+      { role: "agent", text: "Maine 10:00 AM ka slot secure kar liya hai. Confirm karne ke liye 'Haan, confirm karein' kahein." },
+      { role: "event", text: "TTS START · AWAITING CONFIRM", ms: "+460ms" },
+    ],
     waterfall: [
-      { step: "Silero VAD", ms: "18ms" },
-      { step: "Sarvam Streaming ASR", ms: "108ms" },
-      { step: "FAISS Slot Lookup", ms: "4ms", hit: true },
-      { step: "Groq Llama 3.1 TTFT", ms: "165ms" },
-      { step: "Hindi Regional TTS", ms: "114ms" },
-      { step: "Pipeline Budget Total", ms: "409ms", hit: true },
+      { label: "Silero VAD", ms: "19ms", type: "normal" },
+      { label: "Sarvam Streaming ASR", ms: "118ms", type: "normal" },
+      { label: "Groq LLM (action)", ms: "182ms", type: "normal" },
+      { label: "Confirmation gate", ms: "Blocking write", type: "gate" },
+      { label: "Sarvam TTS chunk 1", ms: "108ms", type: "normal" },
     ],
   },
-  {
-    id: "banking",
-    title: "Banking Security & Balance",
-    industry: "FinTech",
-    icon: Landmark,
-    callerTurn: "Mera account balance kitna hai aur kya last transaction credit hua?",
-    agentTurn: "Aapke savings account ka current balance ₹24,800 hai. Kal ₹5,000 credit hua tha. Kya aapko mini-statement SMS par chahiye?",
-    actionRequired: false,
+  ecommerce: {
+    label: "E-commerce",
+    industry: "E-commerce · Tracking",
+    turns: [
+      { role: "caller", text: "My parcel status please?" },
+      { role: "event", text: "SPEECH DETECTED", ms: "+0ms" },
+      { role: "event", text: "STT FINAL · FAQ HIT", ms: "+112ms" },
+      { role: "event", text: "FAST-PATH CACHE HIT (<2ms in-process)", ms: "+114ms" },
+      { role: "agent", text: "Your parcel ORD-9182 is out for delivery and will arrive by 4:30 PM today. Would you like to change the delivery address?" },
+      { role: "event", text: "TTS START (LLM BYPASSED)", ms: "+228ms" },
+    ],
     waterfall: [
-      { step: "Silero VAD", ms: "17ms" },
-      { step: "Sarvam Streaming ASR", ms: "115ms" },
-      { step: "FAQ Fast-Path (in-process)", ms: "<2ms", hit: true },
-      { step: "Groq Token Bypass", ms: "0ms (Bypassed)", hit: true },
-      { step: "Direct Audio Cache TTS", ms: "98ms" },
-      { step: "Pipeline Budget Total", ms: "232ms", hit: true },
+      { label: "Silero VAD", ms: "16ms", type: "normal" },
+      { label: "Sarvam ASR", ms: "109ms", type: "normal" },
+      { label: "FAQ fast-path (in-process)", ms: "<2ms", type: "hit" },
+      { label: "LLM BYPASSED", ms: "0ms saved", type: "hit" },
+      { label: "Sarvam TTS chunk 1", ms: "96ms", type: "hit" },
+      { label: "Pipeline budget total", ms: "<250ms target", type: "hit" },
     ],
   },
-  {
-    id: "renewal",
-    title: "Subscription Renewal & Payment",
-    industry: "SaaS & InsurTech",
-    icon: RefreshCw,
-    callerTurn: "Mera policy renewal date kab hai? UPI link bhej do.",
-    agentTurn: "Aapki policy kal expire ho rahi hai. Premium ₹1,499 hai. Maine aapke WhatsApp par instant UPI payment link bhej diya hai.",
-    actionRequired: true,
-    confirmationPhrase: "Haan, payment link bhejo",
+  logistics: {
+    label: "Logistics",
+    industry: "Logistics · Dispatch",
+    turns: [
+      { role: "caller", text: "Shipment reroute karein — Mumbai se Pune." },
+      { role: "event", text: "SPEECH DETECTED", ms: "+0ms" },
+      { role: "event", text: "STT FINAL · ACTION STAGED", ms: "+198ms" },
+      { role: "event", text: "BARGE-IN DETECTED — halting playback", ms: "+390ms" },
+      { role: "event", text: "CONFIRMATION REQUIRED", ms: "+440ms" },
+      { role: "agent", text: "Shipment SHP-4421 ko Mumbai se Pune reroute kar raha hoon. Confirm karne ke liye 'Haan, reroute karein' kahein." },
+    ],
     waterfall: [
-      { step: "Silero VAD", ms: "18ms" },
-      { step: "Sarvam Streaming ASR", ms: "110ms" },
-      { step: "CRM Policy Tool Check", ms: "14ms" },
-      { step: "Groq Llama 3.1 TTFT", ms: "170ms" },
-      { step: "Regional TTS", ms: "112ms" },
-      { step: "Pipeline Budget Total", ms: "424ms", hit: true },
+      { label: "Silero VAD", ms: "18ms", type: "normal" },
+      { label: "Sarvam ASR", ms: "115ms", type: "normal" },
+      { label: "Groq LLM (reroute)", ms: "176ms", type: "normal" },
+      { label: "Barge-in halt", ms: "<50ms design", type: "gate" },
+      { label: "Confirmation gate", ms: "Blocking write", type: "gate" },
     ],
   },
-];
+};
+
+const SCENARIO_KEYS: ScenarioKey[] = ["banking", "healthcare", "ecommerce", "logistics"];
 
 export default function VoiceSandbox() {
-  const [activeScenario, setActiveScenario] = useState(SCENARIOS[0]);
-  const [playing, setPlaying] = useState(false);
+  const [activeKey, setActiveKey] = useState<ScenarioKey>("banking");
+  const [visibleTurns, setVisibleTurns] = useState<Turn[]>([]);
+  const [running, setRunning] = useState(false);
+  const scenario = SCENARIOS[activeKey];
 
-  const simulatePlay = () => {
-    setPlaying(true);
-    try {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AudioCtx();
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(330, now);
-      osc.frequency.exponentialRampToValueAtTime(440, now + 0.4);
-      gain.gain.setValueAtTime(0.08, now);
-      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.8);
-    } catch {}
-    setTimeout(() => setPlaying(false), 2000);
-  };
+  const runScenario = useCallback(() => {
+    if (running) return;
+    setRunning(true);
+    setVisibleTurns([]);
+    scenario.turns.forEach((turn, i) => {
+      setTimeout(() => {
+        setVisibleTurns(prev => [...prev, turn]);
+        if (i === scenario.turns.length - 1) setRunning(false);
+      }, i * 700);
+    });
+  }, [running, scenario]);
 
-  const Icon = activeScenario.icon;
+  // Reset on scenario change
+  useEffect(() => {
+    setVisibleTurns([]);
+    setRunning(false);
+  }, [activeKey]);
 
   return (
-    <section id="voices" className="py-24 bg-[var(--card)]/40 border-t border-[var(--border)] relative">
+    <section id="sandbox" className="py-24 bg-[var(--card)] border-y border-[var(--border)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-subtle)] border border-[var(--accent)] text-xs font-mono font-semibold text-[var(--accent)] mb-4">
-            <span>SIMULATED INDUSTRY WORKFLOWS</span>
+
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-10">
+          <div className="max-w-xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-subtle)] border border-[var(--accent)]/30 text-[11px] font-mono font-semibold text-[var(--accent)] mb-5 uppercase tracking-wider">
+              Live Call Experience
+            </div>
+            <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-[var(--foreground)] leading-[1.08] mb-3">
+              Watch a call unfold — stage by stage.
+            </h2>
+            <p className="text-base text-[var(--muted-foreground)] leading-relaxed">
+              Select an industry scenario and run the simulation to see how OmniVoice routes caller speech through VAD, ASR, knowledge retrieval, LLM reasoning, and TTS synthesis.
+            </p>
           </div>
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-[var(--foreground)] mb-4">
-            Modeled on Indian enterprise call workflows.
-          </h2>
-          <p className="text-base sm:text-lg text-[var(--muted-foreground)]">
-            Explore how OmniVoice models multi-turn conversations with fast-path cache hits and explicit safety confirmation gates in a browser prototype.
-          </p>
+          <span className="shrink-0 self-start sm:self-end px-3 py-1 rounded-md bg-amber-50 border border-amber-200 text-amber-700 text-xs font-mono font-semibold">
+            Browser Simulation — Web Audio API prototype
+          </span>
         </div>
 
-        {/* Scenario Switcher Tabs */}
-        <div className="flex items-center justify-center gap-2 flex-wrap mb-10">
-          {SCENARIOS.map((s) => {
-            const TabIcon = s.icon;
-            const isSelected = s.id === activeScenario.id;
-            return (
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.6fr_1fr] gap-5">
+
+          {/* ── LEFT: Scenario selector ── */}
+          <div className="flex flex-col gap-2">
+            <p className="text-[11px] font-mono font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">Select Scenario</p>
+            {SCENARIO_KEYS.map((key) => (
               <button
-                key={s.id}
-                onClick={() => setActiveScenario(s)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                  isSelected
-                    ? "bg-[var(--accent)] text-white shadow-md shadow-[var(--accent-glow)] scale-105"
-                    : "bg-[var(--card)] text-[var(--muted-foreground)] border border-[var(--border)] hover:text-[var(--foreground)] hover:border-[var(--border-strong)]"
+                key={key}
+                onClick={() => setActiveKey(key)}
+                aria-pressed={activeKey === key}
+                className={`text-left px-4 py-3.5 rounded-xl border transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${
+                  activeKey === key
+                    ? "bg-[var(--accent-subtle)] border-[var(--accent)]/50 text-[var(--foreground)]"
+                    : "bg-[var(--card)] border-[var(--border)] text-[var(--muted-foreground)] hover:border-[var(--border-strong)] hover:text-[var(--foreground)]"
                 }`}
               >
-                <TabIcon className="w-4 h-4" />
-                <span>{s.title}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold">{SCENARIOS[key].label}</span>
+                  {activeKey === key && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
+                  )}
+                </div>
+                <span className="text-[11px] font-mono text-[var(--muted)]">{SCENARIOS[key].industry}</span>
               </button>
-            );
-          })}
-        </div>
-
-        {/* Interactive Scenario Card */}
-        <div className="max-w-4xl mx-auto glass-panel rounded-2xl p-6 sm:p-8 border border-[var(--border-strong)] shadow-xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-[var(--border)]">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[var(--accent-subtle)] border border-[var(--accent)] flex items-center justify-center text-[var(--accent)]">
-                <Icon className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-[var(--foreground)]">{activeScenario.title}</h3>
-                <span className="text-xs font-mono text-[var(--muted)]">Industry: {activeScenario.industry}</span>
-              </div>
-            </div>
+            ))}
 
             <button
-              onClick={simulatePlay}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-semibold transition-all cursor-pointer ${
-                playing
-                  ? "bg-amber-500 text-white animate-pulse"
-                  : "bg-[var(--card)] hover:bg-[var(--surface-hover)] border border-[var(--border-strong)] text-[var(--foreground)]"
+              onClick={runScenario}
+              disabled={running}
+              aria-label="Run voice simulation"
+              className={`mt-3 w-full py-3 rounded-xl text-sm font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${
+                running
+                  ? "bg-[var(--card-hover)] text-[var(--muted)] border border-[var(--border)] cursor-not-allowed"
+                  : "bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white cursor-pointer"
               }`}
             >
-              <Volume2 className="w-4 h-4 text-[var(--accent)]" />
-              <span>{playing ? "Playing Synthesis Audio..." : "Simulate Voice Turn"}</span>
+              {running ? "Simulating…" : "▶  Run Simulation"}
             </button>
           </div>
 
-          {/* Conversation Turns */}
-          <div className="space-y-4 py-6">
-            <div className="p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
-              <div className="text-[10px] font-mono font-semibold text-sky-400 mb-1">
-                CALLER TURN (SIMULATED AUDIO)
-              </div>
-              <p className="text-sm font-medium text-[var(--foreground)]">“{activeScenario.callerTurn}”</p>
+          {/* ── CENTER: Conversation transcript ── */}
+          <div className="bg-[var(--background)] rounded-2xl border border-[var(--border)] overflow-hidden flex flex-col">
+            <div className="px-4 py-3 border-b border-[var(--border)] bg-[var(--card)] flex items-center justify-between">
+              <span className="text-xs font-mono font-semibold text-[var(--muted-foreground)]">
+                {scenario.industry}
+              </span>
+              <span className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-600">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                LIVE CALL
+              </span>
             </div>
 
-            <div className="p-4 rounded-xl bg-[var(--accent-subtle)]/40 border border-[var(--accent)]/30">
-              <div className="flex items-center justify-between text-[10px] font-mono font-semibold text-[var(--accent)] mb-1">
-                <span>OMNIVOICE AGENT (FULL-DUPLEX RESPONSE)</span>
-                <span className="flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Grounded In Knowledge
-                </span>
-              </div>
-              <p className="text-sm font-medium text-[var(--foreground)] mb-3">“{activeScenario.agentTurn}”</p>
-
-              {activeScenario.actionRequired && (
-                <div className="p-2.5 rounded-lg bg-[var(--card)] border border-amber-500/30 text-xs text-amber-300 font-mono flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>
-                    Explicit confirmation phrase required: <strong>“{activeScenario.confirmationPhrase}”</strong>
-                  </span>
+            <div className="flex-1 p-4 space-y-2.5 min-h-[320px]">
+              {visibleTurns.length === 0 && (
+                <div className="flex items-center justify-center h-full text-sm text-[var(--muted)] font-mono">
+                  Press Run to start simulation →
                 </div>
               )}
+              {visibleTurns.map((turn, i) => {
+                if (turn.role === "event") {
+                  return (
+                    <div key={i} className="flex items-center gap-2 animate-slide-up">
+                      <div className="w-px h-4 bg-[var(--border)] ml-3 shrink-0" />
+                      <span className="text-[10px] font-mono text-[var(--muted)] flex items-center gap-2">
+                        <span className="text-amber-500 font-semibold">{turn.text}</span>
+                        {turn.ms && <span className="text-[var(--muted)]">{turn.ms}</span>}
+                      </span>
+                    </div>
+                  );
+                }
+                if (turn.role === "caller") {
+                  return (
+                    <div key={i} className="flex items-start gap-3 animate-slide-up">
+                      <div className="w-6 h-6 rounded-full bg-sky-100 border border-sky-200 flex items-center justify-center text-[9px] font-bold text-sky-600 shrink-0 mt-0.5">C</div>
+                      <div className="flex-1 bg-sky-50 border border-sky-200/60 rounded-xl rounded-tl-sm px-3.5 py-2.5">
+                        <p className="text-sm text-[var(--foreground)] font-medium leading-snug">{turn.text}</p>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={i} className="flex items-start gap-3 flex-row-reverse animate-slide-up">
+                    <div className="w-6 h-6 rounded-full bg-emerald-100 border border-emerald-200 flex items-center justify-center text-[9px] font-bold text-emerald-700 shrink-0 mt-0.5">A</div>
+                    <div className="flex-1 bg-emerald-50 border border-emerald-200/60 rounded-xl rounded-tr-sm px-3.5 py-2.5">
+                      <p className="text-sm text-[var(--foreground)] font-medium leading-snug">{turn.text}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
-          {/* Latency Waterfall Breakdown */}
-          <div className="pt-4 border-t border-[var(--border)]">
-            <div className="text-xs font-mono text-[var(--muted)] mb-3 flex items-center justify-between">
-              <span>LATENCY BUDGET BREAKDOWN (PIPELINE TARGET)</span>
-              <span className="text-[var(--accent)] font-semibold">Pipeline Target &lt;500ms</span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-              {activeScenario.waterfall.map((w, i) => (
+          {/* ── RIGHT: Pipeline waterfall ── */}
+          <div className="flex flex-col gap-2">
+            <p className="text-[11px] font-mono font-semibold text-[var(--muted)] uppercase tracking-wider mb-1">Pipeline Trace</p>
+            <div className="flex-1 bg-[var(--background)] rounded-2xl border border-[var(--border)] p-4 space-y-1.5">
+              {scenario.waterfall.map((step, i) => (
                 <div
                   key={i}
-                  className={`p-2.5 rounded-lg border text-center font-mono ${
-                    w.hit
-                      ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-400 font-semibold"
+                  className={`px-3 py-2.5 rounded-lg border flex items-center justify-between text-xs font-mono transition-all ${
+                    step.type === "hit"
+                      ? "bg-emerald-50 border-emerald-200/60 text-emerald-700"
+                      : step.type === "gate"
+                      ? "bg-amber-50 border-amber-200/60 text-amber-700"
                       : "bg-[var(--card)] border-[var(--border)] text-[var(--muted-foreground)]"
                   }`}
                 >
-                  <div className="text-[10px] truncate">{w.step}</div>
-                  <div className="text-xs font-bold mt-1 text-[var(--foreground)]">{w.ms}</div>
+                  <span className="font-medium truncate pr-2">{step.label}</span>
+                  <span className="shrink-0 font-semibold tabular-nums">{step.ms}</span>
                 </div>
               ))}
             </div>
+            <p className="text-[10px] font-mono text-[var(--muted)] leading-relaxed mt-1">
+              All timings are design targets or local benchmarks — not PSTN measurements.
+            </p>
           </div>
+
         </div>
       </div>
     </section>

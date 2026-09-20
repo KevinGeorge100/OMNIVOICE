@@ -1,36 +1,39 @@
 export default function TrustBar() {
   const partners = [
-    { name: "EXOTEL", role: "India Audio Stream & Telephony" },
-    { name: "TWILIO", role: "Global Telephony Gateway" },
-    { name: "SARVAM AI", role: "Indic Speech Models (11 Codes)" },
-    { name: "GROQ LPU", role: "Ultra-Fast LLM TTFT" },
-    { name: "SILERO ONNX", role: "Neural VAD (<20ms)" },
-    { name: "FAISS VECTORS", role: "In-Process Cache (<2ms local)" },
+    { name: "Exotel", role: "PSTN Carrier (India)", url: "https://exotel.com" },
+    { name: "Twilio", role: "PSTN Carrier (Global)", url: "https://twilio.com" },
+    { name: "Sarvam AI", role: "Indic STT · TTS · 11 codes", url: "https://sarvam.ai" },
+    { name: "Groq LPU", role: "LLM Inference · TTFT ~180ms", url: "https://groq.com" },
+    { name: "Silero ONNX", role: "Neural VAD · ~18ms", url: "https://github.com/snakers4/silero-vad" },
+    { name: "FAISS", role: "In-Process Vector Search", url: "https://faiss.ai" },
   ];
 
   return (
-    <section className="py-12 border-y border-[var(--border)] bg-[var(--card)]/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <p className="text-center font-mono text-[11px] font-semibold text-[var(--muted)] uppercase tracking-widest mb-6">
-          Enterprise Infrastructure &amp; Carrier Ecosystem
-        </p>
+    <div className="bg-[var(--card)] border-y border-[var(--border)]">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-0">
+          {/* Label */}
+          <div className="shrink-0 sm:pr-8 sm:border-r sm:border-[var(--border)]">
+            <span className="text-[11px] font-mono font-semibold tracking-widest uppercase text-[var(--muted)]">
+              Infrastructure Stack
+            </span>
+          </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 items-center">
-          {partners.map((p) => (
-            <div
-              key={p.name}
-              className="flex flex-col items-center justify-center p-3 rounded-lg bg-[var(--card)] border border-[var(--border)] hover:border-[var(--border-strong)] transition-all group"
-            >
-              <span className="font-mono text-xs font-bold tracking-wider text-[var(--foreground)] group-hover:text-[var(--accent)] transition-colors">
-                {p.name}
-              </span>
-              <span className="text-[10px] text-[var(--muted)] text-center mt-1">
-                {p.role}
-              </span>
-            </div>
-          ))}
+          {/* Partners */}
+          <div className="sm:pl-8 flex-1 flex flex-wrap items-center gap-x-7 gap-y-3">
+            {partners.map((p, i) => (
+              <div key={i} className="flex flex-col">
+                <span className="text-sm font-semibold text-[var(--foreground)] leading-none">
+                  {p.name}
+                </span>
+                <span className="text-[11px] text-[var(--muted-foreground)] mt-0.5 leading-none font-mono">
+                  {p.role}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }

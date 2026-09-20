@@ -1,87 +1,91 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, HelpCircle } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
-interface FaqItem {
-  q: string;
-  a: string;
-}
-
-const FAQS: FaqItem[] = [
+const FAQS = [
   {
-    q: "How does OmniVoice connect to our existing phone numbers?",
-    a: "OmniVoice integrates with your existing Exotel Virtual Number or Twilio phone number. When an incoming call arrives, your carrier forwards the bidirectional audio stream to your unique OmniVoice WebSocket endpoint configured via the Operations Console.",
+    q: "What carriers does OmniVoice support?",
+    a: "OmniVoice currently integrates with Exotel (India) and Twilio (global). Exotel uses a bidirectional WebSocket audio stream; Twilio uses a TwiML webhook that redirects to the OmniVoice media WebSocket. Register any phone line you already own — no new number procurement required.",
   },
   {
-    q: "How is the sub-500ms turnaround target achieved in the pipeline?",
-    a: "We design each pipeline stage for low-latency parallel execution: Silero ONNX neural VAD detects speech boundaries in under 20ms, Sarvam AI produces chunked streaming transcripts in ~120ms, approved FAQ in-process cache lookups complete in under 2ms locally, and Groq LPU generates tokens with ~180ms TTFT. Streaming audio synthesis commences while downstream tokens are still generating.",
+    q: "Which Indian languages are supported?",
+    a: "OmniVoice integrates with Sarvam AI's speech models, which support 11 Indian regional language codes: Hindi (hi-IN), Tamil (ta-IN), Telugu (te-IN), Marathi (mr-IN), Bengali (bn-IN), Kannada (kn-IN), Malayalam (ml-IN), Odia (or-IN), Gujarati (gu-IN), Punjabi (pa-IN), and English (en-IN).",
   },
   {
-    q: "What happens if a customer speaks Hinglish or switches languages mid-call?",
-    a: "Our Sarvam AI acoustic integration supports Indian regional language codes with code-mixing capabilities. The pipeline processes regional speech and generates grounded responses according to your tenant's configured language and prompt instructions.",
+    q: "How is the sub-500ms turnaround target achieved?",
+    a: "We design each pipeline stage for low-latency parallel execution: Silero ONNX neural VAD detects speech boundaries in under 20ms, Sarvam AI produces chunked streaming transcripts targeting ~120ms, approved FAQ in-process cache lookups complete in under 2ms locally, and Groq LPU generates tokens with ~180ms TTFT. Streaming audio synthesis commences while downstream tokens are still generating. These are design targets and local benchmarks — real PSTN timings will vary with carrier and network conditions.",
   },
   {
-    q: "How does the confirmation gate prevent unauthorized database modifications?",
-    a: "Tools are strictly categorized into 'Read' (speculative, run early) and 'Write' (mutations like booking an appointment or changing an address). When a write is staged, OmniVoice requires the caller to speak an exact business confirmation phrase before committing the HTTPS webhook.",
+    q: "How does the fast-path cache cut LLM costs?",
+    a: "In real contact centers, over 60% of caller questions are repetitive (store hours, return policies, order tracking steps). Approved FAQ answers in OmniVoice are indexed in an in-process in-memory cache. When a question matches, the answer is returned locally in under 2ms without calling Groq or paying per-token inference charges.",
   },
   {
-    q: "What are the planned enterprise deployment options for private VPC or on-premise infrastructure?",
-    a: "Self-hosting the OmniVoice FastAPI service with in-memory FAISS indexes is supported today in standard Docker environments. Dedicated private VPC deployments, multi-worker Kubernetes configurations, and air-gapped enterprise packages are planned items on our enterprise roadmap.",
+    q: "Is caller write data safe? Can the AI make unauthorized changes?",
+    a: "All operational tool calls — appointment bookings, address changes, order cancellations — require an explicit caller confirmation phrase before any write is committed. The system stages the action and waits for the caller to verbally confirm using a deterministic phrase check. No write occurs without confirmation.",
   },
   {
-    q: "How does the fast-path cache cut our LLM bills by 65%?",
-    a: "In real contact centers, over 60% of caller questions are repetitive (e.g. store hours, return policies, order tracking steps). Approved FAQ answers in OmniVoice are indexed in an in-process in-memory cache. When a question matches, the answer is returned locally in under 2ms without calling Groq or paying per-token inference charges.",
+    q: "What does 'full-duplex' mean in this context?",
+    a: "OmniVoice maintains simultaneous read and write on the carrier WebSocket — meaning caller audio is processed while agent audio is streaming. Barge-in (caller interrupting the agent) triggers an immediate halt of outgoing playback via Silero VAD, targeting less than 50ms silence-to-halt latency. This enables natural conversation rather than rigid turn-based interaction.",
+  },
+  {
+    q: "What is the pricing model?",
+    a: "OmniVoice's current pricing is indicative only — billing enforcement is not yet implemented. The estimated pipeline infrastructure COGS is approximately ₹1.60–1.80 per minute. Indicative commercial selling ranges from ₹6–10 per minute depending on volume and features. These figures will change as the product matures toward production. Contact us to discuss pilot deployment terms.",
   },
 ];
 
 export default function FaqSection() {
-  const [openIndex, setOpenIndex] = useState<number | null>(0);
-
-  const toggle = (idx: number) => {
-    setOpenIndex(openIndex === idx ? null : idx);
-  };
+  const [openIdx, setOpenIdx] = useState<number | null>(null);
 
   return (
-    <section className="py-24 relative">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-2xl mx-auto mb-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-subtle)] border border-[var(--accent)] text-xs font-mono font-semibold text-[var(--accent)] mb-4">
-            <HelpCircle className="w-3.5 h-3.5" />
-            <span>FREQUENTLY ASKED QUESTIONS</span>
+    <section id="faq" className="py-24 bg-[var(--background)]">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        {/* Header */}
+        <div className="mb-12">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-subtle)] border border-[var(--accent)]/30 text-[11px] font-mono font-semibold text-[var(--accent)] mb-5 uppercase tracking-wider">
+            FAQ
           </div>
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-[var(--foreground)] mb-4">
-            Everything you need to know about enterprise telephony AI.
+          <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-[var(--foreground)] leading-[1.08]">
+            Common questions.
           </h2>
-          <p className="text-base text-[var(--muted-foreground)]">
-            Got a specific carrier setup or security question? We have answers.
-          </p>
         </div>
 
-        <div className="space-y-4">
-          {FAQS.map((faq, idx) => {
-            const isOpen = openIndex === idx;
+        {/* Accordion */}
+        <div className="divide-y divide-[var(--border)]">
+          {FAQS.map((faq, i) => {
+            const isOpen = openIdx === i;
             return (
-              <div
-                key={idx}
-                className="rounded-2xl bg-[var(--card)] border border-[var(--border)] overflow-hidden transition-all"
-              >
+              <div key={i}>
                 <button
-                  onClick={() => toggle(idx)}
-                  className="w-full p-6 text-left flex items-center justify-between gap-4 cursor-pointer hover:bg-[var(--surface-hover)] transition-colors"
+                  onClick={() => setOpenIdx(isOpen ? null : i)}
+                  aria-expanded={isOpen}
+                  aria-controls={`faq-answer-${i}`}
+                  id={`faq-trigger-${i}`}
+                  className="w-full flex items-center justify-between gap-4 py-5 text-left group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-inset rounded-sm"
                 >
-                  <span className="text-base font-bold text-[var(--foreground)]">{faq.q}</span>
+                  <span className={`text-base font-semibold leading-snug transition-colors ${
+                    isOpen ? "text-[var(--accent)]" : "text-[var(--foreground)] group-hover:text-[var(--accent)]"
+                  }`}>
+                    {faq.q}
+                  </span>
                   <ChevronDown
-                    className={`w-5 h-5 text-[var(--muted)] shrink-0 transition-transform duration-200 ${
+                    className={`w-5 h-5 shrink-0 text-[var(--muted)] transition-transform duration-200 ${
                       isOpen ? "rotate-180 text-[var(--accent)]" : ""
                     }`}
                   />
                 </button>
-                {isOpen && (
-                  <div className="px-6 pb-6 pt-1 text-xs sm:text-sm text-[var(--muted-foreground)] leading-relaxed border-t border-[var(--border)]/60">
+                <div
+                  id={`faq-answer-${i}`}
+                  role="region"
+                  aria-labelledby={`faq-trigger-${i}`}
+                  hidden={!isOpen}
+                  className="overflow-hidden"
+                >
+                  <p className="pb-6 text-base text-[var(--muted-foreground)] leading-relaxed max-w-[65ch]">
                     {faq.a}
-                  </div>
-                )}
+                  </p>
+                </div>
               </div>
             );
           })}

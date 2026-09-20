@@ -30,6 +30,7 @@
 | **OV-018** | Reconcile SDK Discrepancy (Build Python & TS SDKs) | Feature | P3 | Planned |
 | **OV-019** | Granular Multi-Tenant Role-Based Access Control | Security | P3 | Planned |
 | **OV-020** | Harden Exotel WebSocket Stream Authentication | Security | P2 | Planned |
+| **OV-022** | Landing Page Premium UI/UX & Frontend Upgrade | Enhancement | P2 | **Done** |
 
 ---
 
@@ -302,3 +303,23 @@
 * **Acceptance Criteria:**
   1. Permanent line credentials are no longer exposed in plaintext across infrastructure logs.
   2. Carrier connectivity remains fully compatible with Exotel's real carrier capabilities.
+
+---
+
+### [OV-022] Landing Page Premium UI/UX & Frontend Upgrade
+* **Type:** Enhancement
+* **Priority:** P2
+* **Status:** **Done**
+* **Dependencies:** OV-004
+* **Description:** Transform the OmniVoice public landing page from a clean developer-project website into a polished, distinctive enterprise Voice AI infrastructure product website. Redesign focuses on presentation, hierarchy, interaction and layout — not new product claims. All OV-004 truthfulness requirements are preserved.
+* **Acceptance Criteria:**
+  1. Hero redesigned as editorial split with realtime call visualization on the right.
+  2. Architecture section shows a connected pipeline (not disconnected cards).
+  3. Developer section rendered as a dark ink high-contrast section.
+  4. FeatureGrid replaced by 3 capability pillars with hierarchy.
+  5. Navbar simplified to 5 items, version pill removed.
+  6. All section backgrounds alternate rhythmically (white / mint / dark).
+  7. Typography scale: hero headline ≥ 64px, section headings ≥ 42px, body ≥ 17px.
+  8. `prefers-reduced-motion` respected for all animations.
+  9. No OV-004 claim qualifications removed or weakened.
+  10. `npm run build` passes, all backend tests pass.
