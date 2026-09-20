@@ -28,33 +28,33 @@
    ========================================================================== */
 
 :root {
-  color-scheme: dark;
-  --paper: #0B0F17;
-  --surface: #111827;
-  --surface-raised: #1E293B;
-  --surface-hover: #1E293B;
-  --surface-active: rgba(255, 255, 255, 0.08);
-  --surface-glass: rgba(17, 24, 39, 0.75);
+  color-scheme: light;
+  --paper: #F8FAFC;
+  --surface: #FFFFFF;
+  --surface-raised: #F1F5F9;
+  --surface-hover: #F1F5F9;
+  --surface-active: #E2E8F0;
+  --surface-glass: rgba(255, 255, 255, 0.85);
 
-  --border-subtle: #1F2937;
-  --border-medium: #374151;
-  --border-focus: #4B5563;
-  --border-glow: rgba(16, 185, 129, 0.35);
+  --border-subtle: #E2E8F0;
+  --border-medium: #CBD5E1;
+  --border-focus: #94A3B8;
+  --border-glow: rgba(5, 150, 105, 0.3);
 
-  --ink: #F8FAFC;
-  --ink-secondary: #94A3B8;
-  --ink-muted: #64748B;
+  --ink: #0F172A;
+  --ink-secondary: #475569;
+  --ink-muted: #94A3B8;
 
-  --accent: #10B981;
-  --accent-hover: #059669;
-  --accent-subtle: rgba(16, 185, 129, 0.12);
-  --accent-glow: rgba(16, 185, 129, 0.25);
+  --accent: #059669;
+  --accent-hover: #047857;
+  --accent-subtle: rgba(5, 150, 105, 0.1);
+  --accent-glow: rgba(5, 150, 105, 0.2);
 
-  --danger: #EF4444;
-  --danger-subtle: rgba(239, 68, 68, 0.15);
-  --warning: #F59E0B;
-  --warning-subtle: rgba(245, 158, 11, 0.15);
-  --info: #38BDF8;
+  --danger: #DC2626;
+  --danger-subtle: rgba(220, 38, 38, 0.1);
+  --warning: #D97706;
+  --warning-subtle: rgba(217, 119, 6, 0.1);
+  --info: #0284C7;
 
   --sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --mono: 'JetBrains Mono', Consolas, monospace;
@@ -66,7 +66,7 @@
 }
 
 /* ==========================================================================
-   Light Mode (Clean Crisp Slate White Palette)
+   Light Mode (Explicit Affirmation)
    ========================================================================== */
 
 :root[data-theme="light"],
@@ -98,6 +98,41 @@
   --warning: #D97706;
   --warning-subtle: rgba(217, 119, 6, 0.1);
   --info: #0284C7;
+}
+
+/* ==========================================================================
+   Dark Mode (Opt-in Slate Charcoal Palette)
+   ========================================================================== */
+
+:root[data-theme="dark"],
+[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0B0F17;
+  --surface: #111827;
+  --surface-raised: #1E293B;
+  --surface-hover: #1E293B;
+  --surface-active: rgba(255, 255, 255, 0.08);
+  --surface-glass: rgba(17, 24, 39, 0.75);
+
+  --border-subtle: #1F2937;
+  --border-medium: #374151;
+  --border-focus: #4B5563;
+  --border-glow: rgba(16, 185, 129, 0.35);
+
+  --ink: #F8FAFC;
+  --ink-secondary: #94A3B8;
+  --ink-muted: #64748B;
+
+  --accent: #10B981;
+  --accent-hover: #059669;
+  --accent-subtle: rgba(16, 185, 129, 0.12);
+  --accent-glow: rgba(16, 185, 129, 0.25);
+
+  --danger: #EF4444;
+  --danger-subtle: rgba(239, 68, 68, 0.15);
+  --warning: #F59E0B;
+  --warning-subtle: rgba(245, 158, 11, 0.15);
+  --info: #38BDF8;
 }
 
 /* Base Reset & Layout */

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Sun, Moon, ArrowUpRight, Menu, X, Terminal, Radio } from "lucide-react";
 
 export default function Navbar() {
-  const [isLight, setIsLight] = useState(false);
+  const [isLight, setIsLight] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -13,16 +13,35 @@ export default function Navbar() {
       setScrolled(window.scrollY > 20);
     };
     window.addEventListener("scroll", handleScroll);
+
+    // Initialize theme defaulting to "light"
+    const savedTheme = localStorage.getItem("omni-theme") || "light";
+    const light = savedTheme === "light";
+    setIsLight(light);
+    if (light) {
+      document.documentElement.classList.add("light");
+      document.documentElement.classList.remove("dark");
+      document.documentElement.setAttribute("data-theme", "light");
+    } else {
+      document.documentElement.classList.add("dark");
+      document.documentElement.classList.remove("light");
+      document.documentElement.setAttribute("data-theme", "dark");
+    }
+
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const toggleTheme = () => {
     const next = !isLight;
     setIsLight(next);
+    const themeName = next ? "light" : "dark";
+    localStorage.setItem("omni-theme", themeName);
     if (next) {
       document.documentElement.classList.add("light");
+      document.documentElement.classList.remove("dark");
       document.documentElement.setAttribute("data-theme", "light");
     } else {
+      document.documentElement.classList.add("dark");
       document.documentElement.classList.remove("light");
       document.documentElement.setAttribute("data-theme", "dark");
     }

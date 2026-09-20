@@ -363,7 +363,7 @@ document.addEventListener("click", event => {
 
 function setupThemeToggle() {
   const toggleBtn = $("theme-toggle");
-  const savedTheme = localStorage.getItem("omni-theme") || "dark";
+  const savedTheme = localStorage.getItem("omni-theme") || "light";
 
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
@@ -386,7 +386,7 @@ function setupThemeToggle() {
 
   if (toggleBtn) {
     toggleBtn.onclick = () => {
-      const current = document.documentElement.getAttribute("data-theme") || "dark";
+      const current = document.documentElement.getAttribute("data-theme") || "light";
       const next = current === "light" ? "dark" : "light";
       applyTheme(next);
     };
