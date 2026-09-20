@@ -4,59 +4,59 @@ export default function PricingSection() {
   const plans = [
     {
       name: "Developer Pilot",
-      tagline: "For testing, prototypes, and initial integrations.",
+      tagline: "For local testing, prototypes, and initial carrier integrations.",
       price: "₹0",
-      period: "free forever",
-      minuteRate: "₹2.20 / minute",
+      period: "open developer access",
+      minuteRate: "Provider pass-through (COGS ~₹1.60–₹1.80/min)",
       popular: false,
       features: [
         "1 Connected phone line (Exotel / Twilio)",
-        "1,000 Free pilot voice minutes",
-        "11 Indian regional languages",
-        "Up to 25 business knowledge documents",
-        "Preflight write confirmation gating",
-        "Community & Discord support",
+        "Direct local or self-hosted server deployment",
+        "11 Indian regional language codes (Sarvam AI)",
+        "Approved FAQ in-memory fast-path (<2ms in-process)",
+        "Deterministic write confirmation gating",
+        "OpenAPI Swagger & Operations Console",
       ],
-      cta: "Start Free Pilot",
+      cta: "Launch Operations Console",
       href: "http://localhost:8000",
     },
     {
       name: "Production Scale",
-      tagline: "For growing businesses modernizing call operations.",
+      tagline: "Indicative tier for growing businesses scaling call operations.",
       price: "₹9,999",
-      period: "per month",
-      minuteRate: "₹1.60 / minute",
+      period: "indicative monthly",
+      minuteRate: "Target commercial rate: ₹6–₹10 / minute",
       popular: true,
       features: [
-        "Up to 15 Concurrent phone lines",
-        "Priority Groq LPU inference queue",
-        "Unlimited private business documents",
-        "Sub-500ms guaranteed mouth-to-ear target",
+        "Target concurrency: 15 phone lines (Roadmap)",
+        "Groq LPU Llama 3.1 8B Instant inference",
+        "Unlimited tenant FAQs & business documents",
+        "Sub-500ms pipeline budget target",
         "Full-duplex real-time transcript streaming",
-        "CRM & webhook tool execution audit trail",
-        "99.9% Telephony uptime SLA",
-        "Email & Slack developer support",
+        "Audit-logged tool execution safety gates",
+        "Target SLA: 99.9% uptime (Roadmap)",
+        "Email & developer support",
       ],
-      cta: "Launch Production Line",
+      cta: "Launch Operations Console",
       href: "http://localhost:8000",
     },
     {
       name: "Enterprise Dedicated",
-      tagline: "For high-volume contact centers and custom deployments.",
+      tagline: "Planned deployment options for high-volume contact centers.",
       price: "Custom",
-      period: "annual commitment",
-      minuteRate: "From ₹1.20 / minute",
+      period: "enterprise roadmap",
+      minuteRate: "Volume commercial agreements",
       popular: false,
       features: [
-        "Unlimited concurrent carrier phone lines",
-        "Dedicated Exotel / Twilio SIP trunks",
+        "Multi-worker high-concurrency architecture",
+        "Dedicated carrier audio stream endpoints",
         "Custom regional acoustic tuning & brand voice",
-        "On-Premise or Private VPC deployment",
-        "SOC2 Type II & HIPAA compliance pack",
-        "Zero-retention ephemeral audio mode",
-        "24/7 Dedicated engineering pager duty",
+        "Private VPC / on-prem deployment (Roadmap)",
+        "Tenant data isolation & zero-retention audio mode",
+        "Bearer authentication & SSRF protection",
+        "Dedicated enterprise engineering SLA",
       ],
-      cta: "Talk to Enterprise Engineering",
+      cta: "Explore Enterprise Roadmap",
       href: "#contact",
     },
   ];
@@ -66,13 +66,13 @@ export default function PricingSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-subtle)] border border-[var(--accent)] text-xs font-mono font-semibold text-[var(--accent)] mb-4">
-            <span>TRANSPARENT PRICING</span>
+            <span>INDICATIVE COMMERCIAL TIERS</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-[var(--foreground)] mb-4">
-            Predictable plans. Zero hidden carrier markups.
+            Indicative plans &amp; production roadmap.
           </h2>
           <p className="text-base sm:text-lg text-[var(--muted-foreground)]">
-            Pay only for what you speak. Scale from your first pilot phone line to thousands of concurrent calls.
+            Transparent commercial economics. Baseline pipeline COGS modeled at ₹1.60–₹1.80/min with target commercial pricing around ₹6–₹10/min.
           </p>
         </div>
 

@@ -20,7 +20,7 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "OmniVoice — Enterprise Conversational AI Telephony Platform",
   description:
-    "Sub-500ms full-duplex conversational voice AI for real phone lines. Native support for 11 Indian regional languages, direct Exotel/Twilio SIP integration, in-memory FAISS grounding, and safe write confirmation gating.",
+    "Conversational voice AI platform designed for low-latency telephone calls. Built for 11 Indian regional language codes via Sarvam AI, carrier streaming for Exotel and Twilio, in-memory FAISS grounding, and safe write confirmation gating.",
   keywords: [
     "Voice AI",
     "Telephony AI",
@@ -29,15 +29,15 @@ export const metadata: Metadata = {
     "Sarvam AI",
     "Exotel Integration",
     "Twilio Voice",
-    "Sub-500ms Voice",
-    "Groq Llama 3",
+    "Low Latency Voice AI",
+    "Groq Llama 3.1",
     "Customer Support Automation"
   ],
   authors: [{ name: "OmniVoice Technologies" }],
   openGraph: {
     title: "OmniVoice — Voice AI Platform for Enterprise Phone Lines",
     description:
-      "Full-duplex speech AI in 11 Indian languages with sub-500ms latency. Direct carrier SIP integration for modern call centers.",
+      "Full-duplex speech AI platform supporting 11 Indian regional language codes with sub-500ms pipeline targets. Direct carrier audio streaming for Exotel and Twilio.",
     url: "https://omnivoice.ai",
     siteName: "OmniVoice",
     locale: "en_IN",
@@ -47,7 +47,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "OmniVoice — Conversational AI for Telephone Lines",
     description:
-      "Enterprise telephony meets regional voice intelligence. Under 500ms mouth-to-ear turnaround across 11 Indian languages.",
+      "Enterprise telephony meets regional voice intelligence. Designed for low-latency conversational response across 11 Indian regional language codes.",
   },
 };
 

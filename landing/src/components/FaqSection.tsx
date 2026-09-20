@@ -11,27 +11,27 @@ interface FaqItem {
 const FAQS: FaqItem[] = [
   {
     q: "How does OmniVoice connect to our existing phone numbers?",
-    a: "OmniVoice does not force you to buy new carrier numbers. You register your existing Exotel Virtual Number or Twilio SIP Trunk in the console. When an incoming call arrives, your carrier forwards the bidirectional audio stream to your unique OmniVoice WebSocket webhook URL.",
+    a: "OmniVoice integrates with your existing Exotel Virtual Number or Twilio phone number. When an incoming call arrives, your carrier forwards the bidirectional audio stream to your unique OmniVoice WebSocket endpoint configured via the Operations Console.",
   },
   {
-    q: "How do you guarantee sub-500ms mouth-to-ear latency?",
-    a: "We pipeline each stage in parallel: Silero ONNX neural VAD detects speech boundaries in under 20ms, Sarvam AI produces chunked streaming transcripts in ~120ms, FAISS vectors or in-memory FAQ caches hit in <2ms, and Groq LPU generates tokens with ~180ms TTFT. Audio playback commences while downstream tokens are still generating.",
+    q: "How is the sub-500ms turnaround target achieved in the pipeline?",
+    a: "We design each pipeline stage for low-latency parallel execution: Silero ONNX neural VAD detects speech boundaries in under 20ms, Sarvam AI produces chunked streaming transcripts in ~120ms, approved FAQ in-process cache lookups complete in under 2ms locally, and Groq LPU generates tokens with ~180ms TTFT. Streaming audio synthesis commences while downstream tokens are still generating.",
   },
   {
     q: "What happens if a customer speaks Hinglish or switches languages mid-call?",
-    a: "Our Sarvam AI acoustic foundation models are trained directly on multi-lingual Indian code-switching (Hindi-English, Tamil-English, Telugu-English). The agent understands code-mixed queries naturally and responds in your enterprise's chosen primary language.",
+    a: "Our Sarvam AI acoustic integration supports Indian regional language codes with code-mixing capabilities. The pipeline processes regional speech and generates grounded responses according to your tenant's configured language and prompt instructions.",
   },
   {
     q: "How does the confirmation gate prevent unauthorized database modifications?",
     a: "Tools are strictly categorized into 'Read' (speculative, run early) and 'Write' (mutations like booking an appointment or changing an address). When a write is staged, OmniVoice requires the caller to speak an exact business confirmation phrase before committing the HTTPS webhook.",
   },
   {
-    q: "Can we deploy OmniVoice in our own private cloud or on-premise VPC?",
-    a: "Yes. Enterprise customers can deploy the entire OmniVoice Docker runtime, FastAPI media gateway, and FAISS vector index in their own AWS, GCP, or on-premise Kubernetes clusters for complete data sovereignty and zero external cloud exposure.",
+    q: "What are the planned enterprise deployment options for private VPC or on-premise infrastructure?",
+    a: "Self-hosting the OmniVoice FastAPI service with in-memory FAISS indexes is supported today in standard Docker environments. Dedicated private VPC deployments, multi-worker Kubernetes configurations, and air-gapped enterprise packages are planned items on our enterprise roadmap.",
   },
   {
     q: "How does the fast-path cache cut our LLM bills by 65%?",
-    a: "In real contact centers, over 60% of caller questions are repetitive (e.g. store hours, return policies, order tracking steps). Approved FAQ answers in OmniVoice are indexed in an in-memory cache. When a question matches, OmniVoice plays the verified answer immediately without calling Groq or paying per-token inference charges.",
+    a: "In real contact centers, over 60% of caller questions are repetitive (e.g. store hours, return policies, order tracking steps). Approved FAQ answers in OmniVoice are indexed in an in-process in-memory cache. When a question matches, the answer is returned locally in under 2ms without calling Groq or paying per-token inference charges.",
   },
 ];
 

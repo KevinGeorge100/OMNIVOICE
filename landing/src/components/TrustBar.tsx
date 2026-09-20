@@ -1,11 +1,11 @@
 export default function TrustBar() {
   const partners = [
-    { name: "EXOTEL", role: "India PSTN & SIP Trunks" },
+    { name: "EXOTEL", role: "India Audio Stream & Telephony" },
     { name: "TWILIO", role: "Global Telephony Gateway" },
-    { name: "SARVAM AI", role: "Indic Speech Models (11 Langs)" },
+    { name: "SARVAM AI", role: "Indic Speech Models (11 Codes)" },
     { name: "GROQ LPU", role: "Ultra-Fast LLM TTFT" },
     { name: "SILERO ONNX", role: "Neural VAD (<20ms)" },
-    { name: "FAISS VECTORS", role: "In-Memory Retrieval (<2ms)" },
+    { name: "FAISS VECTORS", role: "In-Process Cache (<2ms local)" },
   ];
 
   return (

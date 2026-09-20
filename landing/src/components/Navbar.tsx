@@ -70,7 +70,7 @@ export default function Navbar() {
             </span>
           </div>
           <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent)]/30">
-            v1.0
+            v0.1.0
           </span>
         </a>
 
@@ -81,7 +81,7 @@ export default function Navbar() {
           </a>
           <a href="#voices" className="hover:text-[var(--foreground)] transition-colors flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
-            11 Regional Voices
+            11 Language Codes
           </a>
           <a href="#architecture" className="hover:text-[var(--foreground)] transition-colors">
             Architecture
@@ -163,7 +163,7 @@ export default function Navbar() {
               className="hover:text-[var(--foreground)] flex items-center gap-2"
             >
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
-              11 Regional Voices
+              11 Language Codes
             </a>
             <a
               href="#architecture"

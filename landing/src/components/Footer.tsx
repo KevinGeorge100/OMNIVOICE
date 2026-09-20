@@ -9,13 +9,13 @@ export default function Footer() {
           <div className="relative z-10 max-w-2xl mx-auto">
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-xs font-mono font-semibold text-emerald-400 mb-6">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              DEPLOY ON REAL CARRIER TRUNKS
+              DEPLOY ON CARRIER AUDIO STREAMS
             </span>
             <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-white mb-4">
               Ready to automate your enterprise phone calls?
             </h2>
             <p className="text-sm sm:text-base text-slate-300 mb-8 leading-relaxed">
-              Connect your first Exotel or Twilio line in under 5 minutes. Experience sub-500ms voice intelligence in 11 Indian languages.
+              Connect your first Exotel or Twilio line in under 5 minutes. Experience low-latency voice intelligence across 11 Indian language codes.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <a
@@ -55,7 +55,7 @@ export default function Footer() {
               </span>
             </div>
             <p className="text-xs text-slate-400 max-w-sm leading-relaxed mb-6">
-              The full-duplex voice AI telephony platform for enterprise customer calls. 11 Indian regional languages, sub-500ms turnaround, and safe write confirmation gating.
+              The full-duplex voice AI telephony platform for enterprise customer calls. 11 Indian language codes, low-latency pipeline architecture, and safe write confirmation gating.
             </p>
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-mono text-slate-400">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -69,8 +69,8 @@ export default function Footer() {
               Platform
             </h3>
             <ul className="space-y-2.5 text-xs text-slate-400">
-              <li><a href="#platform" className="hover:text-white transition-colors">Sub-500ms Engine</a></li>
-              <li><a href="#voices" className="hover:text-white transition-colors">11 Regional Voices</a></li>
+              <li><a href="#platform" className="hover:text-white transition-colors">Low-Latency Engine</a></li>
+              <li><a href="#voices" className="hover:text-white transition-colors">11 Regional Language Codes</a></li>
               <li><a href="#architecture" className="hover:text-white transition-colors">Architecture Pipeline</a></li>
               <li><a href="#roi" className="hover:text-white transition-colors">ROI Calculator</a></li>
               <li><a href="#pricing" className="hover:text-white transition-colors">Commercial Pricing</a></li>
@@ -85,9 +85,9 @@ export default function Footer() {
             <ul className="space-y-2.5 text-xs text-slate-400">
               <li><a href="http://localhost:8000/docs" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">OpenAPI Documentation ↗</a></li>
               <li><a href="http://localhost:8000" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Operations Console ↗</a></li>
-              <li><a href="#developers" className="hover:text-white transition-colors">Python SDK</a></li>
-              <li><a href="#developers" className="hover:text-white transition-colors">Node.js TypeScript</a></li>
-              <li><a href="#developers" className="hover:text-white transition-colors">WebSocket Webhook Spec</a></li>
+              <li><a href="#developers" className="hover:text-white transition-colors">Python API Integration</a></li>
+              <li><a href="#developers" className="hover:text-white transition-colors">TypeScript REST Integration</a></li>
+              <li><a href="#developers" className="hover:text-white transition-colors">Carrier WebSocket Protocol</a></li>
             </ul>
           </div>
 
@@ -99,7 +99,7 @@ export default function Footer() {
             <ul className="space-y-2.5 text-xs text-slate-400">
               <li><a href="#platform" className="hover:text-white transition-colors">Exotel India Gateway</a></li>
               <li><a href="#platform" className="hover:text-white transition-colors">Twilio Global Voice</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">SOC2 Compliance</a></li>
+              <li><a href="#platform" className="hover:text-white transition-colors">Data Security Architecture</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
             </ul>

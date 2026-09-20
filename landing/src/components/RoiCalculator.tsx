@@ -32,13 +32,13 @@ export default function RoiCalculator() {
         <div className="text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-subtle)] border border-[var(--accent)] text-xs font-mono font-semibold text-[var(--accent)] mb-4">
             <Calculator className="w-3.5 h-3.5" />
-            <span>COMMERCIAL UNIT ECONOMICS</span>
+            <span>UNIT ECONOMICS ESTIMATOR</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-[var(--foreground)] mb-4">
             Cut your contact center telephony bills by 85%+.
           </h2>
           <p className="text-base sm:text-lg text-[var(--muted-foreground)]">
-            Traditional voice BPOs in India charge ₹12–₹16/minute. OmniVoice operates with complete regional voice intelligence at ₹1.80/minute.
+            Traditional voice BPOs in India charge ₹12–₹16/minute. Estimated OmniVoice pipeline COGS is ₹1.60–₹1.80/minute with target commercial pricing around ₹6–₹10/minute.
           </p>
         </div>
 
@@ -93,15 +93,15 @@ export default function RoiCalculator() {
             {/* OmniVoice AI */}
             <div className="p-6 rounded-2xl bg-[var(--accent-subtle)] border border-[var(--accent)] flex flex-col justify-between shadow-lg shadow-[var(--accent-glow)]">
               <div>
-                <span className="text-xs font-mono font-semibold text-[var(--accent)]">OMNIVOICE PLATFORM</span>
-                <h3 className="text-base font-bold text-[var(--foreground)] mt-1">Full-Duplex Voice AI</h3>
-                <p className="text-xs text-[var(--muted)] mt-1">₹1.80 / minute managed rate</p>
+                <span className="text-xs font-mono font-semibold text-[var(--accent)]">OMNIVOICE BASELINE</span>
+                <h3 className="text-base font-bold text-[var(--foreground)] mt-1">Estimated Pipeline COGS</h3>
+                <p className="text-xs text-[var(--muted)] mt-1">₹1.80 / minute model baseline</p>
               </div>
               <div className="mt-6 pt-4 border-t border-[var(--accent)]/30">
                 <div className="text-2xl font-extrabold font-mono text-[var(--accent)]">
                   {formatLakhs(monthlyOmniCost)}
                 </div>
-                <span className="text-[11px] text-[var(--muted)] font-mono">per month</span>
+                <span className="text-[11px] text-[var(--muted)] font-mono">per month (est. COGS)</span>
               </div>
             </div>
 
@@ -109,19 +109,19 @@ export default function RoiCalculator() {
             <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-[var(--card)] to-[var(--card)] border border-emerald-500/40 flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-mono font-semibold text-emerald-400">YOUR SAVINGS</span>
+                  <span className="text-xs font-mono font-semibold text-emerald-400">ESTIMATED EFFICIENCY</span>
                   <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300">
-                    {savingsPercent}% OFF
+                    {savingsPercent}% DELTA
                   </span>
                 </div>
-                <h3 className="text-base font-bold text-[var(--foreground)] mt-1">Net Capital Saved</h3>
-                <p className="text-xs text-[var(--muted)] mt-1">{formatLakhs(annualSavings)} saved per year</p>
+                <h3 className="text-base font-bold text-[var(--foreground)] mt-1">Potential Capital Delta</h3>
+                <p className="text-xs text-[var(--muted)] mt-1">{formatLakhs(annualSavings)} estimated per year</p>
               </div>
               <div className="mt-6 pt-4 border-t border-emerald-500/30">
                 <div className="text-2xl font-extrabold font-mono text-emerald-400">
                   {formatLakhs(monthlySavings)}
                 </div>
-                <span className="text-[11px] text-[var(--muted)] font-mono">saved every month</span>
+                <span className="text-[11px] text-[var(--muted)] font-mono">estimated monthly delta</span>
               </div>
             </div>
           </div>
@@ -134,11 +134,11 @@ export default function RoiCalculator() {
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-[var(--accent)] shrink-0" />
-              <span>Instant scaling from 1 to 5,000 lines</span>
+              <span>Elastic software concurrency</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-[var(--accent)] shrink-0" />
-              <span>24/7 coverage with 0% attrition</span>
+              <span>24/7 coverage with zero agent turnover</span>
             </div>
           </div>
         </div>

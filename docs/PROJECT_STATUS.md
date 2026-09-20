@@ -24,20 +24,20 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 * **Carrier Barge-in Clear Dispatch (`omnivoice/transport.py`)**: Transmits `{"event": "clear"}` envelopes to carrier WebSockets to purge pending audio buffers upon interruption.
 * **Write Action Safety Gating (`omnivoice/actions.py`)**: Two-phase execution framework (`staged` $\rightarrow$ `armed` $\rightarrow$ `confirm` $\rightarrow$ `committed`). Requires exact match against tenant's configured confirmation phrases. Includes SSRF prevention against private IP addresses.
 * **Audio Transcoding & Causal Upsampling (`omnivoice/audio.py`)**: G.711 $\mu$-law decode/encode and stateful 8 kHz to 16 kHz causal linear interpolation.
-* **Customer Landing Website (`landing/`)**: Next.js 16 App Router website with Tailwind CSS v4, interactive Web Audio API acoustic synthesis demo, and ROI calculator. Deployed live on Vercel at `https://omnivoice-self.vercel.app/`.
+* **Customer Landing Website (`landing/`)**: Next.js 16 App Router website with Tailwind CSS v4, interactive Web Audio API acoustic synthesis demo, and ROI calculator. Marketing claims, code showcase, indicative pricing, and latency targets reconciled to match verified repository capabilities (OV-004). Deployed live on Vercel at `https://omnivoice-self.vercel.app/`.
 
 ### Partial Subsystems
 * **Exotel & Twilio Integration**: Inbound webhook handshakes and WebSocket media loops are implemented. Outbound dialing endpoint exists (`/api/tenants/{id}/dial`), but call progress analysis (answering machine detection, busy signals) is not implemented.
 * **Regional Multilingual Speech**: Supported at the model parameter level (11 Indian language codes accepted by Sarvam TTS and model validators). However, system prompts, error fallbacks, and write-confirmation prompts remain hardcoded in English.
-* **Enterprise Operations Console (`omnivoice/static/`)**: Dual-theme UI operational. However, bugs exist in call transcript inspection and webhook connection modal URL display.
+* **Enterprise Operations Console (`omnivoice/static/`)**: Dual-theme UI operational. Historical call details runtime error resolved (OV-002); carrier connection URLs aligned with real FastAPI endpoints (OV-003).
 * **Observability & Evaluation**: Structured JSON metrics logged upon call completion. Offline evaluation script calculates WER and TTFA percentiles from supplied JSONL files. No live distributed tracing or OpenTelemetry instrumentation exists.
 
 ### Missing Subsystems (Planned / Not Implemented)
-* **SaaS Billing & Metering**: Zero call minute accounting, zero payment gateway integration (Razorpay/Stripe), zero tier enforcement.
+* **SaaS Billing & Metering**: Zero call minute accounting, zero payment gateway integration (Razorpay/Stripe), zero tier enforcement. Indicative tiers on landing page qualified as roadmap/pilot estimates.
 * **Distributed Architecture**: No Redis or message broker; all active call sessions and WebSocket references reside in process RAM.
 * **Production Database**: Uses local SQLite. No PostgreSQL support or database migration tooling (Alembic).
 * **Call Audio Storage**: Zero audio recording persistence. Audio is streamed ephemerally in-memory and discarded.
-* **Client SDKs**: The Python `Client` and TypeScript `@omnivoice/sdk` shown on the marketing site do not exist in the repository.
+* **Client SDKs**: No standalone Python or npm SDK packages currently exist in the repository; marketing code showcase displays direct REST API integrations (OV-004), and SDK packages remain planned for OV-018.
 * **Granular RBAC**: Access control is binary (`admin` vs `tenant_id`). No user accounts, teams, or audit logs.
 
 ---

@@ -5,9 +5,9 @@ export default function ArchitectureSection() {
     {
       num: "01",
       icon: PhoneForwarded,
-      title: "SIP Ingress & Audio Streaming",
-      tech: "Exotel / Twilio PSTN",
-      sla: "<20ms",
+      title: "Carrier Ingress & Audio Streaming",
+      tech: "Exotel / Twilio WebSockets",
+      sla: "Stream Chunking",
       desc: "Incoming caller audio streams as chunked 8kHz/16kHz μ-law/linear PCM via full-duplex WebSocket.",
     },
     {
@@ -15,40 +15,40 @@ export default function ArchitectureSection() {
       icon: Activity,
       title: "Neural VAD & Fast Interruption",
       tech: "Silero ONNX Engine",
-      sla: "<20ms VAD · <50ms silence",
-      desc: "Instant speech onset detection; silences current carrier playback within 50ms when caller speaks.",
+      sla: "~18ms VAD · <50ms silence",
+      desc: "Instant speech onset detection; silences current playback within 50ms when caller speaks.",
     },
     {
       num: "03",
       icon: Waves,
       title: "Streaming Regional ASR",
       tech: "Sarvam AI Indic STT",
-      sla: "p90 ~120ms",
-      desc: "Sub-second streaming transcript tokens for Hindi, Tamil, Telugu, and 8 other Indian languages.",
+      sla: "Target ~120ms",
+      desc: "Sub-second streaming transcript tokens for Hindi, Tamil, Telugu, and 8 other Indian language codes.",
     },
     {
       num: "04",
       icon: Database,
       title: "Fast-Path Cache & FAISS Retrieval",
       tech: "In-Memory Vector Store",
-      sla: "<2ms Cache · ~15ms FAISS",
+      sla: "<2ms (in-process) · ~15ms FAISS",
       desc: "Approved FAQs bypass LLM inference completely. Complex queries fetch private enterprise vectors.",
     },
     {
       num: "05",
       icon: BrainCircuit,
       title: "Reasoning & Action Gating",
-      tech: "Groq LPU (Llama 3 70B)",
+      tech: "Groq LPU (Llama 3.1 8B Instant)",
       sla: "TTFT ~180ms",
-      desc: "Low-latency token generation with safety preflight checks on operational writes.",
+      desc: "Low-latency token generation with deterministic confirmation gating on operational writes.",
     },
     {
       num: "06",
       icon: CheckCheck,
       title: "Neural TTS & Carrier Egress",
       tech: "Sarvam Regional Synthesis",
-      sla: "First frame ~120ms",
-      desc: "Streaming acoustic packets sent over bidirectional RTP directly to the caller's telephone.",
+      sla: "Streaming chunks",
+      desc: "Streaming acoustic packets sent over bidirectional WebSocket back to the carrier gateway.",
     },
   ];
 
@@ -60,10 +60,10 @@ export default function ArchitectureSection() {
             <span>FULL-DUPLEX PIPELINE</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-[var(--foreground)] mb-4">
-            How OmniVoice achieves sub-500ms mouth-to-ear turnaround.
+            How OmniVoice targets sub-500ms pipeline turnaround.
           </h2>
           <p className="text-base sm:text-lg text-[var(--muted-foreground)]">
-            Every step is optimized for parallel execution, in-memory caching, and zero-overhead audio dispatch.
+            Every step is optimized for parallel execution, in-memory caching, and low-overhead audio dispatch.
           </p>
         </div>
 
@@ -102,7 +102,7 @@ export default function ArchitectureSection() {
                 </div>
 
                 <div className="mt-6 pt-3 border-t border-[var(--border)] flex items-center justify-between text-[10px] font-mono text-[var(--muted)]">
-                  <span>Target SLA</span>
+                  <span>Pipeline Target</span>
                   <span className="font-semibold text-[var(--foreground)]">{step.sla}</span>
                 </div>
               </div>
@@ -117,10 +117,10 @@ export default function ArchitectureSection() {
               END-TO-END PERFORMANCE BUDGET
             </span>
             <h4 className="text-xl font-bold text-[var(--foreground)] mt-1">
-              Deterministic &lt;500ms mouth-to-ear target
+              Architectural &lt;500ms pipeline target
             </h4>
             <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-              Verified across Exotel India trunks and Twilio international carrier connections.
+              Designed for Exotel India audio streams and Twilio telephony connections.
             </p>
           </div>
           <a

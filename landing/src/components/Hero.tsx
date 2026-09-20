@@ -220,9 +220,9 @@ export default function Hero() {
           {/* Announcement Pill */}
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--card)] border border-[var(--border-strong)] text-xs font-mono text-[var(--muted-foreground)] mb-8 shadow-sm hover:border-[var(--accent)] transition-colors">
             <span className="flex h-2 w-2 rounded-full bg-[var(--accent)] animate-ping" />
-            <span className="text-[var(--accent)] font-semibold">Sub-500ms Engine</span>
+            <span className="text-[var(--accent)] font-semibold">Sub-500ms Target Architecture</span>
             <span>·</span>
-            <span>11 Indian Regional Languages Ready</span>
+            <span>11 Regional Language Codes Supported</span>
             <ArrowRight className="w-3 h-3 text-[var(--muted)]" />
           </div>
 
@@ -234,7 +234,7 @@ export default function Hero() {
           {/* Subheading */}
           <p className="text-base sm:text-xl text-[var(--muted-foreground)] max-w-2xl mb-10 leading-relaxed">
             Connect your enterprise knowledge and CRM tools directly to <strong>Exotel</strong> and <strong>Twilio</strong>. 
-            Full-duplex speech, streaming neural VAD, and grounded replies with sub-500ms turnaround.
+            Full-duplex speech, streaming neural VAD, and grounded replies designed for sub-500ms turnaround.
           </p>
 
           {/* CTAs */}
@@ -253,7 +253,7 @@ export default function Hero() {
               className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl font-semibold bg-[var(--card)] hover:bg-[var(--card-hover)] border border-[var(--border)] hover:border-[var(--border-strong)] text-[var(--foreground)] transition-all"
             >
               <Volume2 className="w-4 h-4 text-[var(--accent)]" />
-              <span>Try Live Audio Demo</span>
+              <span>Explore Voice Simulation</span>
             </a>
           </div>
         </div>
@@ -270,7 +270,7 @@ export default function Hero() {
                 <h2 className="text-base font-bold text-[var(--foreground)] flex items-center gap-2">
                   <span>Interactive Turn &amp; Latency Simulator</span>
                   <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                    Live Web Audio
+                    Browser Simulation
                   </span>
                 </h2>
                 <p className="text-xs text-[var(--muted-foreground)]">
@@ -332,7 +332,7 @@ export default function Hero() {
               }`}
             >
               <div className="flex items-center justify-between text-[11px] font-mono text-[var(--muted)] mb-1">
-                <span className="font-semibold text-sky-400">CALLER INGRESS · SIP RTP STREAM</span>
+                <span className="font-semibold text-sky-400">CALLER INGRESS · CARRIER AUDIO STREAM</span>
                 <span>+0.00s</span>
               </div>
               <p className="text-sm text-[var(--foreground)] font-medium">“{activeDemo.callerText}”</p>
@@ -349,7 +349,7 @@ export default function Hero() {
               <div className="flex items-center justify-between text-[11px] font-mono mb-1">
                 <span className="font-semibold text-[var(--accent)]">OMNIVOICE AGENT · STREAMING SYNTHESIS</span>
                 <span className="px-2 py-0.5 rounded bg-[var(--accent-subtle)] text-[var(--accent)] font-semibold">
-                  E2E: {activeDemo.p95}
+                  Target: {activeDemo.p95}
                 </span>
               </div>
               <p className="text-sm text-[var(--foreground)] font-medium mb-3">“{activeDemo.agentText}”</p>
@@ -363,7 +363,7 @@ export default function Hero() {
                   Sarvam ASR ~110ms
                 </span>
                 <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold">
-                  FAISS Cache Hit &lt;2ms
+                  FAQ fast-path &lt;2ms (in-process)
                 </span>
                 <span className="px-2 py-0.5 rounded bg-[var(--card-hover)] text-[var(--muted-foreground)] border border-[var(--border)]">
                   Groq TTFT ~175ms
@@ -383,7 +383,7 @@ export default function Hero() {
             </span>
             <span className="flex items-center gap-1.5">
               <Zap className="w-3.5 h-3.5 text-amber-400" />
-              Target SLA: &lt;500ms mouth-to-ear turnaround
+              Target budget: &lt;500ms pipeline turnaround
             </span>
           </div>
         </div>
@@ -395,7 +395,7 @@ export default function Hero() {
               &lt;500ms
             </div>
             <div className="text-xs text-[var(--muted-foreground)] font-medium mt-1">
-              P95 Mouth-to-Ear SLA
+              Pipeline Design Target
             </div>
           </div>
           <div className="p-4 rounded-xl bg-[var(--card)] border border-[var(--border)] text-center">
@@ -403,15 +403,15 @@ export default function Hero() {
               11
             </div>
             <div className="text-xs text-[var(--muted-foreground)] font-medium mt-1">
-              Indian Regional Languages
+              Language Codes (Sarvam AI)
             </div>
           </div>
           <div className="p-4 rounded-xl bg-[var(--card)] border border-[var(--border)] text-center">
             <div className="text-2xl sm:text-3xl font-extrabold font-mono text-[var(--foreground)] tracking-tight">
-              ₹1.80/min
+              ₹1.60–1.80
             </div>
             <div className="text-xs text-[var(--muted-foreground)] font-medium mt-1">
-              Unit Economics (vs ₹14 BPO)
+              Est. Pipeline COGS / min
             </div>
           </div>
           <div className="p-4 rounded-xl bg-[var(--card)] border border-[var(--border)] text-center">
@@ -419,7 +419,7 @@ export default function Hero() {
               &lt;2ms
             </div>
             <div className="text-xs text-[var(--muted-foreground)] font-medium mt-1">
-              Approved FAQ Fast-Path
+              Local FAQ Fast-Path Benchmark
             </div>
           </div>
         </div>

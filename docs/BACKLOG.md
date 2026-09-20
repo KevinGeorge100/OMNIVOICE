@@ -13,7 +13,7 @@
 | **OV-001** | Establish OmniVoice Engineering Project Control | Task | P0 | **Done** |
 | **OV-002** | Fix Console Call Details TypeError (`call.session_id`) | Bug | P0 | **Done** |
 | **OV-003** | Fix Carrier Webhook URL Display in Console Modal | Bug | P0 | **Done** |
-| **OV-004** | Audit & Reconcile Landing Page Marketing Claims | TechDebt | P1 | Planned |
+| **OV-004** | Audit & Reconcile Landing Page Marketing Claims | TechDebt | P1 | **Done** |
 | **OV-005** | Real PSTN End-to-End Telephone Validation Test | Spike | P0 | Planned |
 | **OV-006** | Instrument & Record Real-World Mouth-to-Ear Latency | Task | P1 | Planned |
 | **OV-007** | Real Acoustic Barge-in & Background Noise Rehearsal | Task | P1 | Planned |
@@ -78,13 +78,18 @@
 ### [OV-004] Audit & Reconcile Landing Page Marketing Claims
 * **Type:** TechDebt
 * **Priority:** P1
-* **Status:** Planned
+* **Status:** **Done**
 * **Dependencies:** OV-001
-* **Description:** Reconcile unsupported claims on `landing/` (such as published SDKs, SLA guarantees, and pricing tiers) so that marketing copy clearly distinguishes between current capabilities and enterprise roadmap offerings.
+* **Description:** Reconcile unsupported claims on `landing/` (including unverified PSTN latency SLAs, fictional SDK packages, compliance certifications, production pricing tiers, and unmeasured concurrency) so that marketing copy accurately represents current verified repository capabilities and clearly qualifies roadmap offerings.
 * **Acceptance Criteria:**
-  1. Code showcase clarifies that SDK snippets represent upcoming client libraries.
-  2. SLA and compliance badges labeled as enterprise deployment capabilities.
-  3. All CTA links point to functional destinations.
+  1. No customer-facing text presents unimplemented capabilities as available today.
+  2. No unverified real-PSTN latency metric is presented as measured fact.
+  3. Pricing is clearly identified as indicative/pilot/planned where enforcement does not exist.
+  4. Fictional SDK packages replaced by real FastAPI REST endpoints with planned SDK roadmap notes.
+  5. Compliance claims (SOC2/HIPAA) removed and replaced by factual security architecture descriptions.
+  6. Private VPC/on-prem availability presented as enterprise roadmap items.
+  7. Voice sandbox clearly identified as a browser simulation/prototype.
+  8. Existing verified capabilities remain confidently presented with clean Next.js build.
 
 ---
 

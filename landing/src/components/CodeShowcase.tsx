@@ -8,66 +8,90 @@ export default function CodeShowcase() {
   const [copied, setCopied] = useState(false);
 
   const snippets = {
-    python: `from omnivoice import Client
+    python: `import httpx
 
-# Initialize enterprise client
-client = Client(token="omni_live_sec_992a8b")
+# OmniVoice REST API (FastAPI backend)
+API_BASE = "http://localhost:8000/api"
+HEADERS = {"Authorization": "Bearer YOUR_ADMIN_TOKEN"}
 
-# 1. Create regional enterprise agent
-tenant = client.tenants.create(
-    name="Swiggy Delivery Ops",
-    language="hi-IN",
-    greeting="नमस्ते! स्विगी सपोर्ट में आपका स्वागत है।",
-    confirmation_phrases=["हाँ, पुष्टि करें"]
+# 1. Create regional enterprise tenant
+tenant_res = httpx.post(
+    f"{API_BASE}/tenants",
+    headers=HEADERS,
+    json={
+        "name": "Swiggy Delivery Ops",
+        "language": "hi-IN",
+        "greeting": "नमस्ते! स्विगी सपोर्ट में आपका स्वागत है।",
+        "confirmation_phrases": ["हाँ, पुष्टि करें"]
+    }
 )
+tenant = tenant_res.json()
+tenant_id = tenant["id"]
 
-# 2. Ingest private business FAQ (bypasses LLM tokens)
-tenant.faqs.add(
-    question="ऑर्डर कैंसिल कैसे करें?",
-    answer="आप ऐप के 'Help' सेक्शन में जाकर 60 सेकंड के भीतर कैंसिल कर सकते हैं।",
-    approved=True  # Instant <2ms cache playback
+# 2. Ingest approved FAQ (<2ms in-process fast-path cache hit)
+httpx.post(
+    f"{API_BASE}/tenants/{tenant_id}/faqs",
+    headers=HEADERS,
+    json={
+        "question": "ऑर्डर कैंसिल कैसे करें?",
+        "answer": "आप ऐप के 'Help' सेक्शन में जाकर 60 सेकंड के भीतर कैंसिल कर सकते हैं।",
+        "is_active": True
+    }
 )
 
 # 3. Connect existing Exotel or Twilio phone line
-line = tenant.lines.connect(
-    provider="exotel",
-    number="+918045681234"
+line_res = httpx.post(
+    f"{API_BASE}/tenants/{tenant_id}/lines",
+    headers=HEADERS,
+    json={
+        "line_id": "line_delhi_01",
+        "carrier": "exotel",
+        "phone_number": "+918045681234"
+    }
 )
 
-print(f"Agent live on {line.number}! Webhook: {line.webhook_url}")`,
+print(f"Agent live on {line_res.json()['phone_number']}! Carrier: {line_res.json()['carrier']}")`,
 
-    typescript: `import { OmniVoice } from "@omnivoice/sdk";
+    typescript: `// OmniVoice REST API Integration (FastAPI backend)
+const API_BASE = "http://localhost:8000/api";
+const HEADERS = {
+  "Authorization": "Bearer YOUR_ADMIN_TOKEN",
+  "Content-Type": "application/json"
+};
 
-// Initialize client with enterprise credentials
-const omni = new OmniVoice({ apiKey: process.env.OMNIVOICE_API_KEY });
-
-async function main() {
+async function setupOmniVoice() {
   // 1. Create workspace with regional speech models
-  const enterprise = await omni.tenants.create({
-    name: "Apollo Clinic Telephony",
-    language: "ta-IN", // Tamil native acoustic model
-    greeting: "வணக்கம்! அப்பல்லோ கிளினிக் உங்களை வரவேற்கிறது.",
-    confirmationPhrases: ["ஆம், உறுதிப்படுத்துங்கள்"]
+  const tenantRes = await fetch(\`\${API_BASE}/tenants\`, {
+    method: "POST",
+    headers: HEADERS,
+    body: JSON.stringify({
+      name: "Apollo Clinic Telephony",
+      language: "ta-IN", // Tamil Sarvam AI acoustic model
+      greeting: "வணக்கம்! அப்பல்லோ கிளினிக் உங்களை வரவேற்கிறது.",
+      confirmation_phrases: ["ஆம், உறுதிப்படுத்துங்கள்"]
+    })
   });
+  const tenant = await tenantRes.json();
 
-  // 2. Upload doctor schedule document
-  await enterprise.documents.upload({
-    file: "./doctor_schedules.pdf",
-    semanticIndexing: true
+  // 2. Connect carrier phone line
+  const lineRes = await fetch(\`\${API_BASE}/tenants/\${tenant.id}/lines\`, {
+    method: "POST",
+    headers: HEADERS,
+    body: JSON.stringify({
+      line_id: "line_clinic_chennai",
+      carrier: "twilio",
+      phone_number: "+12025550199"
+    })
   });
+  const line = await lineRes.json();
 
-  // 3. Connect carrier phone line
-  const line = await enterprise.lines.connect({
-    provider: "twilio",
-    number: "+12025550199"
-  });
-
-  console.log(\`Voice line ready! Routing audio to \${line.webhookUrl}\`);
+  console.log(\`Voice line ready! Carrier: \${line.carrier}\`);
 }
 
-main();`,
+setupOmniVoice();`,
 
-    curl: `curl -X POST "https://api.omnivoice.ai/v1/tenants" \\
+    curl: `# 1. Create Regional Enterprise Tenant
+curl -X POST "http://localhost:8000/api/tenants" \\
   -H "Authorization: Bearer $OMNI_TOKEN" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -75,6 +99,16 @@ main();`,
     "language": "te-IN",
     "greeting": "నమస్కారం! టాటా క్యాపిటల్ సపోర్ట్‌కి స్వాగతం.",
     "confirmation_phrases": ["అవును, కన్ఫర్మ్ చేయండి"]
+  }'
+
+# 2. Add Approved FAQ (<2ms In-Process Cache)
+curl -X POST "http://localhost:8000/api/tenants/TENANT_ID/faqs" \\
+  -H "Authorization: Bearer $OMNI_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "question": "EMI date kab hai?",
+    "answer": "Aapki agli EMI tarikh 5 tarikh hai.",
+    "is_active": true
   }'`,
   };
 
@@ -93,10 +127,10 @@ main();`,
             <span>DEVELOPER FIRST</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-[var(--foreground)] mb-4">
-            Deploy in minutes. Integrate in 10 lines of code.
+            Deploy in minutes. Integrate via clean REST APIs.
           </h2>
           <p className="text-base sm:text-lg text-[var(--muted-foreground)]">
-            Simple, idiomatic SDKs for Python, Node.js, and standard REST/WebSocket endpoints.
+            Standard REST endpoints and carrier WebSockets for Python, TypeScript, and cURL. Planned SDK packages on enterprise roadmap.
           </p>
         </div>
 

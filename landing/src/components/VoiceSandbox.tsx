@@ -29,9 +29,9 @@ const SCENARIOS: Scenario[] = [
       { step: "Silero VAD", ms: "19ms" },
       { step: "Sarvam Streaming ASR", ms: "112ms" },
       { step: "Grounded Delivery Check", ms: "12ms" },
-      { step: "Groq Llama 3 TTFT", ms: "172ms" },
+      { step: "Groq Llama 3.1 TTFT", ms: "172ms" },
       { step: "Hindi Regional TTS", ms: "110ms" },
-      { step: "Mouth-to-Ear Total", ms: "425ms", hit: true },
+      { step: "Pipeline Budget Total", ms: "425ms", hit: true },
     ],
   },
   {
@@ -47,9 +47,9 @@ const SCENARIOS: Scenario[] = [
       { step: "Silero VAD", ms: "18ms" },
       { step: "Sarvam Streaming ASR", ms: "108ms" },
       { step: "FAISS Slot Lookup", ms: "4ms", hit: true },
-      { step: "Groq Llama 3 TTFT", ms: "165ms" },
+      { step: "Groq Llama 3.1 TTFT", ms: "165ms" },
       { step: "Hindi Regional TTS", ms: "114ms" },
-      { step: "Mouth-to-Ear Total", ms: "409ms", hit: true },
+      { step: "Pipeline Budget Total", ms: "409ms", hit: true },
     ],
   },
   {
@@ -63,10 +63,10 @@ const SCENARIOS: Scenario[] = [
     waterfall: [
       { step: "Silero VAD", ms: "17ms" },
       { step: "Sarvam Streaming ASR", ms: "115ms" },
-      { step: "Approved FAQ Cache Hit", ms: "<2ms", hit: true },
+      { step: "FAQ Fast-Path (in-process)", ms: "<2ms", hit: true },
       { step: "Groq Token Bypass", ms: "0ms (Bypassed)", hit: true },
       { step: "Direct Audio Cache TTS", ms: "98ms" },
-      { step: "Mouth-to-Ear Total", ms: "232ms", hit: true },
+      { step: "Pipeline Budget Total", ms: "232ms", hit: true },
     ],
   },
   {
@@ -82,9 +82,9 @@ const SCENARIOS: Scenario[] = [
       { step: "Silero VAD", ms: "18ms" },
       { step: "Sarvam Streaming ASR", ms: "110ms" },
       { step: "CRM Policy Tool Check", ms: "14ms" },
-      { step: "Groq Llama 3 TTFT", ms: "170ms" },
+      { step: "Groq Llama 3.1 TTFT", ms: "170ms" },
       { step: "Regional TTS", ms: "112ms" },
-      { step: "Mouth-to-Ear Total", ms: "424ms", hit: true },
+      { step: "Pipeline Budget Total", ms: "424ms", hit: true },
     ],
   },
 ];
@@ -121,13 +121,13 @@ export default function VoiceSandbox() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center max-w-3xl mx-auto mb-16">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-subtle)] border border-[var(--accent)] text-xs font-mono font-semibold text-[var(--accent)] mb-4">
-            <span>INTERACTIVE INDUSTRY WORKFLOWS</span>
+            <span>SIMULATED INDUSTRY WORKFLOWS</span>
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-[var(--foreground)] mb-4">
-            Tested on real Indian customer conversations.
+            Modeled on Indian enterprise call workflows.
           </h2>
           <p className="text-base sm:text-lg text-[var(--muted-foreground)]">
-            Explore how OmniVoice executes multi-turn conversations with fast-path cache hits and explicit safety confirmation gates.
+            Explore how OmniVoice models multi-turn conversations with fast-path cache hits and explicit safety confirmation gates in a browser prototype.
           </p>
         </div>
 
@@ -175,7 +175,7 @@ export default function VoiceSandbox() {
               }`}
             >
               <Volume2 className="w-4 h-4 text-[var(--accent)]" />
-              <span>{playing ? "Playing Synthesis Audio..." : "Test Audio Speech"}</span>
+              <span>{playing ? "Playing Synthesis Audio..." : "Simulate Voice Turn"}</span>
             </button>
           </div>
 
@@ -183,7 +183,7 @@ export default function VoiceSandbox() {
           <div className="space-y-4 py-6">
             <div className="p-4 rounded-xl bg-[var(--card)] border border-[var(--border)]">
               <div className="text-[10px] font-mono font-semibold text-sky-400 mb-1">
-                CALLER TURN (INCOMING TELEPHONE AUDIO)
+                CALLER TURN (SIMULATED AUDIO)
               </div>
               <p className="text-sm font-medium text-[var(--foreground)]">“{activeScenario.callerTurn}”</p>
             </div>
@@ -211,8 +211,8 @@ export default function VoiceSandbox() {
           {/* Latency Waterfall Breakdown */}
           <div className="pt-4 border-t border-[var(--border)]">
             <div className="text-xs font-mono text-[var(--muted)] mb-3 flex items-center justify-between">
-              <span>REAL-TIME LATENCY TRACE WATERFALL</span>
-              <span className="text-[var(--accent)] font-semibold">Mouth-to-Ear Budget &lt;500ms</span>
+              <span>LATENCY BUDGET BREAKDOWN (PIPELINE TARGET)</span>
+              <span className="text-[var(--accent)] font-semibold">Pipeline Target &lt;500ms</span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
               {activeScenario.waterfall.map((w, i) => (
