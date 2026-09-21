@@ -65,11 +65,14 @@
 ### PHASE 1 — Real PSTN MVP Validation
 * **Goal**: Validate an authentic telephone conversation from a real cellular/landline phone across public PSTN networks.
 * **Key Deliverables**:
-  * Procure and configure a live Exotel virtual number or Twilio SIP line.
-  * Execute end-to-end inbound and outbound telephone calls through public carrier gateways.
-  * Instrument and record real-world mouth-to-ear latency across 100+ live turns.
-  * Verify acoustic barge-in interruption against real background noise and cellular compression.
-  * Verify speech accuracy across primary regional languages (Hindi and English (India)).
+  * Procure and configure a live Exotel virtual number or Twilio SIP line. *(Completed — Exotel virtual line +914954269065 operational)*
+  * Execute end-to-end inbound telephone calls through public carrier gateways. *(Completed — OV-005 verified across 3 physical mobile PSTN calls)*
+  * Stabilize full-duplex realtime turn taking and interruption. *(Completed — ADR-001 verified with 0 false interruptions in Call #3)*
+  * Instrument and record real-world mouth-to-ear latency across 50+ live turns. *(Tracked in OV-006)*
+  * Verify acoustic barge-in interruption against real cellular compression and background noise. *(Tracked in OV-007)*
+  * Verify speech accuracy across primary regional languages (Hindi and English (India)). *(Tracked in OV-008)*
+  * Eliminate voice synthesis sentence-boundary choppiness and markdown artifacts. *(Tracked in OV-023)*
+  * Implement natural dialogue redirection and graceful limitation handling. *(Tracked in OV-024)*
 
 ### PHASE 2 — Reliability & Provider Resilience
 * **Goal**: Prevent dropped calls and broken dialogues caused by upstream network jitter, rate-limiting, and cloud provider timeouts.

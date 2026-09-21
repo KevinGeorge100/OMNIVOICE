@@ -14,7 +14,7 @@
 | **OV-002** | Fix Console Call Details TypeError (`call.session_id`) | Bug | P0 | **Done** |
 | **OV-003** | Fix Carrier Webhook URL Display in Console Modal | Bug | P0 | **Done** |
 | **OV-004** | Audit & Reconcile Landing Page Marketing Claims | TechDebt | P1 | **Done** |
-| **OV-005** | Real PSTN End-to-End Telephone Validation Test | Spike | P0 | Planned |
+| **OV-005** | Real PSTN End-to-End Telephone Validation Test | Spike | P0 | **Done** |
 | **OV-006** | Instrument & Record Real-World Mouth-to-Ear Latency | Task | P1 | Planned |
 | **OV-007** | Real Acoustic Barge-in & Background Noise Rehearsal | Task | P1 | Planned |
 | **OV-008** | Real Multilingual Telephone Turn Verification | Task | P1 | Planned |
@@ -30,8 +30,10 @@
 | **OV-018** | Reconcile SDK Discrepancy (Build Python & TS SDKs) | Feature | P3 | Planned |
 | **OV-019** | Granular Multi-Tenant Role-Based Access Control | Security | P3 | Planned |
 | **OV-020** | Harden Exotel WebSocket Stream Authentication | Security | P2 | Planned |
-| **OV-021** | Antigravity Engineering Environment Hardening | Tooling | P0 | In Progress |
+| **OV-021** | Antigravity Engineering Environment Hardening | Tooling | P0 | **Done** |
 | **OV-022** | Landing Page Premium UI/UX & Frontend Upgrade | Enhancement | P2 | **Done** |
+| **OV-023** | Voice Continuity & Natural TTS Pipeline | Enhancement | P1 | Planned |
+| **OV-024** | Natural Dialogue & Graceful Limitation Handling | Enhancement | P1 | Planned |
 
 ---
 
@@ -98,14 +100,20 @@
 ### [OV-005] Real PSTN End-to-End Telephone Validation Test
 * **Type:** Spike
 * **Priority:** P0
-* **Status:** Planned
+* **Status:** **Done**
 * **Dependencies:** OV-002, OV-003
-* **Description:** Place an authentic telephone call from a mobile handset over a carrier network (Exotel or Twilio) through an HTTPS/WSS tunnel to the OmniVoice engine.
+* **Description:** Place authentic telephone calls from physical mobile handsets over a carrier network (Exotel) through an HTTPS/WSS tunnel to the OmniVoice engine.
 * **Acceptance Criteria:**
-  1. Real phone call connects and plays greeting within 1500 ms of answer.
-  2. Caller speech is transcribed and answered by AI with grounded context.
-  3. Call audio is clean without carrier packet underruns.
-  4. Complete call record and turn metrics logged in SQLite.
+  1. Real phone call connects and plays greeting within 1500 ms of answer. *(Verified: consistently ~250 ms across 3 physical calls; Call #3: 252.78 ms)*
+  2. Caller speech is transcribed and answered by AI with grounded context. *(Verified: Sarvam STT -> FAISS/RAG -> Groq LLM -> Sarvam TTS -> Exotel full-duplex loop across 4 turns in Call #3)*
+  3. Call audio is clean without carrier packet underruns. *(Verified: continuous 3200-byte linear16 8kHz framing)*
+  4. Complete call record and turn metrics logged in SQLite. *(Verified: persisted in `data/omnivoice.db` with `user_transcript`, `agent_response`, latency percentiles, and zero unhandled errors)*
+* **Validation Evidence & Operational Findings:**
+  * **3 Physical PSTN Validation Calls**: Executed over Exotel carrier line `+914954269065` to local server via Cloudflare tunnel.
+  * **Call #1**: Verified basic inbound media ingress, greeting audio, STT/TTS pipeline, and graceful termination.
+  * **Call #2**: Identified turn-taking thrashing where generation-stage transcript collisions caused false `interrupted: true` flags (8/10 turns). Successfully proved true playback barge-in ("Wait") and backchannel suppression ("yeah").
+  * **Call #3**: Validated ADR-001 turn-taking stabilization commit (`f1fec4aae6fda87c3280cd5d09e52f76366c0d59`). 109.77-second call, 4 completed conversational turns, 0 false interrupted turns, 0 false carrier clears, 0 false barge-in telemetry events, 0 socket/runtime errors, and full SQLite persistence.
+  * **Remaining Quality Scope**: Speech naturalness/choppiness tracked in OV-023; dialogue refusal naturalness tracked in OV-024. PSTN transport, WebSocket lifecycle, and turn-taking repeatability are proven.
 
 ---
 
@@ -310,7 +318,7 @@
 ### [OV-021] Antigravity Engineering Environment Hardening
 * **Type:** Tooling
 * **Priority:** P0
-* **Status:** In Progress
+* **Status:** **Done**
 * **Dependencies:** None
 * **Description:** Upgrade the repository's Antigravity development environment with a minimal set of deterministic engineering safeguards, project-specific workspace skills, CodeRabbit CLI review integration, and automated Definition of Done release gates before real PSTN validation.
 * **Acceptance Criteria:**
@@ -343,3 +351,46 @@
   8. `prefers-reduced-motion` respected for all animations.
   9. No OV-004 claim qualifications removed or weakened.
   10. `npm run build` passes, all backend tests pass.
+
+---
+
+### [OV-023] Voice Continuity & Natural TTS Pipeline
+* **Type:** Enhancement
+* **Priority:** P1
+* **Status:** Planned
+* **Dependencies:** OV-005
+* **Problem:** Real PSTN audio is intelligible and transport-stable, but long responses sound assembled/choppy. Evidence from PSTN Call #3:
+  * Sentence-by-sentence regex splitting triggers discrete TTS WebSocket flush cycles.
+  * Long architecture answer produced 7 separate, isolated TTS cycles with zero cross-sentence prosodic continuity.
+  * Raw Markdown formatting (`*`, `**`, `–`) reaches TTS and degrades vocalization.
+  * Blocking inter-sentence synthesis introduces audible gaps while downstream carrier buffers drain.
+  * Exotel 3200-byte partial frame null padding injects up to 137.5 ms of artificial silence per sentence fragment.
+  * Per-segment TTS continuity telemetry is currently missing from session metrics.
+* **Goal:** Make OmniVoice speech sound like one continuous natural telephone conversation while preserving low first-audio latency and full-duplex barge-in. Require architectural investigation before changing framing or provider behavior.
+* **Acceptance Criteria:**
+  1. Investigate and document TTS streaming, pipelining, and framing options before implementation.
+  2. Strip raw Markdown artifacts and formatting symbols before sending text to speech synthesis.
+  3. Eliminate audible artificial sentence-boundary acoustic gaps.
+  4. Implement continuous PCM handling without avoidable injected digital null silence.
+  5. Preserve low first-audio dispatch latency (<500 ms).
+  6. Preserve acoustic playback interruption and carrier clear dispatch.
+  7. Validate speech continuity subjectively on authentic physical PSTN calls.
+
+---
+
+### [OV-024] Natural Dialogue & Graceful Limitation Handling
+* **Type:** Enhancement
+* **Priority:** P1
+* **Status:** Planned
+* **Dependencies:** OV-005
+* **Problem:** Anti-hallucination grounding behavior is factual but conversationally mechanical. Observed failure pattern in PSTN Call #3:
+  * Caller asks unavailable fact (pricing) -> assistant states limitation -> assistant asks clarification (organization name) -> caller provides clarification -> assistant repeats essentially the same limitation.
+* **Goal:** Preserve strict factual grounding while making limitations and refusals natural, conversational, and helpful.
+* **Target Dialogue Policy:**
+  * `ACKNOWLEDGE -> STATE LIMITATION NATURALLY -> OFFER AVAILABLE HELP / NEXT BEST ACTION`
+* **Acceptance Criteria:**
+  1. Never fabricate unavailable information or hallucinate capabilities.
+  2. Avoid repetitive refusal loops and robotic verbatim reiteration.
+  3. Do not prompt the caller for clarification when the missing information cannot change the outcome.
+  4. Gracefully redirect the caller toward capabilities and business knowledge actually available on the line.
+  5. Maintain concise, telephone-friendly phrasing appropriate for voice dialogue.
