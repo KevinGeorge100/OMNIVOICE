@@ -7,59 +7,86 @@ This rule governs the standard development lifecycle for all AI-assisted enginee
 ## 1. Engineering Lifecycle
 
 ```text
-PRODUCT REQUIREMENT
-        ↓
-   BACKLOG ITEM
-        ↓
-DEFINITION OF READY
-        ↓
-  IMPLEMENTATION
-        ↓
- AUTOMATED TESTS
-        ↓
-MANUAL / INTEGRATION VALIDATION
-        ↓
-      REVIEW
-        ↓
-DEFINITION OF DONE
-        ↓
-      MERGE
+REQUIREMENT
+    ↓
+OV BACKLOG
+    ↓
+TASK BRANCH
+    ↓
+PLAN
+    ↓
+IMPLEMENT
+    ↓
+TEST
+    ↓
+RELEASE GATE (scripts/verify-dod.ps1)
+    ↓
+CODERABBIT REVIEW (cr review --uncommitted)
+    ↓
+TRIAGE FINDINGS
+    ↓
+FIX VALID IN-SCOPE FINDINGS
+    ↓
+RELEASE GATE AGAIN IF CODE CHANGED
+    ↓
+COMPLETION REPORT
+    ↓
+HUMAN APPROVAL
+    ↓
+COMMIT
+    ↓
+FAST-FORWARD MAIN
+    ↓
+PUSH
+    ↓
+DELETE TASK BRANCH
 ```
 
 ---
 
 ## 2. Phase Definitions
 
-### Step 1: Backlog Item Alignment
+### Step 1: Requirement & Backlog Alignment
 * Work must never proceed on vague requests. Every task must trace to a documented backlog item (`OV-XXX` in `docs/BACKLOG.md`) or define one before writing code.
 * Dependencies must be confirmed as satisfied.
 
-### Step 2: Definition of Ready (DoR)
-Before writing code, verify:
-1. Is the goal clear and bounded?
-2. Are the specific files and subsystems in scope identified?
-3. Are the non-goals explicitly stated?
-4. Are the acceptance criteria testable and objective?
+### Step 2: Task Branch Setup
+* Branch off an up-to-date, clean `main` (`task/<OV-ID>-description`). Never work directly on `main`.
 
-### Step 3: Implementation
+### Step 3: Planning
+* Confirm Definition of Ready: clear boundaries, identified files in scope, explicit non-goals, and objective testable criteria.
+* Create or update implementation plan before non-trivial changes.
+
+### Step 4: Implementation
 * Implement the minimum necessary changes to satisfy the acceptance criteria.
 * Maintain clean git hygiene (adhere to `.agents/rules/git_hygiene.md`).
 * Maintain theme conventions (adhere to `.agents/rules/theme_preference.md` — White/Light default).
+* Maintain strict architectural honesty (no synthetic claims, no scope expansion).
 
-### Step 4: Automated Testing
-* Run unit and integration tests using `pytest tests/`.
-* For frontend changes, run `npm run build` in `landing/` or Playwright checks in `tests/browser_check.py`.
+### Step 5: Testing
+* Run unit, streaming, and integration tests (`pytest tests/`).
+* Run frontend tests (`npm run build` in `landing/` and Playwright E2E in `tests/browser_check.py`).
 
-### Step 5: Manual / Integration Validation
-* Execute relevant scripts (e.g. `tests/model_check.py` or local curl/browser checks) to verify real behavior beyond unit mocks.
+### Step 6: Release Gate
+* Execute deterministic release gate: `powershell -ExecutionPolicy Bypass -File scripts/verify-dod.ps1`.
+* All 6 gates must pass: Pytest, Ruff (`omnivoice` and `tests`), Next.js build, Browser E2E, Git hygiene, and Whitespace integrity.
 
-### Step 6: Review & Definition of Done Verification
+### Step 7: Independent Review (CodeRabbit)
+* Run CodeRabbit CLI (`cr review --uncommitted`) on the uncommitted diff.
+* CodeRabbit serves as an independent reviewer and must never automatically edit, commit, or merge code.
+
+### Step 8: Triage & Fix
+* Triage all findings into: `VALID — IN SCOPE`, `VALID — NEW BACKLOG CANDIDATE`, `FALSE POSITIVE / NOT APPLICABLE`, or `INFORMATIONAL`.
+* Fix only valid in-scope items. If changes are made, re-execute `scripts/verify-dod.ps1`.
+
+### Step 9: Completion Report & Review
 * Audit changes against `docs/DEFINITION_OF_DONE.md`.
-* Ensure no secrets, no regressions, and no unsupported marketing claims were introduced.
+* Produce structured Task Completion Report per `.agents/rules/task_execution.md`.
+* Wait for explicit human approval before staging, committing, or merging.
 
-### Step 7: Completion & Merge
+### Step 10: Commit, Merge & Cleanup
+* Following human approval: commit to task branch, fast-forward merge to `main`, push to remote, and delete the task branch.
 * Update `docs/PROJECT_STATUS.md` and `docs/BACKLOG.md` to reflect the completed state.
-* Produce a structured Task Completion Report.
 
 ---
 

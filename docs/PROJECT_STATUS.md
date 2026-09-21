@@ -72,10 +72,11 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 
 ## 6. Current Testing Baseline
 
-* **Unit & Streaming Tests**: 26 automated tests passing via `pytest tests/`.
+* **Unit & Streaming Tests**: 28 automated tests passing via `pytest tests/`.
+* **Automated Release Gate**: `scripts/verify-dod.ps1` runs 6 deterministic gates (pytest, ruff, Next.js build, browser E2E, git hygiene, and whitespace check).
 * **Browser Test**: Playwright E2E script `tests/browser_check.py` validates console login, tenant creation, FAQ addition, line setup, and responsive layout.
 * **Model Check**: `tests/model_check.py` validates local Silero ONNX silence processing and FAISS retrieval.
-* **Testing Reality**: All 26 tests use mocks for external cloud providers (Sarvam and Groq) or run against synthetic in-memory fixtures. No live network call has been executed within automated CI.
+* **Testing Reality**: All 28 tests use mocks for external cloud providers (Sarvam and Groq) or run against synthetic in-memory fixtures. No live network call has been executed within automated CI.
 
 ---
 

@@ -30,6 +30,7 @@
 | **OV-018** | Reconcile SDK Discrepancy (Build Python & TS SDKs) | Feature | P3 | Planned |
 | **OV-019** | Granular Multi-Tenant Role-Based Access Control | Security | P3 | Planned |
 | **OV-020** | Harden Exotel WebSocket Stream Authentication | Security | P2 | Planned |
+| **OV-021** | Antigravity Engineering Environment Hardening | Tooling | P0 | In Progress |
 | **OV-022** | Landing Page Premium UI/UX & Frontend Upgrade | Enhancement | P2 | **Done** |
 
 ---
@@ -303,6 +304,25 @@
 * **Acceptance Criteria:**
   1. Permanent line credentials are no longer exposed in plaintext across infrastructure logs.
   2. Carrier connectivity remains fully compatible with Exotel's real carrier capabilities.
+
+---
+
+### [OV-021] Antigravity Engineering Environment Hardening
+* **Type:** Tooling
+* **Priority:** P0
+* **Status:** In Progress
+* **Dependencies:** None
+* **Description:** Upgrade the repository's Antigravity development environment with a minimal set of deterministic engineering safeguards, project-specific workspace skills, CodeRabbit CLI review integration, and automated Definition of Done release gates before real PSTN validation.
+* **Acceptance Criteria:**
+  1. GSD Core remains absent; no parallel task trackers created.
+  2. Official CodeRabbit CLI installed and verified.
+  3. Telephony validation workspace skill (`telephony-validation`) created.
+  4. Tenant security audit workspace skill (`tenant-security-audit`) created.
+  5. Release gate workspace skill (`release-gate`) and deterministic script `scripts/verify-dod.ps1` created.
+  6. Release gate script passes all 6 gates (pytest, ruff, Next.js build, browser E2E, git hygiene, whitespace check).
+  7. CodeRabbit CLI review executed against uncommitted task diff with findings triaged.
+  8. Governance workflow documented with authoritative engineering lifecycle.
+  9. Zero secrets exposed; no product/runtime behavior modified.
 
 ---
 
