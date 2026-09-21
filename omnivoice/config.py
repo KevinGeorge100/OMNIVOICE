@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     max_calls: int = Field(20, ge=1, le=1000)
     max_call_seconds: int = Field(1800, ge=30, le=14400)
     endpoint_silence_ms: int = Field(200, ge=100, le=2000)
+    continuation_interval_ms: int = Field(750, ge=100, le=2000)
     exotel_account_sid: str = ""
     exotel_api_key: SecretStr = SecretStr("")
     exotel_api_token: SecretStr = SecretStr("")

@@ -49,7 +49,7 @@ What backlog items (`OV-XXX`) or milestones implement this decision?
 
 | ADR # | Title | Status | Date |
 | :--- | :--- | :--- | :--- |
-| *(None)* | *Pending explicit human architectural decisions* | — | — |
+| [ADR-001](ADR-001-turn-taking-stabilization.md) | State-Aware Turn-Taking and Continuation Coalescing | Accepted | 2026-09-21 |
 
 > [!NOTE]
 > Per OmniVoice engineering governance rules, AI agents **must not invent ADRs** for architectural decisions that human stakeholders have not explicitly approved.

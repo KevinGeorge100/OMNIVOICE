@@ -7,6 +7,21 @@ def normalize(text: str) -> str:
     return " ".join(re.sub(r"[^\w\s]", " ", text.casefold()).split())
 
 
+class CancelReason(StrEnum):
+    PLAYBACK_INTERRUPT = "playback_interrupt"
+    SUPERSEDED = "superseded"
+    CONTROL_HALT = "control_halt"
+
+
+CONTROL_HALT_PHRASES: frozenset[str] = frozenset(
+    {"wait", "stop", "hold on", "pause", "cancel"}
+)
+
+
+def is_control_halt(text: str) -> bool:
+    return normalize(text) in CONTROL_HALT_PHRASES
+
+
 class State(StrEnum):
     IDLE = "Idle"
     LISTEN = "Listen"

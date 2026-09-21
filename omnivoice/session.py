@@ -7,7 +7,7 @@ import time
 from uuid import uuid4
 
 from .audio import Upsample8k
-from .duplex import FlexDuo, normalize
+from .duplex import CancelReason, FlexDuo, is_control_halt, normalize
 from .providers import SarvamSTT, SarvamTTS
 
 
@@ -34,6 +34,11 @@ class CallSession:
         self.last_prediction = 0.0
         self.last_voice = None
         self.read_results = {}
+        self.generation_id = 0
+        self.active_generation_id = None
+        self.cancellation_reasons = {}
+        self.pending_text = ""
+        self.pending_final_time = 0.0
 
     async def run(self):
         try:
@@ -130,6 +135,7 @@ class CallSession:
     async def interrupt(self):
         decided = time.perf_counter()
         if self.response:
+            self.cancellation_reasons[self.generation_id] = CancelReason.PLAYBACK_INTERRUPT
             self.response.cancel()
         self.marks.clear()  # clear acknowledgements must never arm a cancelled write.
         await self.transport.clear()
@@ -139,6 +145,15 @@ class CallSession:
             await asyncio.gather(self.response, return_exceptions=True)
         self.fsm.played()
         self.metrics["barge_in"].append({"decision_to_clear_sent_ms": (clear_sent - decided) * 1000})
+
+    async def _cancel_pending_generation(self, reason: CancelReason):
+        if self.response and not self.response.done():
+            self.cancellation_reasons[self.generation_id] = reason
+            task = self.response
+            self.response = None
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
+            await asyncio.gather(self.tts.cancel(), self.services.actions.cancel(self.id))
 
     async def transcripts(self):
         async for transcript in self.stt.events():
@@ -156,10 +171,51 @@ class CallSession:
                 self.slow = asyncio.create_task(self.speculate(text))
             if not transcript.final:
                 continue
-            # A finalized transcript may arrive while a previous response is pending.
-            if self.response and not self.response.done():
+
+            interval_s = self.config.get(
+                "continuation_interval_ms",
+                getattr(getattr(self.services, "settings", None), "continuation_interval_ms", 750),
+            ) / 1000.0
+
+            response_active = self.response is not None and not self.response.done()
+
+            # Generation-stage turn formulation: active response but audio not yet playing
+            if response_active and not self.fsm.playing:
+                if is_control_halt(text):
+                    await self._cancel_pending_generation(CancelReason.CONTROL_HALT)
+                    self.pending_text = ""
+                    self.pending_final_time = 0.0
+                    continue
+
+                if self.pending_final_time > 0 and (now - self.pending_final_time) <= interval_s:
+                    await self._cancel_pending_generation(CancelReason.SUPERSEDED)
+                    self.pending_text = f"{self.pending_text} {text}".strip()
+                    self.pending_final_time = now
+                    self.generation_id += 1
+                    self.response = asyncio.create_task(
+                        self.respond(self.pending_text, time.perf_counter(), self.generation_id)
+                    )
+                    continue
+
+                await self._cancel_pending_generation(CancelReason.SUPERSEDED)
+                self.pending_text = text
+                self.pending_final_time = now
+                self.generation_id += 1
+                self.response = asyncio.create_task(
+                    self.respond(text, time.perf_counter(), self.generation_id)
+                )
+                continue
+
+            # Playback or idle state
+            if response_active:
                 await self.interrupt()
-            self.response = asyncio.create_task(self.respond(text, time.perf_counter()))
+
+            self.pending_text = text
+            self.pending_final_time = now
+            self.generation_id += 1
+            self.response = asyncio.create_task(
+                self.respond(text, time.perf_counter(), self.generation_id)
+            )
 
     async def speculate(self, partial):
         try:
@@ -212,13 +268,15 @@ class CallSession:
         self.marks[mark] = action_id
         await self.transport.mark(mark, epoch)
 
-    async def respond(self, text, started):
+    async def respond(self, text, started, gen_id=0):
+        self.active_generation_id = gen_id
         metric = {
             "started": started,
             "last_voice": self.last_voice,
             "user_transcript": text,
             "agent_response": "",
         }
+        history_pushed = False
         try:
             confirmed = await self.services.actions.confirm(
                 self.tenant["id"], self.id, text, True, self.config["confirmation_phrases"]
@@ -234,6 +292,7 @@ class CallSession:
                 return
             await self.services.actions.cancel(self.id)
             self.history.append({"role": "user", "content": text})
+            history_pushed = True
             self.history = self.history[-20:]
             answer, cache_type, elapsed = await self.services.knowledge.fast_answer(self.tenant["id"], text)
             metric.update(cache=cache_type, retrieval_ms=elapsed)
@@ -264,7 +323,11 @@ class CallSession:
             messages = [{"role": "system", "content": system}, *self.history]
             await self.generate(messages, tools, metric)
         except asyncio.CancelledError:
-            metric["interrupted"] = True
+            reason = self.cancellation_reasons.get(gen_id, CancelReason.PLAYBACK_INTERRUPT)
+            if reason == CancelReason.PLAYBACK_INTERRUPT:
+                metric["interrupted"] = True
+            elif history_pushed and self.history and self.history[-1].get("content") == text:
+                self.history.pop()
             raise
         except Exception:
             self.metrics["errors"] += 1
@@ -275,10 +338,14 @@ class CallSession:
                 await self.transport.ws.close(code=1011)
             # Do not substitute fake speech or an ungrounded provider fallback.
         finally:
-            metric.pop("started", None)
-            metric.pop("last_voice", None)
-            self.metrics["turns"].append(metric)
-            self.metrics["turns"] = self.metrics["turns"][-500:]
+            reason = self.cancellation_reasons.pop(gen_id, None)
+            if reason not in {CancelReason.SUPERSEDED, CancelReason.CONTROL_HALT}:
+                metric.pop("started", None)
+                metric.pop("last_voice", None)
+                self.metrics["turns"].append(metric)
+                self.metrics["turns"] = self.metrics["turns"][-500:]
+            if self.active_generation_id == gen_id:
+                self.active_generation_id = None
 
     async def generate(self, messages, tools, metric):
         queue = asyncio.Queue(maxsize=8)
