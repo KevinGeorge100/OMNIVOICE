@@ -141,6 +141,9 @@ def main():
                         if name == "calls":
                             page.locator('#calls-list [data-call="c1234567890abcdef"]').click()
                             page.get_by_role("heading", name="Call Session c123456789", exact=True).wait_for()
+                            modal_text = page.locator("#modal-body").inner_text()
+                            assert "What are your business hours?" in modal_text
+                            assert "We are open 9am to 6pm Monday to Friday." in modal_text
                             page.locator("#close-modal").click()
                     page.get_by_role("button", name="Disconnect", exact=True).click()
                     page.set_viewport_size({"width": 390, "height": 844})

@@ -205,3 +205,41 @@ def test_evaluation_does_not_invent_empty_results():
     result = evaluate([])
     assert result["word_error_rate"] is None
     assert result["ttfa_ms"]["p95"] is None
+
+
+async def test_call_metrics_sqlite_roundtrip_and_console_compatibility(store):
+    tid = await tenant(store)
+    call_id = "test-call-telemetry"
+    metrics_payload = {
+        "turns": [
+            {
+                "user_transcript": "What is OmniVoice?",
+                "agent_response": "OmniVoice is a voice platform.",
+                "final_transcript_to_first_audio_sent_ms": 450.2,
+                "retrieval_ms": 12.5,
+                "interrupted": False,
+            },
+            {
+                "user_transcript": "Wait, one more thing",
+                "agent_response": "Sure, go ahead.",
+                "final_transcript_to_first_audio_sent_ms": 380.0,
+                "interrupted": True,
+            },
+        ],
+        "barge_in": [{"decision_to_clear_sent_ms": 0.5}],
+        "greeting_audio_sent": True,
+        "greeting_first_audio_ms": 250.0,
+    }
+    await store.execute(
+        "INSERT INTO calls (id, tenant_id, provider, status, started, ended, metrics) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (call_id, tid, "exotel", "completed", 1000.0, 1060.0, json.dumps(metrics_payload)),
+    )
+    row = await store.one("SELECT * FROM calls WHERE id=?", (call_id,))
+    assert row is not None
+    loaded_metrics = json.loads(row["metrics"])
+    assert len(loaded_metrics["turns"]) == 2
+    for orig, loaded in zip(metrics_payload["turns"], loaded_metrics["turns"]):
+        assert loaded["user_transcript"] == orig["user_transcript"]
+        assert loaded["agent_response"] == orig["agent_response"]
+        assert loaded["final_transcript_to_first_audio_sent_ms"] == orig["final_transcript_to_first_audio_sent_ms"]
+        assert loaded["interrupted"] == orig["interrupted"]

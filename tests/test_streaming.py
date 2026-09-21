@@ -192,3 +192,287 @@ async def test_audio_and_transcripts_continue_during_speech(monkeypatch):
     finally:
         await socket.queue.put({"event": "stop"})
         await asyncio.wait_for(task, 2)
+
+
+async def test_turn_metrics_persist_user_transcript_and_agent_response(monkeypatch):
+    class MockTTS:
+        def __init__(self, *_):
+            pass
+
+        async def speak(self, text):
+            yield b"\0" * 320
+
+        async def cancel(self):
+            pass
+
+        async def close(self):
+            pass
+
+    class MockSocket:
+        def __init__(self):
+            self.sent = []
+
+        async def send_json(self, item):
+            self.sent.append(item)
+
+    async def mock_confirm(*args, **kwargs):
+        return None
+
+    async def mock_cancel(*args, **kwargs):
+        pass
+
+    async def mock_fast_answer(tenant_id, text):
+        if text == "cached question":
+            return "Cached business answer.", "exact", 1.5
+        return None, "miss", 0.1
+
+    async def mock_retrieve(tenant_id, text):
+        return [{"title": "Doc", "text": "OmniVoice details"}]
+
+    async def mock_tools(tenant_id):
+        return []
+
+    async def mock_llm_stream(messages, tools):
+        for chunk in ["OmniVoice is ", "a telephone ", "voice platform."]:
+            yield {"content": chunk}
+
+    monkeypatch.setattr("omnivoice.session.SarvamTTS", MockTTS)
+    services = SimpleNamespace(
+        settings=Settings(_env_file=None),
+        actions=SimpleNamespace(confirm=mock_confirm, cancel=mock_cancel, tools=mock_tools),
+        knowledge=SimpleNamespace(fast_answer=mock_fast_answer, retrieve=mock_retrieve),
+        llm=SimpleNamespace(stream=mock_llm_stream),
+        vad=SimpleNamespace(session=lambda: None),
+    )
+    tenant = {
+        "id": "tenant-1",
+        "config": {
+            "language": "en-IN",
+            "greeting": "Hi",
+            "instructions": "Be helpful.",
+            "confirmation_phrases": ["yes confirm"],
+            "backchannels": ["yeah"],
+        },
+    }
+    socket = MockSocket()
+    session = CallSession("call-1", tenant, MediaTransport(socket, "exotel", "stream-1"), services)
+
+    # Turn 1: fast answer cache hit
+    await session.respond("cached question", time.perf_counter())
+    assert len(session.metrics["turns"]) == 1
+    t1 = session.metrics["turns"][0]
+    assert t1["user_transcript"] == "cached question"
+    assert t1["agent_response"] == "Cached business answer."
+    assert t1["cache"] == "exact"
+
+    # Turn 2: LLM streamed generation
+    await session.respond("What is OmniVoice?", time.perf_counter())
+    assert len(session.metrics["turns"]) == 2
+    t2 = session.metrics["turns"][1]
+    assert t2["user_transcript"] == "What is OmniVoice?"
+    assert t2["agent_response"] == "OmniVoice is a telephone voice platform."
+    assert t2["cache"] == "miss"
+    assert "llm_first_token_ms" in t2
+
+
+async def test_interrupted_turn_preserves_partial_response_and_valid_metric_structure(monkeypatch):
+    class MockTTS:
+        def __init__(self, *_):
+            pass
+
+        async def speak(self, text):
+            while True:
+                await asyncio.sleep(0.01)
+                yield b"\0" * 320
+
+        async def cancel(self):
+            pass
+
+        async def close(self):
+            pass
+
+    class MockSocket:
+        def __init__(self):
+            self.sent = []
+
+        async def send_json(self, item):
+            self.sent.append(item)
+
+    async def mock_confirm(*args, **kwargs):
+        return None
+
+    async def mock_cancel(*args, **kwargs):
+        pass
+
+    async def mock_fast_answer(tenant_id, text):
+        return None, "miss", 0.1
+
+    async def mock_retrieve(tenant_id, text):
+        return []
+
+    async def mock_tools(tenant_id):
+        return []
+
+    async def mock_llm_stream(messages, tools):
+        yield {"content": "Initial partial sentence. "}
+        yield {"content": "Second sentence that gets "}
+        await asyncio.sleep(1.0)
+        yield {"content": "interrupted."}
+
+    monkeypatch.setattr("omnivoice.session.SarvamTTS", MockTTS)
+    services = SimpleNamespace(
+        settings=Settings(_env_file=None),
+        actions=SimpleNamespace(confirm=mock_confirm, cancel=mock_cancel, tools=mock_tools),
+        knowledge=SimpleNamespace(fast_answer=mock_fast_answer, retrieve=mock_retrieve),
+        llm=SimpleNamespace(stream=mock_llm_stream),
+        vad=SimpleNamespace(session=lambda: None),
+    )
+    tenant = {
+        "id": "tenant-1",
+        "config": {
+            "language": "en-IN",
+            "greeting": "Hi",
+            "instructions": "Be helpful.",
+            "confirmation_phrases": ["yes confirm"],
+            "backchannels": ["yeah"],
+        },
+    }
+    socket = MockSocket()
+    session = CallSession("call-2", tenant, MediaTransport(socket, "exotel", "stream-2"), services)
+
+    # Launch respond as a task and cancel it after partial text is produced
+    task = asyncio.create_task(session.respond("Tell me a long story", time.perf_counter()))
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert len(session.metrics["turns"]) == 1
+    t = session.metrics["turns"][0]
+    assert t["user_transcript"] == "Tell me a long story"
+    assert t["agent_response"] == "Initial partial sentence. Second sentence that gets "
+    assert t["interrupted"] is True
+    assert "started" not in t
+    assert "last_voice" not in t
+    assert isinstance(t["agent_response"], str)
+    assert isinstance(t["user_transcript"], str)
+
+
+async def test_tool_calls_preserve_response_accumulation(monkeypatch):
+    class MockTTS:
+        def __init__(self, *_):
+            pass
+
+        async def speak(self, text):
+            yield b"\0" * 320
+
+        async def cancel(self):
+            pass
+
+        async def close(self):
+            pass
+
+    class MockSocket:
+        def __init__(self):
+            self.sent = []
+
+        async def send_json(self, item):
+            self.sent.append(item)
+
+    async def mock_confirm(*args, **kwargs):
+        return None
+
+    async def mock_cancel(*args, **kwargs):
+        pass
+
+    async def mock_fast_answer(tenant_id, text):
+        return None, "miss", 0.1
+
+    async def mock_retrieve(tenant_id, text):
+        return []
+
+    tools_list = [
+        {"name": "book_slot", "kind": "write", "description": "Book a slot", "parameters": {}},
+        {"name": "check_status", "kind": "read", "description": "Check status", "parameters": {}},
+    ]
+
+    async def mock_tools(tenant_id):
+        return tools_list
+
+    async def mock_get_tool(tenant_id, name):
+        return next(t for t in tools_list if t["name"] == name)
+
+    async def mock_stage(tenant_id, call_id, name, args):
+        return {"id": "action-1", "summary": "Reserve slot 9 AM."}
+
+    async def mock_read(tenant_id, name, args):
+        return {"status": "available"}
+
+    # Test 1: write tool with preamble
+    async def mock_llm_write(messages, tools):
+        if tools:
+            yield {"content": "I can help with that. "}
+            yield {
+                "tool_calls": [
+                    {
+                        "index": 0,
+                        "function": {"name": "book_slot", "arguments": '{"slot":"9am"}'},
+                    }
+                ]
+            }
+
+    monkeypatch.setattr("omnivoice.session.SarvamTTS", MockTTS)
+    services = SimpleNamespace(
+        settings=Settings(_env_file=None),
+        actions=SimpleNamespace(
+            confirm=mock_confirm,
+            cancel=mock_cancel,
+            tools=mock_tools,
+            get_tool=mock_get_tool,
+            stage=mock_stage,
+            read=mock_read,
+        ),
+        knowledge=SimpleNamespace(fast_answer=mock_fast_answer, retrieve=mock_retrieve),
+        llm=SimpleNamespace(stream=mock_llm_write),
+        vad=SimpleNamespace(session=lambda: None),
+    )
+    tenant = {
+        "id": "tenant-1",
+        "config": {
+            "language": "en-IN",
+            "greeting": "Hi",
+            "instructions": "Be helpful.",
+            "confirmation_phrases": ["yes confirm"],
+            "backchannels": ["yeah"],
+        },
+    }
+    session = CallSession("call-write", tenant, MediaTransport(MockSocket(), "exotel", "s"), services)
+    await session.respond("Book slot for me", time.perf_counter())
+    assert len(session.metrics["turns"]) == 1
+    t_write = session.metrics["turns"][0]
+    assert t_write["user_transcript"] == "Book slot for me"
+    assert "I can help with that." in t_write["agent_response"]
+    assert 'Reserve slot 9 AM. To confirm, say: "yes confirm".' in t_write["agent_response"]
+
+    # Test 2: read tool with preamble and recursive answer
+    async def mock_llm_read(messages, tools):
+        if tools:
+            yield {"content": "Let me check the status. "}
+            yield {
+                "tool_calls": [
+                    {
+                        "index": 0,
+                        "function": {"name": "check_status", "arguments": "{}"},
+                    }
+                ]
+            }
+        else:
+            yield {"content": "The slot is available."}
+
+    services.llm = SimpleNamespace(stream=mock_llm_read)
+    session2 = CallSession("call-read", tenant, MediaTransport(MockSocket(), "exotel", "s"), services)
+    await session2.respond("Check my status", time.perf_counter())
+    assert len(session2.metrics["turns"]) == 1
+    t_read = session2.metrics["turns"][0]
+    assert t_read["user_transcript"] == "Check my status"
+    assert t_read["agent_response"] == "Let me check the status. The slot is available."

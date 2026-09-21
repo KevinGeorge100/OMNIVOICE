@@ -213,7 +213,12 @@ class CallSession:
         await self.transport.mark(mark, epoch)
 
     async def respond(self, text, started):
-        metric = {"started": started, "last_voice": self.last_voice}
+        metric = {
+            "started": started,
+            "last_voice": self.last_voice,
+            "user_transcript": text,
+            "agent_response": "",
+        }
         try:
             confirmed = await self.services.actions.confirm(
                 self.tenant["id"], self.id, text, True, self.config["confirmation_phrases"]
@@ -224,6 +229,7 @@ class CallSession:
                     if confirmed["status"] == "committed"
                     else "I could not verify the outcome. Please ask the team to check before trying again."
                 )
+                metric["agent_response"] = message
                 await self.say(message, metric=metric)
                 return
             await self.services.actions.cancel(self.id)
@@ -233,6 +239,7 @@ class CallSession:
             metric.update(cache=cache_type, retrieval_ms=elapsed)
             if answer:
                 self.metrics["cache_hits"] += 1
+                metric["agent_response"] = answer
                 await self.say(answer, metric=metric)
                 self.history.append({"role": "assistant", "content": answer})
                 return
@@ -277,6 +284,7 @@ class CallSession:
         queue = asyncio.Queue(maxsize=8)
         tool_calls = {}
         full_text = []
+        prefix = metric.get("agent_response", "").strip()
 
         async def produce():
             buffer = ""
@@ -285,6 +293,8 @@ class CallSession:
                 if content and "llm_first_token_ms" not in metric:
                     metric["llm_first_token_ms"] = (time.perf_counter() - metric["started"]) * 1000
                 full_text.append(content)
+                accumulated = "".join(full_text)
+                metric["agent_response"] = f"{prefix} {accumulated}".strip() if prefix else accumulated
                 buffer += content
                 for call in delta.get("tool_calls", []):
                     entry = tool_calls.setdefault(call["index"], {"name": "", "arguments": ""})
@@ -302,9 +312,15 @@ class CallSession:
             while (sentence := await queue.get()) is not None:
                 await self.say(sentence, metric=metric)
 
-        async with asyncio.TaskGroup() as group:
-            group.create_task(produce())
-            group.create_task(consume())
+        try:
+            async with asyncio.TaskGroup() as group:
+                group.create_task(produce())
+                group.create_task(consume())
+        finally:
+            if full_text:
+                accumulated = "".join(full_text)
+                metric["agent_response"] = f"{prefix} {accumulated}".strip() if prefix else accumulated
+
         if len(tool_calls) > 1:
             raise ValueError("Only one action may be proposed per turn")
         for call in tool_calls.values():
@@ -317,6 +333,8 @@ class CallSession:
                 prompt = (
                     staged["summary"] + ' To confirm, say: "' + self.config["confirmation_phrases"][0] + '".'
                 )
+                current = metric.get("agent_response", "").strip()
+                metric["agent_response"] = f"{current} {prompt}".strip() if current else prompt
                 await self.say(prompt, action_id=staged["id"], metric=metric)
             else:
                 key = json.dumps([call["name"], arguments], sort_keys=True)
