@@ -2,7 +2,7 @@
 
 Enterprise telephony infrastructure for your S7 project and commercial product: a FastAPI media engine, a private enterprise console, and a runnable Exotel/Sarvam/Groq integration. All code lives in this folder.
 
-**This is a tested development implementation, not a certified production deployment. Sub-500ms turnaround and sub-50ms interruption remain targets. No live carrier call or licensed Fisher/FD-Bench evaluation has been run.**
+**This is a tested development implementation, not a certified production deployment. Sub-500ms turnaround and sub-50ms interruption remain targets. Real PSTN telephone validation has been verified over live carrier lines (see OV-005 in docs/PROJECT_STATUS.md); licensed Fisher/FD-Bench evaluation has not been run.**
 
 ## Run locally on Windows
 

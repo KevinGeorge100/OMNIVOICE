@@ -2,21 +2,33 @@ import asyncio
 import time
 from dataclasses import dataclass
 
-import faiss
 import numpy as np
 
 from .duplex import normalize
 
 
+def load_faiss():
+    """Lazy loader for FAISS vector engine.
+    Raises RuntimeError with actionable diagnostics if native dependencies cannot load.
+    """
+    try:
+        import faiss
+
+        return faiss
+    except Exception as exc:
+        raise RuntimeError(f"FAISS vector engine unavailable: {exc}") from exc
+
+
 class Embedder:
     def __init__(self, name, cache_dir):
+        self.faiss = load_faiss()
         from fastembed import TextEmbedding
 
         self.model = TextEmbedding(model_name=name, cache_dir=cache_dir, threads=1, local_files_only=True)
 
     def encode(self, texts):
         vectors = np.asarray(list(self.model.embed(texts)), dtype=np.float32)
-        faiss.normalize_L2(vectors)
+        self.faiss.normalize_L2(vectors)
         return vectors
 
 
@@ -66,7 +78,8 @@ class Knowledge:
                     matrix = self.embedder.encode(
                         [r["title"] if r["kind"] == "faq" else r["text"] for r in rows]
                     )
-                    idx = faiss.IndexFlatIP(matrix.shape[1])
+                    faiss_module = getattr(self.embedder, "faiss", None) or load_faiss()
+                    idx = faiss_module.IndexFlatIP(matrix.shape[1])
                     idx.add(matrix)
                     return idx, matrix
 
@@ -104,7 +117,8 @@ class Knowledge:
             vectors = await asyncio.to_thread(self.embedder.encode, [r["title"] for r in rows])
 
             def build():
-                idx = faiss.IndexFlatIP(vectors.shape[1])
+                faiss_module = getattr(self.embedder, "faiss", None) or load_faiss()
+                idx = faiss_module.IndexFlatIP(vectors.shape[1])
                 idx.add(vectors)
                 return idx
 

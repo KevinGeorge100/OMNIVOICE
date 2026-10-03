@@ -49,8 +49,11 @@ def create_app(settings=None):
                 embedder = await asyncio.to_thread(
                     Embedder, settings.embedding_model, settings.embedding_cache
                 )
-            except Exception:
-                services.model_error = "Embedding model unavailable; run model setup and restart"
+            except Exception as exc:
+                services.model_error = "Semantic retrieval unavailable; falling back to lexical retrieval"
+                logging.getLogger("omnivoice.rag").warning(
+                    "Semantic retrieval disabled: %s", exc
+                )
         if settings.silero_model.is_file():
             try:
                 services.vad = await asyncio.to_thread(SileroFactory, settings.silero_model)
@@ -119,13 +122,22 @@ def create_app(settings=None):
             missing.append("SILERO_MODEL_INVALID")
         if not settings.admin_token.get_secret_value():
             missing.append("ADMIN_TOKEN")
+
+        semantic_active = services.knowledge.embedder is not None
+        if semantic_active:
+            retrieval_mode = "FAISS semantic + exact FAQ"
+        elif settings.semantic_enabled:
+            retrieval_mode = (
+                "exact FAQ + lexical document retrieval (degraded: semantic backend unavailable)"
+            )
+        else:
+            retrieval_mode = "exact FAQ + lexical document retrieval"
+
         return {
             "voice_ready": not missing,
             "missing": missing,
-            "semantic_cache": services.knowledge.embedder is not None,
-            "retrieval_mode": "FAISS semantic + exact FAQ"
-            if services.knowledge.embedder
-            else "exact FAQ + lexical document retrieval",
+            "semantic_cache": semantic_active,
+            "retrieval_mode": retrieval_mode,
             "model_error": services.model_error,
             "outbound_enabled": settings.enable_outbound,
             "active_calls": len(services.active),

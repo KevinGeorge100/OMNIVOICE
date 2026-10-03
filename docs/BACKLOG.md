@@ -34,6 +34,7 @@
 | **OV-022** | Landing Page Premium UI/UX & Frontend Upgrade | Enhancement | P2 | **Done** |
 | **OV-023** | Voice Continuity & Natural TTS Pipeline | Enhancement | P1 | Planned |
 | **OV-024** | Natural Dialogue & Graceful Limitation Handling | Enhancement | P1 | Planned |
+| **OV-025** | Unblock Windows Release Gate & Make Semantic Retrieval Loading Resilient | Bug | P0 | **Done** |
 
 ---
 
@@ -394,3 +395,22 @@
   3. Do not prompt the caller for clarification when the missing information cannot change the outcome.
   4. Gracefully redirect the caller toward capabilities and business knowledge actually available on the line.
   5. Maintain concise, telephone-friendly phrasing appropriate for voice dialogue.
+
+---
+
+### [OV-025] Unblock Windows Release Gate & Make Semantic Retrieval Loading Resilient
+* **Type:** Bug
+* **Priority:** P0
+* **Status:** **Done**
+* **Dependencies:** None
+* **Description:**
+  * FAISS was eagerly imported at top-level module import time in `omnivoice/rag.py`.
+  * On the Windows development host, OS Application Control (WDAC/AppLocker) prevents `_swigfaiss.pyd` from loading, raising `ImportError` on any import of `omnivoice.app` or `omnivoice.rag` even when `OMNI_SEMANTIC_ENABLED=false`.
+  * This blocked `tests/test_api.py`, `tests/test_core.py`, `tests/browser_check.py`, and `scripts/verify-dod.ps1`.
+* **Acceptance Criteria:**
+  1. Module import of `omnivoice.rag` and `omnivoice.app` does not eagerly import FAISS.
+  2. When `semantic_enabled=False`, OmniVoice starts normally with exact FAQ and lexical document retrieval, never importing FAISS.
+  3. When `semantic_enabled=True` and FAISS is available, semantic retrieval behavior and indexing operate unchanged.
+  4. When `semantic_enabled=True` but FAISS is unavailable, the system explicitly reports degraded retrieval in readiness and diagnostics (`SEMANTIC_BACKEND_UNAVAILABLE`) while safely degrading to lexical retrieval without crashing.
+  5. Deterministic unit and integration tests verify all semantic states and module import independence.
+  6. All 6 release gates in `scripts/verify-dod.ps1` pass on Windows.

@@ -2,7 +2,7 @@
 
 **Current Maturity Level:** **MINIMUM VIABLE PRODUCT (MVP) — Real PSTN Verified**
 **Document Status:** Living reality baseline
-**Last Updated:** 2026-09-21
+**Last Updated:** 2026-10-03
 
 ---
 
@@ -78,7 +78,7 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 
 ## 6. Current Testing Baseline
 
-* **Unit & Streaming Tests**: 40 automated tests passing via `pytest tests/`.
+* **Unit & Streaming Tests**: 46 automated tests passing via `pytest tests/` (including 6 deterministic semantic resilience tests).
 * **Automated Release Gate**: `scripts/verify-dod.ps1` runs 6 deterministic gates (pytest, ruff, Next.js build, browser E2E, git hygiene, and whitespace check).
 * **Browser Test**: Playwright E2E script `tests/browser_check.py` validates console login, tenant creation, FAQ addition, line setup, and responsive layout.
 * **Model Check**: `tests/model_check.py` validates local Silero ONNX silence processing and FAISS retrieval.
@@ -90,5 +90,6 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 
 The primary MVP technical validation hurdle (real PSTN carriage and turn-taking) is **RESOLVED**. The active engineering priorities are:
 
-1. **Voice Continuity & Natural TTS Pipelining (OV-023)**: Eliminating sentence-boundary choppiness and markdown artifacts to achieve natural spoken cadence.
-2. **Natural Dialogue & Graceful Limitation Handling (OV-024)**: Transforming robotic refusals into conversational redirection while preserving factual grounding.
+1. ~~**Windows Release Gate Unblock & Semantic Resilience (OV-025)**~~: *(Resolved)* Lazy/resilient FAISS loading unblocking deterministic release gates on Windows hosts.
+2. **Voice Continuity & Natural TTS Pipelining (OV-023)**: Eliminating sentence-boundary choppiness and markdown artifacts to achieve natural spoken cadence.
+3. **Natural Dialogue & Graceful Limitation Handling (OV-024)**: Transforming robotic refusals into conversational redirection while preserving factual grounding.
