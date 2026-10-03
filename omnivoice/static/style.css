@@ -6,6 +6,23 @@
   src: url('/static/jakarta-regular.ttf') format('truetype');
 }
 
+/* Compact, optional per-turn voice diagnostics; older call records remain unchanged. */
+.turn-voice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 14px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.turn-voice b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 @font-face {
   font-family: 'Plus Jakarta Sans';
   font-style: normal;

@@ -672,13 +672,24 @@ document.addEventListener("click", async event => {
         openCallInspector(call);
         return;
       }
-      const turns = (call.metrics?.turns || []).map((t, idx) => `
+      const turns = (call.metrics?.turns || []).map((t, idx) => {
+        const voice = [
+          ["Speech segments", t.response_segment_count],
+          ["TTS segments", t.tts_segment_count],
+          ["First TTS audio", Number.isFinite(t.first_tts_ttfa_ms) ? `${Math.round(t.first_tts_ttfa_ms)} ms` : null],
+          ["Audio sent", Number.isFinite(t.outbound_audio_bytes) ? `${t.outbound_audio_bytes} bytes` : null],
+          ["Final padding", Number.isFinite(t.padded_tail_bytes) ? `${t.padded_tail_bytes} bytes` : null],
+          ["Interrupted", t.interrupted ? "Yes" : null]
+        ].filter(([, value]) => value !== null && value !== undefined);
+        return `
         <div class="turn-record">
-          <div class="turn-head"><b>Turn ${idx + 1}</b><span>${t.final_transcript_to_first_audio_sent_ms || "--"} ms turnaround</span></div>
+          <div class="turn-head"><b>Turn ${idx + 1}</b><span>${Number.isFinite(t.final_transcript_to_first_audio_sent_ms) ? `${Math.round(t.final_transcript_to_first_audio_sent_ms)} ms server TTFA` : "TTFA unavailable"}</span></div>
           <p><strong>Caller:</strong> ${esc(t.user_transcript || "—")}</p>
           <p><strong>Reply:</strong> ${esc(t.agent_response || "—")}</p>
+          ${voice.length ? `<div class="turn-voice">${voice.map(([label, value]) => `<span>${esc(label)}: <b>${esc(value)}</b></span>`).join("")}</div>` : ""}
         </div>
-      `).join("");
+      `;
+      }).join("");
       modal(`Call Session ${esc((call.id || "").slice(0, 10))}`, turns || "<p>No recorded turns.</p>", null);
     }
   } catch (error) {

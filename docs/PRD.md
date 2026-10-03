@@ -1,7 +1,7 @@
 # OmniVoice — Product Requirements Document
 
-Version: 1.3  
-Updated: 2026-09-20  
+Version: 1.4
+Updated: 2026-10-03
 Status: Living product baseline; engineering targets are not certification claims  
 Related document: [Project Vision & Mission](VISION_AND_MISSION.md)
 
@@ -52,6 +52,10 @@ Connection requirements:
 - Respect provider concurrency, keepalive and cancellation constraints.
 - Authenticate media connections and isolate calls and tenants.
 - Distinguish carrier, transport, recognition, inference and synthesis failures.
+- Normalize visual response formatting before speech without changing the persisted raw answer.
+- Stream the first useful phrase before the whole answer completes; keep later phrases long enough for coherent prosody.
+- Reuse one TTS utterance stream across adjacent phrases and flush once at utterance end where the provider protocol permits.
+- Carry PCM across provider chunk boundaries and pad only a final incomplete carrier frame. Invalidate pending text and PCM when a generation is interrupted.
 
 Correlate these observable events by call and turn: connection accepted, first incoming audio, caller end-of-speech reference, STT partial/final arrival, retrieval start/end, first inference token, first TTS audio, first carrier-bound audio and first caller-audible audio where independently measurable.
 
@@ -65,6 +69,8 @@ Next-sprint acceptance:
 - Produce correlated timings for successful and failed calls.
 - Separate cold-start and warm-session behavior.
 - Identify unavailable measurements instead of estimating them.
+- Record segment count, first segment length, first TTS audio time, outbound audio bytes, final padding and interruption state per turn.
+- Demonstrate no intermediate padding and no stale audio after carrier clear in deterministic tests; compare audible continuity on real PSTN before claiming improvement.
 
 ### 5.2 Conversation behavior
 
@@ -255,6 +261,7 @@ Treat user-reported, instrumented, simulated and independently verified results 
 |---|---|---|---|---|
 | 1.0 | 2026-09-19 | 1–11 | Initial PRD from locked master scope | S7 demonstration distinguished from enterprise release |
 | 1.1 | 2026-09-19 | 5.1, 5.3, 5.5, 7, 9–12 | General streaming/performance requirements → explicit stage boundaries, evidence classes, percentile reporting, cache comparison and interruption acceptance tests | Instrumentation and controlled comparisons enter current sprint; production load/failover remain enterprise validation; all targets preserved |
+| 1.4 | 2026-10-03 | 5.1, 7 | Sentence-by-sentence TTS flush and per-chunk padding → streaming phrase delivery, one utterance flush, continuous PCM framing and turn-level continuity telemetry | OV-023 implemented and locally tested; audible PSTN improvement and mouth-to-ear targets remain unverified pending controlled calls |
 
 Version 1.1 also records user-confirmed greeting/conversation functionality, ongoing naturalness work and the agile update protocol. The reported 15–25s/3–6s figures are not adopted as achieved OmniVoice end-to-end benchmarks.
 

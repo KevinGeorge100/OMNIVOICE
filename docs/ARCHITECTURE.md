@@ -106,14 +106,19 @@ OmniVoice is currently implemented as a **stateful, single-worker asynchronous v
    * Searches in-memory `faiss.IndexFlatIP` across 1000-character document chunks.
 8. **Groq LLM Reasoning (`omnivoice/providers.py`)**:
    * Sends conversation history and grounded context to `llama-3.1-8b-instant`.
-   * Buffers streaming tokens and splits text into discrete sentences upon punctuation (`[.!?।]\s`).
+   * Preserves the raw answer for transcripts while a deterministic speech normalizer removes visual Markdown and symbols before TTS.
+   * Streams useful phrases with punctuation and minimum length thresholds; the first phrase can begin before the full answer exists.
 9. **Sarvam TTS Synthesis (`omnivoice/providers.py`)**:
-   * Dispatches sentences to Sarvam TTS WebSocket (`wss://api.sarvam.ai/text-to-speech/ws`).
+   * Sends adjacent phrases as text chunks on one Sarvam TTS WebSocket (`wss://api.sarvam.ai/text-to-speech/ws`) and flushes once at the end of the utterance.
+   * The provider's configured minimum buffer can begin synthesis before the final flush; audio reception and text production run concurrently.
    * Operates an active socket and a warm standby socket to allow instantaneous turn cancellation without socket renegotiation.
 10. **Carrier Playback Egress (`omnivoice/transport.py`)**:
-    * Frames linear PCM into carrier-specific chunks (3200 bytes for Exotel, 320 bytes for Twilio).
-    * Sends playback marks to synchronize write-action arming.
-    * Sends `{"event": "clear"}` envelopes upon interruption to clear carrier audio buffers.
+   * Accumulates 8 kHz linear PCM across provider chunks and phrases; Exotel sends 3200-byte PCM frames, while Twilio sends 320-byte PCM frames encoded as 160-byte G.711 mu-law payloads. Only the final incomplete utterance frame is padded.
+   * Sends playback marks to synchronize write-action arming.
+   * Sends `{"event": "clear"}` envelopes upon interruption to clear carrier audio buffers.
+   * Cancellation discards unsent PCM and text for that generation; generation-stage supersession remains distinct from playback interruption (ADR-001).
+
+OV-023 continuity changes have deterministic local tests. Their effect on audible cadence, physical first-audio latency and barge-in timing still requires a real PSTN comparison; server TTFA is not a physical mouth-to-ear measurement.
 
 ### 1.2 Persistence & In-Memory State
 * **Local SQLite Store (`omnivoice/store.py`)**:

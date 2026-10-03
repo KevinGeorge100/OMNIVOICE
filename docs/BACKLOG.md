@@ -32,7 +32,7 @@
 | **OV-020** | Harden Exotel WebSocket Stream Authentication | Security | P2 | Planned |
 | **OV-021** | Antigravity Engineering Environment Hardening | Tooling | P0 | **Done** |
 | **OV-022** | Landing Page Premium UI/UX & Frontend Upgrade | Enhancement | P2 | **Done** |
-| **OV-023** | Voice Continuity & Natural TTS Pipeline | Enhancement | P1 | Planned |
+| **OV-023** | Voice Continuity & Natural TTS Pipeline | Enhancement | P1 | IMPLEMENTED — AWAITING REAL PSTN VALIDATION |
 | **OV-024** | Natural Dialogue & Graceful Limitation Handling | Enhancement | P1 | Planned |
 | **OV-025** | Unblock Windows Release Gate & Make Semantic Retrieval Loading Resilient | Bug | P0 | **Done** |
 | **OV-026** | Premium Real-Time Operations Console | Enhancement | P1 | COMPLETE |
@@ -360,7 +360,7 @@
 ### [OV-023] Voice Continuity & Natural TTS Pipeline
 * **Type:** Enhancement
 * **Priority:** P1
-* **Status:** Planned
+* **Status:** IMPLEMENTED — AWAITING REAL PSTN VALIDATION
 * **Dependencies:** OV-005
 * **Problem:** Real PSTN audio is intelligible and transport-stable, but long responses sound assembled/choppy. Evidence from PSTN Call #3:
   * Sentence-by-sentence regex splitting triggers discrete TTS WebSocket flush cycles.

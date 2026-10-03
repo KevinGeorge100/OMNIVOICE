@@ -37,3 +37,36 @@ class Upsample8k:
         output[1::2] = x
         self.previous = int(x[-1])
         return output.tobytes()
+
+
+class PCMFrameBuffer:
+    """Carry raw PCM across synthesis chunks; pad once at utterance end."""
+
+    def __init__(self, frame_size: int):
+        if frame_size <= 0 or frame_size % 2:
+            raise ValueError("PCM frame size must contain complete samples")
+        self.frame_size = frame_size
+        self.pending = bytearray()
+
+    def push(self, pcm: bytes) -> list[bytes]:
+        if len(pcm) % 2:
+            raise ValueError("PCM must contain complete 16-bit samples")
+        self.pending.extend(pcm)
+        full = len(self.pending) // self.frame_size
+        frames = [
+            bytes(self.pending[offset : offset + self.frame_size])
+            for offset in range(0, full * self.frame_size, self.frame_size)
+        ]
+        del self.pending[: full * self.frame_size]
+        return frames
+
+    def finish(self) -> tuple[bytes | None, int]:
+        if not self.pending:
+            return None, 0
+        padding = self.frame_size - len(self.pending)
+        frame = bytes(self.pending) + b"\0" * padding
+        self.pending.clear()
+        return frame, padding
+
+    def clear(self) -> None:
+        self.pending.clear()

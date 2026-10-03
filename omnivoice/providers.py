@@ -130,7 +130,7 @@ class SarvamTTS:
                     with contextlib.suppress(Exception):
                         await ws.send('{"type":"ping"}')
 
-    async def speak(self, text):
+    async def _voice_socket(self):
         if self.active is None:
             self.active = self.spare
             self.spare = None
@@ -141,25 +141,81 @@ class SarvamTTS:
                 if self.active is None:
                     self.active = await self.connect()
             self.refill = asyncio.create_task(self._refill())
-        ws = self.active
-        await ws.send(json.dumps({"type": "text", "data": {"text": text}}))
-        await ws.send('{"type":"flush"}')
-        while True:
-            raw = await asyncio.wait_for(ws.recv(), timeout=15)
-            event = json.loads(raw)
-            if event.get("type") == "audio":
-                data = event["data"]
-                content_type = data.get("content_type", "").lower()
-                if any(codec in content_type for codec in ("mp3", "mpeg", "wav", "ogg", "flac")):
-                    raise ValueError("TTS did not return the requested raw PCM format")
-                pcm = base64.b64decode(data["audio"], validate=True)
-                if len(pcm) % 2 or pcm.startswith(b"RIFF"):
-                    raise ValueError("Invalid raw PCM from TTS")
-                yield pcm
-            elif event.get("type") == "event" and event.get("data", {}).get("event_type") == "final":
-                return
-            elif event.get("type") == "error":
-                raise RuntimeError("TTS provider error")
+        return self.active
+
+    async def speak(self, text):
+        async def one():
+            yield text
+
+        async for pcm in self.stream_text(one()):
+            yield pcm
+
+    async def stream_text(self, texts):
+        """Send adjacent text chunks on one socket; flush once per utterance.
+
+        Sarvam processes chunks at min_buffer_size; its documented final event
+        follows flush. A separate sender lets audio arrive before the LLM ends.
+        """
+        ws = await self._voice_socket()
+        flushed = False
+
+        async def feed():
+            nonlocal flushed
+            async for text in texts:
+                await ws.send(json.dumps({"type": "text", "data": {"text": text}}))
+            await ws.send('{"type":"flush"}')
+            flushed = True
+
+        sender = asyncio.create_task(feed())
+        receiver = None
+        finished = False
+        try:
+            while True:
+                receiver = asyncio.create_task(ws.recv())
+                pending = {receiver, sender} if sender else {receiver}
+                if sender:
+                    done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                else:
+                    done = set()
+                if sender and sender in done:
+                    await sender  # propagate text-send failures immediately
+                    sender = None
+                # Do not cancel an in-flight recv when the sender finishes:
+                # the provider may have already delivered the first PCM chunk.
+                # A long LLM pause must not time out an otherwise healthy TTS
+                # stream. Once the final flush is sent, bound final-audio wait.
+                raw = await receiver if sender else await asyncio.wait_for(receiver, timeout=15)
+                event = json.loads(raw)
+                receiver = None
+                if event.get("type") == "audio":
+                    data = event["data"]
+                    content_type = data.get("content_type", "").lower()
+                    if any(codec in content_type for codec in ("mp3", "mpeg", "wav", "ogg", "flac")):
+                        raise ValueError("TTS did not return the requested raw PCM format")
+                    pcm = base64.b64decode(data["audio"], validate=True)
+                    if len(pcm) % 2 or pcm.startswith(b"RIFF"):
+                        raise ValueError("Invalid raw PCM from TTS")
+                    yield pcm
+                elif event.get("type") == "event" and event.get("data", {}).get("event_type") == "final":
+                    if not flushed:
+                        raise RuntimeError("TTS ended before the utterance flush")
+                    if sender:
+                        await sender
+                        sender = None
+                    finished = True
+                    return
+                elif event.get("type") == "error":
+                    raise RuntimeError("TTS provider error")
+        finally:
+            for task in (sender, receiver):
+                if task and not task.done():
+                    task.cancel()
+            await asyncio.gather(*(t for t in (sender, receiver) if t), return_exceptions=True)
+            if not finished and self.active is ws:
+                # No cancellation message exists in the provider protocol. A
+                # partial stream may contain stale audio and is never reused.
+                self.active = None
+                await ws.close()
 
     async def cancel(self):
         ws, self.active = self.active, None

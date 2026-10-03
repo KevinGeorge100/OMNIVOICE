@@ -14,6 +14,15 @@ from omnivoice.session import CallSession
 from omnivoice.transport import MediaTransport
 
 
+async def wait_for_carrier_audio(socket):
+    """Wait for actual playback instead of assuming a fixed TTS chunk schedule."""
+    async def ready():
+        while not any(item.get("event") == "media" for item in socket.sent):
+            await asyncio.sleep(0.005)
+
+    await asyncio.wait_for(ready(), 1)
+
+
 class ProviderSocket:
     def __init__(self, incoming):
         self.incoming = iter(incoming)
@@ -178,7 +187,7 @@ async def test_audio_and_transcripts_continue_during_speech(monkeypatch):
     session.last_prediction = time.monotonic() + 100
     task = asyncio.create_task(session.run())
     try:
-        await asyncio.sleep(0.05)
+        await wait_for_carrier_audio(socket)
         await socket.queue.put(
             {"event": "media", "media": {"payload": base64.b64encode(b"\0" * 640).decode()}}
         )
@@ -553,7 +562,7 @@ async def test_playback_barge_in_wait_and_stop_sends_exactly_one_clear(monkeypat
         session.last_prediction = time.monotonic() + 100
         task = asyncio.create_task(session.run())
         try:
-            await asyncio.sleep(0.04)
+            await wait_for_carrier_audio(sock)
             # Provide VAD frame so session.fsm.candidate becomes True during greeting playback
             await sock.queue.put({"event": "media", "media": {"payload": base64.b64encode(b"\0" * 640).decode()}})
             await asyncio.sleep(0.02)
@@ -645,7 +654,7 @@ async def test_playback_backchannel_yeah_suppressed_no_clear(monkeypatch):
     session.last_prediction = time.monotonic() + 100
     task = asyncio.create_task(session.run())
     try:
-        await asyncio.sleep(0.04)
+        await wait_for_carrier_audio(sock)
         await sock.queue.put({"event": "media", "media": {"payload": base64.b64encode(b"\0" * 640).decode()}})
         await asyncio.sleep(0.02)
         assert session.fsm.playing is True

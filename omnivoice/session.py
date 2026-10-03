@@ -2,13 +2,13 @@ import asyncio
 import contextlib
 import json
 import logging
-import re
 import time
 from uuid import uuid4
 
-from .audio import Upsample8k
+from .audio import PCMFrameBuffer, Upsample8k
 from .duplex import CancelReason, FlexDuo, is_control_halt, normalize
 from .providers import SarvamSTT, SarvamTTS
+from .speech import SpeechSegmenter, normalize_speech
 
 
 class CallEnded(Exception):
@@ -246,27 +246,112 @@ class CallSession:
             self.metrics["speculation_errors"] = self.metrics.get("speculation_errors", 0) + 1
 
     async def say(self, text, action_id=None, metric=None):
-        self.fsm.speaking()
+        async def one():
+            yield text
+
+        await self.say_stream(one(), action_id=action_id, metric=metric)
+
+    async def say_stream(self, segments, action_id=None, metric=None):
+        """One utterance owns one TTS stream, PCM tail, carrier epoch and mark."""
         epoch = self.transport.epoch
-        async for pcm in self.tts.speak(text):
-            if epoch != self.transport.epoch:
-                return
-            self.fsm.speaking()
+        owner_generation = self.active_generation_id
 
-            def first_sent():
-                if metric is not None and "final_transcript_to_first_audio_sent_ms" not in metric:
-                    metric["final_transcript_to_first_audio_sent_ms"] = (
-                        time.perf_counter() - metric["started"]
+        def owned():
+            return epoch == self.transport.epoch and owner_generation == self.active_generation_id
+
+        frames = PCMFrameBuffer(self.transport.frame_size)
+        tts_started = None
+
+        async def prepared():
+            nonlocal tts_started
+            async for raw in segments:
+                if not owned():
+                    return
+                spoken = normalize_speech(raw)
+                if metric is not None:
+                    metric["speech_normalization_changed"] = (
+                        metric.get("speech_normalization_changed", False) or spoken != raw.strip()
+                    )
+                if not spoken:
+                    continue
+                if tts_started is None:
+                    tts_started = time.perf_counter()
+                if metric is not None:
+                    metric["response_segment_count"] = metric.get("response_segment_count", 0) + 1
+                    metric["tts_segment_count"] = metric.get("tts_segment_count", 0) + 1
+                    metric.setdefault("first_segment_chars", len(spoken))
+                    metric["total_speech_chars"] = metric.get("total_speech_chars", 0) + len(spoken)
+                yield spoken
+
+        # Prime the first segment before opening the provider receiver. This
+        # avoids a no-text flush if the model emits formatting only.
+        iterator = prepared()
+        first = await anext(iterator, None)
+        if first is None or not owned():
+            return
+        # A pending TTS response is still generation until carrier audio leaves.
+        # This keeps ADR-001 supersession separate from a true playback barge-in.
+
+        async def text_stream():
+            yield first
+            async for item in iterator:
+                yield item
+
+        async def audio_stream():
+            if hasattr(self.tts, "stream_text"):
+                async for pcm in self.tts.stream_text(text_stream()):
+                    yield pcm
+            else:  # Minimal test doubles implement only the original speak method.
+                async for item in text_stream():
+                    async for pcm in self.tts.speak(item):
+                        yield pcm
+
+        playback_started = False
+
+        def first_sent():
+            nonlocal playback_started
+            if not playback_started:
+                self.fsm.speaking()
+                playback_started = True
+            if metric is not None and "final_transcript_to_first_audio_sent_ms" not in metric:
+                metric["final_transcript_to_first_audio_sent_ms"] = (
+                    time.perf_counter() - metric["started"]
+                ) * 1000
+                if metric.get("last_voice") is not None:
+                    metric["last_vad_speech_to_first_audio_sent_ms"] = (
+                        time.perf_counter() - metric["last_voice"]
                     ) * 1000
-                    if metric.get("last_voice") is not None:
-                        metric["last_vad_speech_to_first_audio_sent_ms"] = (
-                            time.perf_counter() - metric["last_voice"]
-                        ) * 1000
 
-            await self.transport.audio(pcm, epoch, first_sent)
+        try:
+            async for pcm in audio_stream():
+                if not owned():
+                    return
+                if metric is not None and "first_tts_ttfa_ms" not in metric:
+                    metric["first_tts_ttfa_ms"] = (time.perf_counter() - tts_started) * 1000
+                for frame in frames.push(pcm):
+                    if not await self.transport.send_frame(frame, epoch, first_sent, owned):
+                        return
+                    if metric is not None:
+                        metric["outbound_audio_bytes"] = metric.get("outbound_audio_bytes", 0) + len(
+                            frame
+                        )
+            if not owned():
+                return
+            tail, padding = frames.finish()
+            if tail:
+                if not await self.transport.send_frame(tail, epoch, first_sent, owned):
+                    return
+                if metric is not None:
+                    metric["outbound_audio_bytes"] = metric.get("outbound_audio_bytes", 0) + len(tail)
+                    metric["padded_tail_bytes"] = metric.get("padded_tail_bytes", 0) + padding
+        finally:
+            frames.clear()  # Interrupted generations never donate PCM to a new turn.
+        if not owned():
+            return
         mark = uuid4().hex
         self.marks[mark] = action_id
-        await self.transport.mark(mark, epoch)
+        if not await self.transport.mark(mark, epoch, owned):
+            self.marks.pop(mark, None)
 
     async def respond(self, text, started, gen_id=0):
         self.active_generation_id = gen_id
@@ -374,7 +459,7 @@ class CallSession:
         prefix = metric.get("agent_response", "").strip()
 
         async def produce():
-            buffer = ""
+            segmenter = SpeechSegmenter()
             async for delta in self.services.llm.stream(messages, tools):
                 content = delta.get("content") or ""
                 if content and "llm_first_token_ms" not in metric:
@@ -382,27 +467,39 @@ class CallSession:
                 full_text.append(content)
                 accumulated = "".join(full_text)
                 metric["agent_response"] = f"{prefix} {accumulated}".strip() if prefix else accumulated
-                buffer += content
                 for call in delta.get("tool_calls", []):
                     entry = tool_calls.setdefault(call["index"], {"name": "", "arguments": ""})
                     entry["name"] += call.get("function", {}).get("name", "")
                     entry["arguments"] += call.get("function", {}).get("arguments", "")
-                while match := re.search(r"[.!?।](?:\s|$)", buffer):
-                    sentence, buffer = buffer[: match.end()].strip(), buffer[match.end() :]
-                    if sentence:
-                        await queue.put(sentence)
-            if buffer.strip():
-                await queue.put(buffer.strip())
+                for segment in segmenter.feed(content):
+                    await queue.put(segment)
+            remaining = segmenter.finish()
+            if remaining:
+                await queue.put(remaining)
             await queue.put(None)
 
-        async def consume():
-            while (sentence := await queue.get()) is not None:
-                await self.say(sentence, metric=metric)
+        async def consume(producer_task):
+            saw_end = False
+
+            async def segments():
+                nonlocal saw_end
+                while True:
+                    segment = await queue.get()
+                    if segment is None:
+                        saw_end = True
+                        return
+                    yield segment
+
+            await self.say_stream(segments(), metric=metric)
+            if not saw_end:
+                # Carrier epoch invalidation or provider early completion must
+                # not strand an LLM producer blocked on the bounded queue.
+                producer_task.cancel()
 
         try:
             async with asyncio.TaskGroup() as group:
-                group.create_task(produce())
-                group.create_task(consume())
+                producer_task = group.create_task(produce())
+                group.create_task(consume(producer_task))
         finally:
             if full_text:
                 accumulated = "".join(full_text)
