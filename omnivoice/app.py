@@ -14,13 +14,14 @@ from uuid import uuid4
 from xml.sax.saxutils import quoteattr
 
 import httpx
-from fastapi import Depends, FastAPI, File, Header, HTTPException, Request, UploadFile, WebSocket
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile, WebSocket
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pypdf import PdfReader
 
 from .actions import ActionEngine, validate_public_url, validate_tool
 from .config import Settings
+from .events import TenantEvents
 from .models import DialInput, FAQInput, LineInput, TenantInput, ToolInput
 from .providers import Groq
 from .rag import Embedder, Knowledge
@@ -32,12 +33,18 @@ from .vad import SileroFactory
 
 def create_app(settings=None):
     settings = settings or Settings()
-    services = SimpleNamespace(settings=settings, active={}, vad=None, model_error=None)
+    services = SimpleNamespace(
+        settings=settings, active={}, events=TenantEvents(), vad=None, model_error=None
+    )
 
     @asynccontextmanager
     async def lifespan(app):
         services.store = Store(settings.database)
         await services.store.open()
+        await services.store.execute(
+            "UPDATE calls SET status='interrupted', ended=? WHERE status='active' OR ended IS NULL",
+            (time.time(),),
+        )
         services.http = httpx.AsyncClient(
             limits=httpx.Limits(max_connections=100, max_keepalive_connections=30),
             follow_redirects=False,
@@ -274,16 +281,117 @@ def create_app(settings=None):
         }
 
     @app.get("/api/tenants/{tenant_id}/calls")
-    async def calls(tenant=Depends(tenant_access)):
+    async def calls(
+        tenant=Depends(tenant_access),
+        limit: int = Query(100, ge=1, le=100),
+        offset: int = Query(0, ge=0),
+        provider: str | None = None,
+        status: str | None = None,
+        search: str = Query("", max_length=80),
+        since: float | None = None,
+    ):
+        if provider not in (None, "exotel", "twilio") or status not in (
+            None, "active", "completed", "failed", "interrupted"
+        ):
+            raise HTTPException(422, "Invalid call filter")
+        clauses = ["tenant_id=?"]
+        args = [tenant["id"]]
+        if provider:
+            clauses.append("provider=?")
+            args.append(provider)
+        if status:
+            clauses.append("status=?")
+            args.append(status)
+        if search:
+            clauses.append("id LIKE ?")
+            args.append("%" + search.replace("%", "\\%").replace("_", "\\_") + "%")
+            clauses[-1] += " ESCAPE '\\'"
+        if since is not None:
+            clauses.append("started>=?")
+            args.append(since)
         rows = await services.store.rows(
-            "SELECT * FROM calls WHERE tenant_id=? ORDER BY started DESC LIMIT 100", (tenant["id"],)
+            "SELECT id,tenant_id,provider,status,started,ended,metrics FROM calls WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY started DESC LIMIT ? OFFSET ?",
+            (*args, limit, offset),
         )
         for row in rows:
             row["metrics"] = json.loads(row["metrics"])
             if row["id"] in services.active:
-                row["metrics"] = services.active[row["id"]].metrics
-                row["state"] = services.active[row["id"]].fsm.state
+                session = services.active[row["id"]]
+                row["metrics"] = session.metrics
+                row["state"] = session.fsm.state
+                row["line_number"] = session.line_number
         return rows
+
+    @app.get("/api/tenants/{tenant_id}/analytics")
+    async def analytics(tenant=Depends(tenant_access)):
+        tenant_id = tenant["id"]
+        summary = await services.store.one(
+            "SELECT COUNT(*) total_calls, "
+            "AVG(CASE WHEN ended IS NOT NULL THEN MAX(0,ended-started) END) avg_duration_seconds "
+            "FROM calls WHERE tenant_id=?",
+            (tenant_id,),
+        )
+        summary["active_calls"] = sum(
+            1 for s in services.active.values() if s.tenant.get("id") == tenant_id
+        )
+        providers = await services.store.rows(
+            "SELECT provider, COUNT(*) calls FROM calls WHERE tenant_id=? GROUP BY provider",
+            (tenant_id,),
+        )
+        outcomes = await services.store.rows(
+            "SELECT status, COUNT(*) calls FROM calls WHERE tenant_id=? GROUP BY status",
+            (tenant_id,),
+        )
+        daily = await services.store.rows(
+            "SELECT strftime('%Y-%m-%d',started,'unixepoch') day, COUNT(*) calls "
+            "FROM calls WHERE tenant_id=? AND started>=? GROUP BY day ORDER BY day",
+            (tenant_id, time.time() - 30 * 86400),
+        )
+        turns = await services.store.one(
+            "SELECT AVG(json_array_length(metrics,'$.turns')) avg_turns_per_call "
+            "FROM calls WHERE tenant_id=? AND status!='active'",
+            (tenant_id,),
+        )
+        timing = await services.store.one(
+            "SELECT AVG(json_extract(j.value,'$.final_transcript_to_first_audio_sent_ms')) "
+            "avg_server_first_audio_ms, "
+            "COALESCE(SUM(json_extract(j.value,'$.interrupted')=1),0) interruptions "
+            "FROM calls c, json_each(c.metrics,'$.turns') j WHERE c.tenant_id=?",
+            (tenant_id,),
+        )
+        return {
+            **summary,
+            **turns,
+            **timing,
+            "providers": providers,
+            "outcomes": outcomes,
+            "daily": daily,
+            "scope": "single-worker live state; persisted historical aggregates",
+        }
+
+    @app.get("/api/tenants/{tenant_id}/events")
+    async def events(tenant=Depends(tenant_access)):
+        tenant_id = tenant["id"]
+
+        async def stream():
+            queue = services.events.subscribe(tenant_id)
+            try:
+                yield ": connected\n\n"
+                while True:
+                    try:
+                        event = await asyncio.wait_for(queue.get(), timeout=20)
+                    except TimeoutError:
+                        yield ": keepalive\n\n"
+                        continue
+                    yield "event: " + event["type"] + "\ndata: " + json.dumps(event["call"]) + "\n\n"
+            finally:
+                services.events.unsubscribe(tenant_id, queue)
+
+        return StreamingResponse(
+            stream(), media_type="text/event-stream", headers={"X-Accel-Buffering": "no"}
+        )
 
     @app.get("/api/tenants/{tenant_id}/actions")
     async def actions(tenant=Depends(tenant_access)):
@@ -440,15 +548,27 @@ def create_app(settings=None):
             tenant = await services.store.tenant(line["tenant_id"])
             call_id = uuid4().hex
             session = CallSession(call_id, tenant, MediaTransport(ws, provider, stream_id), services)
+            session.line_number = line["number"]
             # No await between capacity check and admission in the single-worker runtime.
             if len(services.active) >= settings.max_calls:
                 await ws.close(1013)
                 return
             services.active[call_id] = session
+            started = time.time()
             await services.store.execute(
                 "INSERT INTO calls (id,tenant_id,provider,status,started) VALUES (?,?,?,?,?)",
-                (call_id, tenant["id"], provider, "active", time.time()),
+                (call_id, tenant["id"], provider, "active", started),
             )
+            try:
+                services.events.publish(
+                    tenant["id"], "call.started",
+                    {"id": call_id, "provider": provider, "status": "active", "started": started,
+                     "line_number": line["number"], "state": session.fsm.state, "turn_count": 0},
+                )
+            except Exception as error:
+                logging.getLogger("omnivoice.media").warning(
+                    "Failed to publish call.started event: %s", error
+                )
             await session.run()
         except Exception as error:
             logging.getLogger("omnivoice.media").warning(
@@ -457,15 +577,26 @@ def create_app(settings=None):
         finally:
             if call_id and call_id in services.active:
                 session = services.active.pop(call_id)
+                ended = time.time()
+                final_status = "failed" if session.metrics["errors"] else "completed"
                 await services.store.execute(
                     "UPDATE calls SET status=?,ended=?,metrics=? WHERE id=?",
                     (
-                        "failed" if session.metrics["errors"] else "completed",
-                        time.time(),
+                        final_status,
+                        ended,
                         json.dumps(session.metrics),
                         call_id,
                     ),
                 )
+                try:
+                    services.events.publish(
+                        session.tenant["id"], "call.ended",
+                        {"id": call_id, "status": final_status, "ended": ended},
+                    )
+                except Exception as error:
+                    logging.getLogger("omnivoice.media").warning(
+                        "Failed to publish call.ended event: %s", error
+                    )
             try:
                 await ws.close()
             except Exception:

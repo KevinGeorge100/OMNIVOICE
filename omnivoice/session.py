@@ -344,6 +344,26 @@ class CallSession:
                 metric.pop("last_voice", None)
                 self.metrics["turns"].append(metric)
                 self.metrics["turns"] = self.metrics["turns"][-500:]
+                # Console event is a bounded tenant-scoped projection, never audio or tool secrets.
+                if events := getattr(self.services, "events", None):
+                    try:
+                        events.publish(
+                            self.tenant["id"],
+                            "call.turn",
+                            {
+                                "id": self.id,
+                                "state": self.fsm.state,
+                                "turn_count": len(self.metrics["turns"]),
+                                "recent_transcript": metric.get("user_transcript", "")[:500],
+                                "recent_response": metric.get("agent_response", "")[:500],
+                                "first_audio_ms": metric.get("final_transcript_to_first_audio_sent_ms"),
+                                "interrupted": bool(metric.get("interrupted")),
+                            },
+                        )
+                    except Exception as error:
+                        logging.getLogger("omnivoice.session").warning(
+                            "Failed to publish call.turn event: %s", error
+                        )
             if self.active_generation_id == gen_id:
                 self.active_generation_id = None
 

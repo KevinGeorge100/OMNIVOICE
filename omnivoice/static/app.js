@@ -10,6 +10,7 @@ let actions = [];
 let tools = [];
 let submitHandler = null;
 let refreshInProgress = false;
+let modalReturnFocus = null;
 
 const $ = id => document.getElementById(id);
 const esc = text => (text || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -24,12 +25,15 @@ function showPage(page) {
   const crumb = $("crumb");
   if (crumb) crumb.textContent = page.charAt(0).toUpperCase() + page.slice(1);
   const titles = {
-    overview: ["System Overview", "Real-time telephony orchestration, regional speech pipelines, and enterprise knowledge.", "＋ New enterprise"],
-    knowledge: ["Enterprise Knowledge & Grounding", "Private document vectors and approved FAQ direct playback.", "Upload document"],
-    lines: ["Telephony Lines & Carrier Trunks", "Inbound carrier routing and outbound operational dialers.", "Connect number"],
-    calls: ["Call Activity & Transcripts", "Live sessions, full-duplex turn latencies, and audio recordings.", "Place call"],
-    actions: ["Enterprise Tool Execution & Safety", "Caller confirmation gating for real-world operational writes.", "Register tool"],
-    settings: ["System Configuration & Runtime", "Engine status, model providers, and environmental credentials.", "Refresh status"]
+    overview: ["Operations overview", "Current workspace activity and verified server status.", "＋ New enterprise"],
+    workspace: ["Voice agent", "Current workspace configuration and line association.", "View knowledge"],
+    knowledge: ["Knowledge", "Private documents and approved FAQ answers.", "Upload document"],
+    lines: ["Phone numbers", "Existing Exotel and Twilio numbers registered for inbound routing.", "Connect number"],
+    live: ["Live calls", "Current single-worker call activity, updated by authenticated events.", "View history"],
+    calls: ["Call history", "Search sessions and inspect persisted conversation and timing data.", "Place call"],
+    actions: ["Actions", "Caller confirmation gates state-changing business operations.", "Register tool"],
+    analytics: ["Analytics", "Aggregates calculated from real tenant call records.", "Refresh analytics"],
+    settings: ["Settings", "Runtime readiness, providers, and retrieval mode.", "Refresh status"]
   };
   const [title, desc, action] = titles[page] || titles.overview;
   const pageTitle = $("page-title");
@@ -41,6 +45,7 @@ function showPage(page) {
 }
 
 function modal(title, body, onSave, saveLabel = "Save") {
+  modalReturnFocus = document.activeElement;
   $("modal-title").textContent = title;
   $("modal-body").innerHTML = body;
   $("submit-modal").textContent = saveLabel;
@@ -48,6 +53,7 @@ function modal(title, body, onSave, saveLabel = "Save") {
   $("form-error").textContent = "";
   submitHandler = onSave;
   $("modal").showModal();
+  $("close-modal").focus();
 }
 
 function field(label, name, type = "text", placeholder = "", value = "") {
@@ -510,6 +516,7 @@ function render() {
       ["Deployment", "Single-worker development runtime"]
     ].map(([k, v]) => `<div class="config-row"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("");
   }
+  if (typeof renderOperations === "function") renderOperations();
 }
 
 async function refresh() {
@@ -524,11 +531,13 @@ async function refresh() {
       picker.value = tenantId;
     }
     if (tenantId) {
-      [knowledge, lines, calls, actions, tools] = await Promise.all(["knowledge", "lines", "calls", "actions", "tools"].map(s => api(route(s))));
+      [knowledge, lines, calls, actions, tools] = await Promise.all(["knowledge", "lines", "calls?limit=25", "actions", "tools"].map(s => api(route(s))));
     } else {
       knowledge = []; lines = []; calls = []; actions = []; tools = [];
     }
+    if (typeof loadOperations === "function") await loadOperations();
     render();
+    if (typeof connectLiveStream === "function") connectLiveStream();
   } catch (error) {
     notify(error.message);
   } finally {
@@ -551,6 +560,10 @@ $("modal-form").addEventListener("submit", async event => {
 });
 
 $("close-modal").onclick = $("cancel-modal").onclick = () => $("modal").close();
+$("modal").addEventListener("close", () => {
+  if (modalReturnFocus?.isConnected) modalReturnFocus.focus();
+  modalReturnFocus = null;
+});
 
 $("login-button").onclick = () => {
   if (token) {
@@ -560,6 +573,7 @@ $("login-button").onclick = () => {
     const toast = $("toast");
     if (toast) toast.hidden = true;
     state = {}; knowledge = []; lines = []; calls = []; actions = []; tools = [];
+    if (typeof disconnectLiveStream === "function") disconnectLiveStream();
     const picker = $("tenant-picker");
     if (picker) picker.innerHTML = '<option value="">Select an enterprise</option>';
     render();
@@ -579,10 +593,13 @@ if (tenantPicker) {
 
 $("primary-action").onclick = () => ({
   overview: createTenant,
+  workspace: () => showPage("knowledge"),
   knowledge: upload,
   lines: addLine,
+  live: () => showPage("calls"),
   calls: dial,
   actions: addTool,
+  analytics: refresh,
   settings: refresh
 }[currentPage])();
 
@@ -649,8 +666,12 @@ document.addEventListener("click", async event => {
       }
     }
     if (target.dataset.call) {
-      const call = calls.find(c => c.id === target.dataset.call);
+      const call = (typeof findOperationCall === "function" ? findOperationCall(target.dataset.call) : null) || calls.find(c => c.id === target.dataset.call);
       if (!call) return;
+      if (typeof openCallInspector === "function") {
+        openCallInspector(call);
+        return;
+      }
       const turns = (call.metrics?.turns || []).map((t, idx) => `
         <div class="turn-record">
           <div class="turn-head"><b>Turn ${idx + 1}</b><span>${t.final_transcript_to_first_audio_sent_ms || "--"} ms turnaround</span></div>

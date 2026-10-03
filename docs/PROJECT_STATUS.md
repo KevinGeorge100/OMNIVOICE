@@ -31,7 +31,7 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 ### Partial Subsystems
 * **Exotel & Twilio Integration**: Inbound Exotel WebSocket media stream is fully validated on physical PSTN lines (OV-005). Outbound dialing endpoint exists (`/api/tenants/{id}/dial`), but call progress analysis (answering machine detection, busy signals) remains unverified. Twilio live PSTN calls remain to be tested.
 * **Regional Multilingual Speech**: Supported at the model parameter level (11 Indian language codes accepted by Sarvam TTS and model validators). System prompts, error fallbacks, and write-confirmation prompts remain hardcoded in English (OV-008 planned).
-* **Enterprise Operations Console (`omnivoice/static/`)**: Dual-theme UI operational. Historical call details runtime error resolved (OV-002); carrier connection URLs aligned with real FastAPI endpoints (OV-003); call transcripts and turn metrics visible.
+* **Enterprise Operations Console (`omnivoice/static/`)**: Dual-theme UI operational. Historical call details runtime error resolved (OV-002); carrier connection URLs aligned with real FastAPI endpoints (OV-003); call transcripts and turn metrics visible. Premium operations surface (workspace, live calls, paginated history, call inspector, analytics, authenticated tenant SSE, and defensive best-effort telemetry) complete in OV-026.
 * **Observability & Evaluation**: Structured JSON metrics logged upon call completion into SQLite (`data/omnivoice.db`). Turn-level `user_transcript` and `agent_response` persisted. No live distributed tracing or OpenTelemetry instrumentation exists (OV-017 planned).
 
 ### Missing Subsystems (Planned / Not Implemented)
@@ -78,9 +78,9 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 
 ## 6. Current Testing Baseline
 
-* **Unit & Streaming Tests**: 46 automated tests passing via `pytest tests/` (including 6 deterministic semantic resilience tests).
+* **Unit & Streaming Tests**: Automated tests via `pytest tests/` cover API, streaming, semantic resilience, and tenant-scoped operations (call filters, analytics, SSE auth/isolation).
 * **Automated Release Gate**: `scripts/verify-dod.ps1` runs 6 deterministic gates (pytest, ruff, Next.js build, browser E2E, git hygiene, and whitespace check).
-* **Browser Test**: Playwright E2E script `tests/browser_check.py` validates console login, tenant creation, FAQ addition, line setup, and responsive layout.
+* **Browser Test**: Playwright E2E script `tests/browser_check.py` validates console login, tenant creation, FAQ addition, line setup, operations navigation, call inspector/timeline, filters, pagination, analytics, and responsive layout.
 * **Model Check**: `tests/model_check.py` validates local Silero ONNX silence processing and FAISS retrieval.
 * **Real Telephony Testing**: 3 authentic physical mobile handset calls completed and verified on live PSTN (OV-005).
 
@@ -91,5 +91,6 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 The primary MVP technical validation hurdle (real PSTN carriage and turn-taking) is **RESOLVED**. The active engineering priorities are:
 
 1. ~~**Windows Release Gate Unblock & Semantic Resilience (OV-025)**~~: *(Resolved)* Lazy/resilient FAISS loading unblocking deterministic release gates on Windows hosts.
-2. **Voice Continuity & Natural TTS Pipelining (OV-023)**: Eliminating sentence-boundary choppiness and markdown artifacts to achieve natural spoken cadence.
-3. **Natural Dialogue & Graceful Limitation Handling (OV-024)**: Transforming robotic refusals into conversational redirection while preserving factual grounding.
+2. ~~**Premium Real-Time Operations Console (OV-026)**~~: *(Resolved)* Authenticated single-worker live event stream, workspace view, paginated call history, call inspector modal with latency badges, analytics, and best-effort defensive telemetry.
+3. **Voice Continuity & Natural TTS Pipelining (OV-023)**: Eliminating sentence-boundary choppiness and markdown artifacts to achieve natural spoken cadence.
+4. **Natural Dialogue & Graceful Limitation Handling (OV-024)**: Transforming robotic refusals into conversational redirection while preserving factual grounding.

@@ -35,6 +35,7 @@
 | **OV-023** | Voice Continuity & Natural TTS Pipeline | Enhancement | P1 | Planned |
 | **OV-024** | Natural Dialogue & Graceful Limitation Handling | Enhancement | P1 | Planned |
 | **OV-025** | Unblock Windows Release Gate & Make Semantic Retrieval Loading Resilient | Bug | P0 | **Done** |
+| **OV-026** | Premium Real-Time Operations Console | Enhancement | P1 | COMPLETE |
 
 ---
 
@@ -414,3 +415,17 @@
   4. When `semantic_enabled=True` but FAISS is unavailable, the system explicitly reports degraded retrieval in readiness and diagnostics (`SEMANTIC_BACKEND_UNAVAILABLE`) while safely degrading to lexical retrieval without crashing.
   5. Deterministic unit and integration tests verify all semantic states and module import independence.
   6. All 6 release gates in `scripts/verify-dod.ps1` pass on Windows.
+
+---
+
+### [OV-026] Premium Real-Time Operations Console
+* **Type:** Enhancement
+* **Priority:** P1
+* **Status:** COMPLETE
+* **Dependencies:** OV-025
+* **Purpose:** Turn the existing vanilla console into an operations surface grounded in actual tenant data, with an authenticated single-worker live call event stream.
+* **Scope:** Overview, voice-agent workspace, phone numbers, knowledge, live calls, paginated history, call inspector, actions, analytics, and responsive/accessibility improvements. No voice-engine, billing, recording, RBAC, or multi-worker implementation.
+* **APIs:** Existing tenant APIs are reused. `GET /api/tenants/{tenant_id}/calls` gains optional bounded filters/pagination while preserving the default JSON-list response. `GET /api/tenants/{tenant_id}/analytics` returns database-aggregated call metrics. `GET /api/tenants/{tenant_id}/events` streams tenant-scoped SSE events over bearer-authenticated fetch.
+* **Realtime behavior:** `call.started`, `call.turn`, and `call.ended` events contain bounded session metadata and recorded turn previews; no audio, carrier secret, or action arguments. A bounded in-memory queue per listener supports this single-worker prototype. The browser reconnects after transient stream loss and fetches a snapshot for current active calls on workspace refresh.
+* **Limitations:** Caller number, historical line association, detailed end reason, and production uptime are not stored. Live events do not cross workers or survive restart. First-audio values are server outbound timing, not acoustic mouth-to-ear measurements. Carrier connection is not inferred from local number registration.
+* **Acceptance:** Tenant isolation and authentication tests pass, browser workflows cover the new screens and legacy metrics, and the repository release gate passes before review.
