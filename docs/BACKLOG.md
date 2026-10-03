@@ -36,6 +36,7 @@
 | **OV-024** | Natural Dialogue & Graceful Limitation Handling | Enhancement | P1 | Planned |
 | **OV-025** | Unblock Windows Release Gate & Make Semantic Retrieval Loading Resilient | Bug | P0 | **Done** |
 | **OV-026** | Premium Real-Time Operations Console | Enhancement | P1 | COMPLETE |
+| **OV-027** | Persistent Cloud Backend & Operations Console Deployment | DevOps | P0 | In Progress |
 
 ---
 
@@ -429,3 +430,14 @@
 * **Realtime behavior:** `call.started`, `call.turn`, and `call.ended` events contain bounded session metadata and recorded turn previews; no audio, carrier secret, or action arguments. A bounded in-memory queue per listener supports this single-worker prototype. The browser reconnects after transient stream loss and fetches a snapshot for current active calls on workspace refresh.
 * **Limitations:** Caller number, historical line association, detailed end reason, and production uptime are not stored. Live events do not cross workers or survive restart. First-audio values are server outbound timing, not acoustic mouth-to-ear measurements. Carrier connection is not inferred from local number registration.
 * **Acceptance:** Tenant isolation and authentication tests pass, browser workflows cover the new screens and legacy metrics, and the repository release gate passes before review.
+
+---
+
+### [OV-027] Persistent Cloud Backend & Operations Console Deployment
+* **Type:** DevOps
+* **Priority:** P0
+* **Status:** In Progress
+* **Dependencies:** OV-025, OV-026
+* **Purpose:** Deploy OmniVoice backend and Operations Console to persistent public cloud infrastructure with stable HTTPS/WSS endpoints and durable volume storage.
+* **Scope:** Single-service container hardening, Silero model baking, persistent volume specification for SQLite, deployment guide documentation, health/readiness endpoints, and Exotel cutover procedure.
+* **Acceptance:** Container builds self-contained, `/healthz` and `/readyz` pass remotely, Operations Console loads securely, and deployment documentation is complete.

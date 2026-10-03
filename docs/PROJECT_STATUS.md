@@ -59,11 +59,10 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 ## 4. Current Deployment State
 
 * **Local Machine**: Fully operational via `start.ps1` on Windows PowerShell and Unix (`uvicorn` on `http://127.0.0.1:8000`).
-* **Carrier Gateway**: Live Exotel virtual line (`+914954269065`) connected via Cloudflare WSS quick tunnel.
-* **Docker**: `Dockerfile` exists but does not download Silero ONNX weights during image build. Containers launched without mounting `./models` fail readiness checks.
-* **Docker Compose**: `compose.yaml` successfully mounts `./data` and `./models:ro`, provided weights are downloaded beforehand.
+* **Docker**: Hardened in OV-027. Silero ONNX weights downloaded and verified during image build (`python -m omnivoice.cli models`), volume declared at `/app/data`, non-root execution (`omni:omni`).
+* **Docker Compose**: `compose.yaml` mounts `./data:/app/data` for persistent SQLite storage.
 * **Vercel**: Customer landing page is live at `https://omnivoice-self.vercel.app/`.
-* **Backend Cloud Hosting**: Not configured. No cloud manifests, Helm charts, or managed database connections exist.
+* **Backend Cloud Hosting**: Operational deployment standard established in `docs/DEPLOYMENT.md` (OV-027). Prepared for persistent single-worker cloud deployment on Railway / Fly.io with durable SSD volume mount.
 
 ---
 
@@ -94,3 +93,4 @@ The primary MVP technical validation hurdle (real PSTN carriage and turn-taking)
 2. ~~**Premium Real-Time Operations Console (OV-026)**~~: *(Resolved)* Authenticated single-worker live event stream, workspace view, paginated call history, call inspector modal with latency badges, analytics, and best-effort defensive telemetry.
 3. **Voice Continuity & Natural TTS Pipelining (OV-023)**: Eliminating sentence-boundary choppiness and markdown artifacts to achieve natural spoken cadence.
 4. **Natural Dialogue & Graceful Limitation Handling (OV-024)**: Transforming robotic refusals into conversational redirection while preserving factual grounding.
+5. **Persistent Cloud Backend Deployment (OV-027)**: Operational container hardening and persistent single-worker deployment with durable volume storage and Exotel cutover procedure.

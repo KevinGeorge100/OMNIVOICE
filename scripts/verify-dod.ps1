@@ -24,7 +24,13 @@ Write-Host "Repository Root: $RepoRoot" -ForegroundColor Gray
 Write-Host "==================================================" -ForegroundColor Cyan
 
 $VenvPython = Join-Path $RepoRoot ".venv\Scripts\python.exe"
-$VenvRuff = Join-Path $RepoRoot ".venv\Scripts\ruff.exe"
+if (-not (Test-Path $VenvPython)) {
+    $BaseRepo = Join-Path (Split-Path -Parent $RepoRoot) "OMNIVOICE\.venv\Scripts\python.exe"
+    if (Test-Path $BaseRepo) {
+        $VenvPython = $BaseRepo
+    }
+}
+$VenvRuff = Join-Path (Split-Path -Parent $VenvPython) "ruff.exe"
 
 if (-not (Test-Path $VenvPython)) {
     Write-Error "Virtual environment Python not found at: $VenvPython"
