@@ -850,12 +850,12 @@ async def test_control_intent_during_generation_halts_cleanly(monkeypatch):
         # 5. History has no orphan question
         assert len(session.history) == 0
 
-        # Verify session remains usable for subsequent inquiry
+        # Verify session remains usable and does not invent ungrounded pricing.
         services.llm.stream = mock_fast_llm
         await session.respond("Tell me pricing", time.perf_counter())
         assert len(session.metrics["turns"]) == 1
         assert session.metrics["turns"][0]["user_transcript"] == "Tell me pricing"
-        assert session.metrics["turns"][0]["agent_response"] == "Pricing is 10 dollars."
+        assert session.metrics["turns"][0]["agent_response"] == "I don't have verified pricing for this line."
 
 
 async def test_ordinary_complete_question_begins_immediately():

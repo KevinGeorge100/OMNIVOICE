@@ -674,6 +674,9 @@ document.addEventListener("click", async event => {
       }
       const turns = (call.metrics?.turns || []).map((t, idx) => {
         const voice = [
+          ["Knowledge", t.knowledge_status],
+          ["Limitation", t.limitation_used ? "Yes" : null],
+          ["Clarification", t.clarification_requested ? "Yes" : null],
           ["Speech segments", t.response_segment_count],
           ["TTS segments", t.tts_segment_count],
           ["First TTS audio", Number.isFinite(t.first_tts_ttfa_ms) ? `${Math.round(t.first_tts_ttfa_ms)} ms` : null],
