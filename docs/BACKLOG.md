@@ -15,7 +15,7 @@
 | **OV-003** | Fix Carrier Webhook URL Display in Console Modal | Bug | P0 | **Done** |
 | **OV-004** | Audit & Reconcile Landing Page Marketing Claims | TechDebt | P1 | **Done** |
 | **OV-005** | Real PSTN End-to-End Telephone Validation Test | Spike | P0 | **Done** |
-| **OV-006** | Instrument & Record Real-World Mouth-to-Ear Latency | Task | P1 | Planned |
+| **OV-006** | Instrument & Evaluate Server-Observed Voice Latency | Task | P1 | **IMPLEMENTED — AWAITING BENCHMARK DATA** |
 | **OV-007** | Real Acoustic Barge-in & Background Noise Rehearsal | Task | P1 | Planned |
 | **OV-008** | Real Multilingual Telephone Turn Verification | Task | P1 | Planned |
 | **OV-009** | Upstream Provider Disconnect & Recovery Handlers | Feature | P1 | Planned |
@@ -120,16 +120,16 @@
 
 ---
 
-### [OV-006] Instrument & Record Real-World Mouth-to-Ear Latency
+### [OV-006] Instrument & Evaluate Server-Observed Voice Latency
 * **Type:** Task
 * **Priority:** P1
-* **Status:** Planned
+* **Status:** **IMPLEMENTED — AWAITING BENCHMARK DATA**
 * **Dependencies:** OV-005
-* **Description:** Measure and record acoustic mouth-to-ear latency across 50+ real PSTN dialogue turns to establish an empirical baseline.
+* **Description:** Instrument server-observed stage durations and export privacy-preserving per-turn data. Collect at least 50 valid turns across multiple live sessions for an empirical baseline; physical acoustic mouth-to-ear timing requires a separate synchronized measurement protocol.
 * **Acceptance Criteria:**
-  1. Record p50, p95, and p99 mouth-to-ear latency on real phone lines.
-  2. Isolate carrier network transit time from engine processing time.
-  3. Document findings in `docs/EVALUATION.md`.
+  1. Record per-stage N, mean, sample standard deviation, min, p50, p90, p95, and max on at least 50 valid turns.
+  2. Label VAD speech-end estimates as proxies and do not infer carrier network transit or acoustic playback from server-only timestamps.
+  3. Document boundaries, exclusions, and measurement protocol in `docs/LATENCY_EVALUATION.md`.
 
 ---
 

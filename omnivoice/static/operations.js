@@ -249,9 +249,13 @@ function openCallInspector(call) {
   ].map(([label, value]) => `<div><small>${opsEsc(label)}</small><b>${opsEsc(value)}</b></div>`).join("");
   const timeline = turns.map((turn, index) => {
     const timings = [
-      ["STT", turn.stt_final_ms], ["RAG", turn.retrieval_ms], ["LLM", turn.llm_first_token_ms],
-      ["TTS", turn.first_tts_ttfa_ms], ["First audio", turn.final_transcript_to_first_audio_sent_ms]
-    ].filter(([, value]) => Number.isFinite(value)).map(([label, value]) => `<span>${opsEsc(label)} ${opsLatency(value)}</span>`).join("");
+      ["STT endpoint · VAD proxy", turn.stt_endpoint_delay_ms],
+      ["Fast lookup", turn.retrieval_ms], ["RAG", turn.rag_retrieval_ms],
+      ["LLM TTFT", turn.llm_ttft_ms], ["Speech buffer", turn.speech_buffer_delay_ms],
+      ["TTS TTFA", turn.first_tts_ttfa_ms], ["Carrier framing + send", turn.carrier_framing_delay_ms],
+      ["Transcript → audio sent", turn.final_transcript_to_first_audio_sent_ms],
+      ["VAD → audio sent · proxy", turn.last_vad_speech_to_first_audio_sent_ms]
+    ].map(([label, value]) => `<span>${opsEsc(label)} ${opsLatency(value)}</span>`).join("");
     const voice = [
       Number.isFinite(turn.response_segment_count) ? `${turn.response_segment_count} speech segments` : "",
       Number.isFinite(turn.tts_segment_count) ? `${turn.tts_segment_count} TTS segments` : "",

@@ -177,6 +177,13 @@ class CallSession:
                 self.slow = asyncio.create_task(self.speculate(text))
             if not transcript.final:
                 continue
+            final_received = time.perf_counter()
+            voice_at_final = self.last_voice
+            self.last_voice = None
+            endpoint_delay = (
+                max(0.0, (final_received - voice_at_final) * 1000)
+                if voice_at_final is not None and voice_at_final <= final_received else None
+            )
 
             interval_s = self.config.get(
                 "continuation_interval_ms",
@@ -199,7 +206,8 @@ class CallSession:
                     self.pending_final_time = now
                     self.generation_id += 1
                     self.response = asyncio.create_task(
-                        self.respond(self.pending_text, time.perf_counter(), self.generation_id)
+                        self.respond(self.pending_text, final_received, self.generation_id,
+                                     voice_at_final, endpoint_delay)
                     )
                     continue
 
@@ -208,7 +216,8 @@ class CallSession:
                 self.pending_final_time = now
                 self.generation_id += 1
                 self.response = asyncio.create_task(
-                    self.respond(text, time.perf_counter(), self.generation_id)
+                    self.respond(text, final_received, self.generation_id,
+                                 voice_at_final, endpoint_delay)
                 )
                 continue
 
@@ -220,7 +229,8 @@ class CallSession:
             self.pending_final_time = now
             self.generation_id += 1
             self.response = asyncio.create_task(
-                self.respond(text, time.perf_counter(), self.generation_id)
+                self.respond(text, final_received, self.generation_id,
+                             voice_at_final, endpoint_delay)
             )
 
     async def speculate(self, partial):
@@ -267,6 +277,7 @@ class CallSession:
 
         frames = PCMFrameBuffer(self.transport.frame_size)
         tts_started = None
+        first_pcm_at = None
 
         async def prepared():
             nonlocal tts_started
@@ -320,20 +331,25 @@ class CallSession:
                 self.fsm.speaking()
                 playback_started = True
             if metric is not None and "final_transcript_to_first_audio_sent_ms" not in metric:
-                metric["final_transcript_to_first_audio_sent_ms"] = (
-                    time.perf_counter() - metric["started"]
-                ) * 1000
+                sent_at = time.perf_counter()
+                metric["final_transcript_to_first_audio_sent_ms"] = (sent_at - metric["started"]) * 1000
+                if first_pcm_at is not None:
+                    metric["carrier_framing_delay_ms"] = (sent_at - first_pcm_at) * 1000
                 if metric.get("last_voice") is not None:
                     metric["last_vad_speech_to_first_audio_sent_ms"] = (
-                        time.perf_counter() - metric["last_voice"]
+                        sent_at - metric["last_voice"]
                     ) * 1000
 
         try:
             async for pcm in audio_stream():
                 if not owned():
                     return
+                if not pcm:
+                    continue
+                if first_pcm_at is None:
+                    first_pcm_at = time.perf_counter()
                 if metric is not None and "first_tts_ttfa_ms" not in metric:
-                    metric["first_tts_ttfa_ms"] = (time.perf_counter() - tts_started) * 1000
+                    metric["first_tts_ttfa_ms"] = (first_pcm_at - tts_started) * 1000
                 for frame in frames.push(pcm):
                     if not await self.transport.send_frame(frame, epoch, first_sent, owned):
                         return
@@ -359,20 +375,23 @@ class CallSession:
         if not await self.transport.mark(mark, epoch, owned):
             self.marks.pop(mark, None)
 
-    async def respond(self, text, started, gen_id=0):
+    async def respond(self, text, started, gen_id=0, voice_at_final=None, endpoint_delay=None):
         self.active_generation_id = gen_id
         metric = {
             "started": started,
-            "last_voice": self.last_voice,
+            "last_voice": voice_at_final,
             "user_transcript": text,
             "agent_response": "",
         }
+        if endpoint_delay is not None:
+            metric["stt_endpoint_delay_ms"] = endpoint_delay
         history_pushed = False
         try:
             confirmed = await self.services.actions.confirm(
                 self.tenant["id"], self.id, text, True, self.config["confirmation_phrases"]
             )
             if confirmed:
+                metric["path"] = "confirmation"
                 message = (
                     "The action completed successfully."
                     if confirmed["status"] == "committed"
@@ -393,6 +412,7 @@ class CallSession:
             answer, cache_type, elapsed = await self.services.knowledge.fast_answer(self.tenant["id"], text)
             metric.update(cache=cache_type, retrieval_ms=elapsed)
             if answer:
+                metric["path"] = "fast_cache"
                 self.metrics["cache_hits"] += 1
                 metric["agent_response"] = answer
                 metric.update(
@@ -404,7 +424,10 @@ class CallSession:
                 self.history.append({"role": "assistant", "content": answer})
                 self.history = self.history[-20:]
                 return
+            retrieval_started = time.perf_counter()
             context = await self.services.knowledge.retrieve(self.tenant["id"], text)
+            metric["rag_retrieval_ms"] = (time.perf_counter() - retrieval_started) * 1000
+            metric["path"] = "foreground_rag"
             tools = await self.services.actions.tools(self.tenant["id"]) or []
             corpus = getattr(getattr(self.services, "knowledge", None), "corpora", {}).get(self.tenant["id"])
             corpus_topics = (
@@ -495,13 +518,20 @@ class CallSession:
         tool_calls = {}
         full_text = []
         prefix = metric.get("agent_response", "").strip()
+        first_usable_at = None
 
         async def produce():
+            nonlocal first_usable_at
+            llm_started = time.perf_counter()
             segmenter = SpeechSegmenter()
             async for delta in self.services.llm.stream(messages, tools):
                 content = delta.get("content") or ""
                 if content and "llm_first_token_ms" not in metric:
-                    metric["llm_first_token_ms"] = (time.perf_counter() - metric["started"]) * 1000
+                    token_at = time.perf_counter()
+                    metric["llm_first_token_ms"] = (token_at - metric["started"]) * 1000
+                    metric["llm_ttft_ms"] = (token_at - llm_started) * 1000
+                if content.strip() and first_usable_at is None:
+                    first_usable_at = time.perf_counter()
                 full_text.append(content)
                 accumulated = "".join(full_text)
                 metric["agent_response"] = f"{prefix} {accumulated}".strip() if prefix else accumulated
@@ -510,9 +540,13 @@ class CallSession:
                     entry["name"] += call.get("function", {}).get("name", "")
                     entry["arguments"] += call.get("function", {}).get("arguments", "")
                 for segment in segmenter.feed(content):
+                    if first_usable_at is not None and "speech_buffer_delay_ms" not in metric:
+                        metric["speech_buffer_delay_ms"] = (time.perf_counter() - first_usable_at) * 1000
                     await queue.put(segment)
             remaining = segmenter.finish()
             if remaining:
+                if first_usable_at is not None and "speech_buffer_delay_ms" not in metric:
+                    metric["speech_buffer_delay_ms"] = (time.perf_counter() - first_usable_at) * 1000
                 await queue.put(remaining)
             await queue.put(None)
 

@@ -248,6 +248,8 @@ async def test_live_pipeline_sends_normalized_text_and_one_continuous_carrier_fr
     assert turn["outbound_audio_bytes"] == 3200
     assert turn.get("padded_tail_bytes", 0) == 0
     assert turn["first_tts_ttfa_ms"] >= 0
+    assert turn["carrier_framing_delay_ms"] >= 0
+    assert turn["final_transcript_to_first_audio_sent_ms"] >= turn["carrier_framing_delay_ms"]
     assert json.loads(json.dumps(session.metrics))["turns"][0]["agent_response"].startswith("**")
 
 

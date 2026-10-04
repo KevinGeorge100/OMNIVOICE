@@ -85,10 +85,13 @@ def main():
                                     {
                                         "turns": [
                                             {
-                                                "stt_final_ms": 80,
+                                                "stt_endpoint_delay_ms": 80,
                                                 "retrieval_ms": 12,
-                                                "llm_first_token_ms": 140,
+                                                "rag_retrieval_ms": 18,
+                                                "llm_ttft_ms": 140,
+                                                "speech_buffer_delay_ms": 21,
                                                 "first_tts_ttfa_ms": 90,
+                                                "carrier_framing_delay_ms": 200,
                                                 "final_transcript_to_first_audio_sent_ms": 320,
                                                 "user_transcript": (
                                                     "<img src=x onerror=window.__xss=1>What are your business hours?"
@@ -225,8 +228,12 @@ def main():
                             assert "What are your business hours?" in modal_text
                             assert "We are open 9am to 6pm Monday to Friday." in modal_text
                             assert "TURN 1" in modal_text
-                            assert "STT 80 ms" in modal_text
-                            assert "First audio 320 ms" in modal_text
+                            assert "STT endpoint · VAD proxy 80 ms" in modal_text
+                            assert "RAG 18 ms" in modal_text
+                            assert "LLM TTFT 140 ms" in modal_text
+                            assert "Carrier framing + send 200 ms" in modal_text
+                            assert "Transcript → audio sent 320 ms" in modal_text
+                            assert "VAD → audio sent · proxy —" in modal_text
                             assert page.evaluate("window.__xss") is None
                             page.locator("#close-modal").click()
                     page.get_by_role("button", name="Disconnect", exact=True).click()

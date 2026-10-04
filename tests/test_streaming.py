@@ -274,6 +274,8 @@ async def test_turn_metrics_persist_user_transcript_and_agent_response(monkeypat
     assert t1["user_transcript"] == "cached question"
     assert t1["agent_response"] == "Cached business answer."
     assert t1["cache"] == "exact"
+    assert "llm_ttft_ms" not in t1
+    assert "rag_retrieval_ms" not in t1
 
     # Turn 2: LLM streamed generation
     await session.respond("What is OmniVoice?", time.perf_counter())
@@ -283,6 +285,9 @@ async def test_turn_metrics_persist_user_transcript_and_agent_response(monkeypat
     assert t2["agent_response"] == "OmniVoice is a telephone voice platform."
     assert t2["cache"] == "miss"
     assert "llm_first_token_ms" in t2
+    assert t2["llm_ttft_ms"] >= 0
+    assert t2["rag_retrieval_ms"] >= 0
+    assert t2["speech_buffer_delay_ms"] >= 0
 
 
 async def test_interrupted_turn_preserves_partial_response_and_valid_metric_structure(monkeypatch):
@@ -362,6 +367,8 @@ async def test_interrupted_turn_preserves_partial_response_and_valid_metric_stru
     assert t["user_transcript"] == "Tell me a long story"
     assert t["agent_response"] == "Initial partial sentence. Second sentence that gets "
     assert t["interrupted"] is True
+    assert "final_transcript_to_first_audio_sent_ms" not in t
+    assert "carrier_framing_delay_ms" not in t
     assert "started" not in t
     assert "last_voice" not in t
     assert isinstance(t["agent_response"], str)
@@ -856,6 +863,61 @@ async def test_control_intent_during_generation_halts_cleanly(monkeypatch):
         assert len(session.metrics["turns"]) == 1
         assert session.metrics["turns"][0]["user_transcript"] == "Tell me pricing"
         assert session.metrics["turns"][0]["agent_response"] == "I don't have verified pricing for this line."
+
+
+async def test_final_transcript_consumes_vad_timestamp_once():
+    class MockSocket:
+        def __init__(self):
+            self.sent = []
+
+        async def send_json(self, item):
+            self.sent.append(item)
+
+    class MockTTS:
+        async def speak(self, text):
+            yield b"\0" * 3200
+
+    async def confirm(*args):
+        return None
+
+    async def cancel(*args):
+        pass
+
+    async def fast_answer(*args):
+        return "Verified answer.", "exact", 0.1
+
+    services = SimpleNamespace(
+        settings=Settings(_env_file=None),
+        actions=SimpleNamespace(confirm=confirm, cancel=cancel),
+        knowledge=SimpleNamespace(fast_answer=fast_answer),
+        vad=SimpleNamespace(session=lambda: None),
+    )
+    tenant = {"id": "tenant-test", "config": {
+        "language": "en-IN", "greeting": "Hi", "confirmation_phrases": ["yes"],
+        "backchannels": ["yeah"],
+    }}
+    session = CallSession("call-vad-boundary", tenant,
+                          MediaTransport(MockSocket(), "exotel", "s"), services)
+    session.tts = MockTTS()
+    session.last_voice = time.perf_counter() - 0.01
+
+    async def events():
+        yield Transcript(text="First question", final=True)
+        await session.response
+        session.fsm.played()
+        # No new VAD-positive frame arrives before the second STT final.
+        yield Transcript(text="Second question", final=True)
+
+    session.stt = SimpleNamespace(events=events)
+    await session.transcripts()
+    await session.response
+
+    first, second = session.metrics["turns"]
+    assert first["stt_endpoint_delay_ms"] >= 0
+    assert first["last_vad_speech_to_first_audio_sent_ms"] >= 0
+    assert "stt_endpoint_delay_ms" not in second
+    assert "last_vad_speech_to_first_audio_sent_ms" not in second
+    assert session.last_voice is None
 
 
 async def test_ordinary_complete_question_begins_immediately():
