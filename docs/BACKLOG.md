@@ -15,7 +15,7 @@
 | **OV-003** | Fix Carrier Webhook URL Display in Console Modal | Bug | P0 | **Done** |
 | **OV-004** | Audit & Reconcile Landing Page Marketing Claims | TechDebt | P1 | **Done** |
 | **OV-005** | Real PSTN End-to-End Telephone Validation Test | Spike | P0 | **Done** |
-| **OV-006** | Instrument & Evaluate Server-Observed Voice Latency | Task | P1 | **IMPLEMENTED — AWAITING BENCHMARK DATA** |
+| **OV-006** | Instrument & Evaluate Server-Observed Voice Latency | Task | P1 | **Done** |
 | **OV-007** | Real Acoustic Barge-in & Background Noise Rehearsal | Task | P1 | Planned |
 | **OV-008** | Real Multilingual Telephone Turn Verification | Task | P1 | Planned |
 | **OV-009** | Upstream Provider Disconnect & Recovery Handlers | Feature | P1 | Planned |
@@ -123,13 +123,20 @@
 ### [OV-006] Instrument & Evaluate Server-Observed Voice Latency
 * **Type:** Task
 * **Priority:** P1
-* **Status:** **IMPLEMENTED — AWAITING BENCHMARK DATA**
+* **Status:** **Done**
 * **Dependencies:** OV-005
 * **Description:** Instrument server-observed stage durations and export privacy-preserving per-turn data. Collect at least 50 valid turns across multiple live sessions for an empirical baseline; physical acoustic mouth-to-ear timing requires a separate synchronized measurement protocol.
 * **Acceptance Criteria:**
-  1. Record per-stage N, mean, sample standard deviation, min, p50, p90, p95, and max on at least 50 valid turns.
-  2. Label VAD speech-end estimates as proxies and do not infer carrier network transit or acoustic playback from server-only timestamps.
-  3. Document boundaries, exclusions, and measurement protocol in `docs/LATENCY_EVALUATION.md`.
+  1. Record per-stage N, mean, sample standard deviation, min, p50, p90, p95, and max on at least 50 valid turns. *(Verified: 56 valid turns across 6 sessions; 0 exclusions; detailed summary in `docs/OV006_BENCHMARK_RESULTS.md`)*
+  2. Label VAD speech-end estimates as proxies and do not infer carrier network transit or acoustic playback from server-only timestamps. *(Verified: explicit research caveats and proxy labelling documented)*
+  3. Document boundaries, exclusions, and measurement protocol in `docs/LATENCY_EVALUATION.md` and `docs/OV006_BENCHMARK_RESULTS.md`. *(Verified)*
+* **Benchmark Results Summary:**
+  * **Dataset Label**: `LIVE GATEWAY SERVER-LATENCY BENCHMARK` (56 valid turns / 6 sessions / 0 exclusions).
+  * **Overall Server Turnaround (`final_transcript_to_first_audio_sent_ms`)**: P50 = 774.76 ms, P90 = 1019.79 ms, P95 = 1466.88 ms, Mean = 714.23 ms.
+  * **Fast FAQ Cache Turnaround**: P50 = 261.12 ms (3.26x faster than RAG).
+  * **Foreground RAG Turnaround**: P50 = 850.21 ms.
+  * **Decomposition**: LLM TTFT P50 = 616.00 ms (Groq `openai/gpt-oss-20b`), TTS TTFA P50 = 218.35 ms (Sarvam `bulbul:v3`), Speech Buffering P50 = 17.86 ms, RAG Retrieval P50 = 0.64 ms, Carrier Framing P50 = 0.09 ms.
+  * **Research Caveats**: Exotel live PSTN re-validation deferred due to external credit/KYC constraints; physical acoustic mouth-to-ear latency not claimed; 120 ms STT endpoint delay transparently recorded as a test harness offset.
 
 ---
 

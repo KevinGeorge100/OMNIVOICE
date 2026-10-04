@@ -217,6 +217,7 @@ def main():
                             page.locator("#close-modal").click()
                             page.locator("#call-search").fill("")
                             page.locator('#calls-list [data-call="c1234567890abcdef"]').wait_for()
+                            page.wait_for_timeout(300)
                             page.locator("#calls-load-more").click()
                             page.locator('#calls-list [data-call="hist25aaaaaaaaaa"]').wait_for()
                             page.locator('#calls-list [data-call="c1234567890abcdef"]').click()
