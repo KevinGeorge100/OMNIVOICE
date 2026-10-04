@@ -14,7 +14,7 @@ CLARIFICATION_PATTERNS = (
 ACTION_REQUESTS = {
     "transfer": (r"\b(?:transfer|connect|put me through|speak to|talk to)\b.{0,45}\b(?:person|human|agent|representative|advisor|department)\b", "transfer", "connect"),
     "callback": (r"\b(?:call me back|callback|return my call)\b", "callback", "call_back"),
-    "email": (r"\b(?:email|send me an email|send.*?by email)\b", "email", "send_email"),
+    "email": (r"\b(?:email me|send (?:me )?(?:an )?e[- ]?mail|send\b.{0,30}\b(?:by\s+)?e[- ]?mail|by e[- ]?mail)\b", "email", "send_email"),
     "booking": (r"\b(?:book|schedule|reserve)\b.{0,45}\b(?:appointment|slot|meeting)\b", "book", "schedule", "reserve"),
     "ticket": (r"\b(?:open|create|raise)\b.{0,45}\b(?:ticket|case|complaint)\b", "ticket", "case"),
 }
