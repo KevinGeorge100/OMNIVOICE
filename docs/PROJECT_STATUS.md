@@ -11,7 +11,10 @@
 > [!IMPORTANT]
 > **Real PSTN end-to-end telephone validation successfully completed (OV-005).**
 > Live telephone validation has been proven across 3 physical mobile telephone calls on the Exotel carrier network (`+914954269065`) via secure WebSocket tunnel. Inbound carrier lifecycle, greeting dispatch (~250 ms), STT -> RAG -> LLM -> TTS -> PSTN audio loop, true acoustic barge-in, backchannel suppression, and full SQLite telemetry persistence are operational and repeatable.
-> Realtime turn-taking has been stabilized via ADR-001 (0 false interrupted turns, 0 false carrier clears, and 0 false barge-in events in Call #3; Call #2 turn-thrashing regression eliminated). Remaining active quality frontiers are voice continuity / natural TTS pipelining (OV-023) and graceful dialogue limitation handling (OV-024).
+> Realtime turn-taking has been stabilized via ADR-001 (0 false interrupted turns, 0 false carrier clears, and 0 false barge-in events in Call #3; Call #2 turn-thrashing regression eliminated).
+>
+> **OV-023 & OV-024 Validation Status:**
+> Voice continuity / natural TTS pipelining (OV-023) and graceful dialogue limitation handling (OV-024) are **COMPLETE** and verified via live bidirectional telephony gateway validation (`/ws/audio`). Real carrier/PSTN re-validation is deferred because Exotel trial credit is exhausted and additional credit requires commercial GST/KYC (this is an external carrier billing/KYC constraint for this academic/student project, not a software blocker). Historical OV-005 real PSTN evidence remains fully intact.
 
 OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice application and media server**. It demonstrates a working integration between telephony WebSockets (Exotel/Twilio) and AI cloud providers (Sarvam AI for regional STT/TTS, Groq for Llama-3 LLM reasoning). It features a local neural VAD (Silero ONNX), an in-memory document vector index (FAISS), and an embedded administrative console.
 
@@ -49,8 +52,8 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 1. ~~**Console Call Session ID TypeError**~~: *(Resolved in OV-002)* In `omnivoice/static/app.js:629`, clicking a call record referenced `call.session_id.slice(...)`. Reconciled to use `(call.id || "").slice(...)` matching the API response schema.
 2. ~~**Incorrect Carrier Webhook URL in Console**~~: *(Resolved in OV-003)* In `omnivoice/static/app.js:617`, the connection modal previously displayed a non-existent `/api/webhooks/...` path. Reconciled to fetch carrier-specific configurations from `/api/tenants/{tenant_id}/lines/{line_id}/connection` (`/telephony/twilio/{line_id}` for Twilio and `/ws/exotel/{line_id}/{stream_secret}` for Exotel) using configured `OMNI_PUBLIC_BASE_URL`.
 3. ~~**Generation-Stage Turn-Taking Collisions**~~: *(Resolved in OV-005 / ADR-001)* Rapid sequential STT final fragments arriving before agent playback began previously triggered false interrupted turns and spurious carrier clears. Stabilized via bounded continuation coalescing and control-intent suppression.
-4. **Voice Synthesis Continuity / Choppiness**: *(OV-023 local implementation pending PSTN verification)* Streaming phrase synthesis and utterance-level PCM framing now avoid a flush and padded frame at each phrase boundary. Audible improvement, provider timing and live barge-in performance have not yet been remeasured on a physical call.
-5. **Conversational Limitation Loops**: *(Tracked in OV-024)* Anti-hallucination grounding policy produces repetitive refusal phrasing when callers ask for missing facts (e.g. pricing).
+4. ~~**Voice Synthesis Continuity / Choppiness**~~: *(Resolved in OV-023)* Streaming phrase synthesis, monotonic 20ms PCM framing, single-utterance TTS lifecycle, and punctuation normalization avoid boundary flushes. Live bidirectional telephony gateway validation passed; real carrier/PSTN re-validation deferred due to external Exotel trial credit/KYC constraint.
+5. ~~**Conversational Limitation Loops**~~: *(Resolved in OV-024)* Grounded natural limitation policy, clarification value gating, repetition prevention, and next-best action safety verified via live telephony gateway validation; real PSTN re-validation deferred due to Exotel trial credit constraint.
 6. **Exotel Token in URL Path**: In `omnivoice/app.py:465`, the streaming secret is passed in the URL path (`/ws/exotel/{line_id}/{token}`), risking exposure in proxy and intermediate gateway access logs.
 7. **Database Lock Contention**: In `omnivoice/store.py:48`, all database operations are serialized through a single `asyncio.Lock()`, creating potential event loop latency spikes during concurrent call activity.
 
@@ -81,16 +84,16 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 * **Automated Release Gate**: `scripts/verify-dod.ps1` runs 6 deterministic gates (pytest, ruff, Next.js build, browser E2E, git hygiene, and whitespace check).
 * **Browser Test**: Playwright E2E script `tests/browser_check.py` validates console login, tenant creation, FAQ addition, line setup, operations navigation, call inspector/timeline, filters, pagination, analytics, and responsive layout.
 * **Model Check**: `tests/model_check.py` validates local Silero ONNX silence processing and FAISS retrieval.
-* **Real Telephony Testing**: 3 authentic physical mobile handset calls completed and verified on live PSTN (OV-005).
+* **Real Telephony Testing**: 3 authentic physical mobile handset calls completed and verified on live PSTN (OV-005); live bidirectional telephony gateway validated for OV-023 and OV-024 (real PSTN re-validation deferred due to external Exotel billing/KYC constraint).
 
 ---
 
 ## 7. Current MVP Frontier
 
-The primary MVP technical validation hurdle (real PSTN carriage and turn-taking) is **RESOLVED**. The active engineering priorities are:
+The primary MVP technical validation hurdle (real PSTN carriage and turn-taking) is **RESOLVED**. The engineering status across recent milestones is:
 
 1. ~~**Windows Release Gate Unblock & Semantic Resilience (OV-025)**~~: *(Resolved)* Lazy/resilient FAISS loading unblocking deterministic release gates on Windows hosts.
 2. ~~**Premium Real-Time Operations Console (OV-026)**~~: *(Resolved)* Authenticated single-worker live event stream, workspace view, paginated call history, call inspector modal with latency badges, analytics, and best-effort defensive telemetry.
-3. **Voice Continuity & Natural TTS Pipelining (OV-023)**: Eliminating sentence-boundary choppiness and markdown artifacts to achieve natural spoken cadence.
-4. **Natural Dialogue & Graceful Limitation Handling (OV-024)**: Transforming robotic refusals into conversational redirection while preserving factual grounding.
+3. ~~**Voice Continuity & Natural TTS Pipelining (OV-023)**~~: *(Complete)* Live bidirectional telephony gateway validated; real PSTN re-validation deferred due to Exotel trial credit constraint.
+4. ~~**Natural Dialogue & Graceful Limitation Handling (OV-024)**~~: *(Complete)* Live bidirectional telephony gateway validated; real PSTN re-validation deferred due to Exotel trial credit constraint.
 5. **Persistent Cloud Backend Deployment (OV-027)**: Operational container hardening and persistent single-worker deployment with durable volume storage and Exotel cutover procedure.

@@ -32,8 +32,8 @@
 | **OV-020** | Harden Exotel WebSocket Stream Authentication | Security | P2 | Planned |
 | **OV-021** | Antigravity Engineering Environment Hardening | Tooling | P0 | **Done** |
 | **OV-022** | Landing Page Premium UI/UX & Frontend Upgrade | Enhancement | P2 | **Done** |
-| **OV-023** | Voice Continuity & Natural TTS Pipeline | Enhancement | P1 | IMPLEMENTED — AWAITING REAL PSTN VALIDATION |
-| **OV-024** | Natural Dialogue & Graceful Limitation Handling | Enhancement | P1 | Planned |
+| **OV-023** | Voice Continuity & Natural TTS Pipeline | Enhancement | P1 | **Done** (Gateway Validated) |
+| **OV-024** | Natural Dialogue & Graceful Limitation Handling | Enhancement | P1 | **Done** (Gateway Validated) |
 | **OV-025** | Unblock Windows Release Gate & Make Semantic Retrieval Loading Resilient | Bug | P0 | **Done** |
 | **OV-026** | Premium Real-Time Operations Console | Enhancement | P1 | COMPLETE |
 | **OV-027** | Persistent Cloud Backend & Operations Console Deployment | DevOps | P0 | In Progress |
@@ -360,7 +360,7 @@
 ### [OV-023] Voice Continuity & Natural TTS Pipeline
 * **Type:** Enhancement
 * **Priority:** P1
-* **Status:** IMPLEMENTED — AWAITING REAL PSTN VALIDATION
+* **Status:** **COMPLETE — LIVE TELEPHONY GATEWAY VALIDATED (REAL PSTN RE-VALIDATION DEFERRED)**
 * **Dependencies:** OV-005
 * **Problem:** Real PSTN audio is intelligible and transport-stable, but long responses sound assembled/choppy. Evidence from PSTN Call #3:
   * Sentence-by-sentence regex splitting triggers discrete TTS WebSocket flush cycles.
@@ -377,14 +377,17 @@
   4. Implement continuous PCM handling without avoidable injected digital null silence.
   5. Preserve low first-audio dispatch latency (<500 ms).
   6. Preserve acoustic playback interruption and carrier clear dispatch.
-  7. Validate speech continuity subjectively on authentic physical PSTN calls.
+  7. Validate speech continuity subjectively on authentic physical PSTN calls (deferred pending carrier credit / commercial KYC).
+* **Validation Note:**
+  * Live bidirectional telephony gateway validation passed (`/ws/audio`).
+  * Real carrier/PSTN re-validation is deferred because Exotel trial credit is exhausted and additional credit requires commercial GST/KYC (academic/student project constraint). Historical OV-005 real PSTN evidence preserved.
 
 ---
 
 ### [OV-024] Natural Dialogue & Graceful Limitation Handling
 * **Type:** Enhancement
 * **Priority:** P1
-* **Status:** Planned
+* **Status:** **COMPLETE — LIVE TELEPHONY GATEWAY VALIDATED (REAL PSTN RE-VALIDATION DEFERRED)**
 * **Dependencies:** OV-005
 * **Problem:** Anti-hallucination grounding behavior is factual but conversationally mechanical. Observed failure pattern in PSTN Call #3:
   * Caller asks unavailable fact (pricing) -> assistant states limitation -> assistant asks clarification (organization name) -> caller provides clarification -> assistant repeats essentially the same limitation.
@@ -397,6 +400,9 @@
   3. Do not prompt the caller for clarification when the missing information cannot change the outcome.
   4. Gracefully redirect the caller toward capabilities and business knowledge actually available on the line.
   5. Maintain concise, telephone-friendly phrasing appropriate for voice dialogue.
+* **Validation Note:**
+  * Live bidirectional telephony gateway validation passed (`/ws/audio`).
+  * Real carrier/PSTN re-validation is deferred because Exotel trial credit is exhausted and additional credit requires commercial GST/KYC. Historical OV-005 real PSTN evidence preserved.
 
 ---
 

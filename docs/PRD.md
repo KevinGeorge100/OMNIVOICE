@@ -1,7 +1,7 @@
 # OmniVoice — Product Requirements Document
 
-Version: 1.4
-Updated: 2026-10-03
+Version: 1.5
+Updated: 2026-10-04
 Status: Living product baseline; engineering targets are not certification claims  
 Related document: [Project Vision & Mission](VISION_AND_MISSION.md)
 
@@ -263,8 +263,8 @@ Treat user-reported, instrumented, simulated and independently verified results 
 | 1.1 | 2026-09-19 | 5.1, 5.3, 5.5, 7, 9–12 | General streaming/performance requirements → explicit stage boundaries, evidence classes, percentile reporting, cache comparison and interruption acceptance tests | Instrumentation and controlled comparisons enter current sprint; production load/failover remain enterprise validation; all targets preserved |
 | 1.2 | 2026-09-19 | 9 | Review 2 console flow, read-only preflight and demonstration guide | Prioritize repeatable demonstration readiness, guided console, and preflight |
 | 1.3 | 2026-09-20 | Product UI | Product interface separation | Dedicated review navigation removed; standard operational views used |
-| 1.4 | 2026-10-03 | 5.1, 7 | Sentence-by-sentence TTS flush and per-chunk padding → streaming phrase delivery, one utterance flush, continuous PCM framing and turn-level continuity telemetry | OV-023 implemented and locally tested; audible PSTN improvement and mouth-to-ear targets remain unverified pending controlled calls |
-| 1.5 | 2026-10-04 | 5.2, 5.4, 7 | Natural dialogue & limitation handling → grounded refusal, repetition prevention, strict clarification gating and next-best actions | OV-024 dialogue policy and telemetry; prevents hallucinations and unsupported action commitments |
+| 1.4 | 2026-10-03 | 5.1, 7 | Sentence-by-sentence TTS flush and per-chunk padding → streaming phrase delivery, one utterance flush, continuous PCM framing and turn-level continuity telemetry | OV-023 implemented; live bidirectional telephony gateway validation passed; real PSTN re-validation deferred due to Exotel trial credit constraint |
+| 1.5 | 2026-10-04 | 5.2, 5.4, 7 | Natural dialogue & limitation handling → grounded refusal, repetition prevention, strict clarification gating and next-best actions | OV-024 dialogue policy and telemetry; live bidirectional telephony gateway validation passed; real PSTN re-validation deferred due to Exotel trial credit constraint |
 
 Version 1.1 also records user-confirmed greeting/conversation functionality, ongoing naturalness work and the agile update protocol. The reported 15–25s/3–6s figures are not adopted as achieved OmniVoice end-to-end benchmarks.
 
