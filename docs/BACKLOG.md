@@ -37,6 +37,7 @@
 | **OV-025** | Unblock Windows Release Gate & Make Semantic Retrieval Loading Resilient | Bug | P0 | **Done** |
 | **OV-026** | Premium Real-Time Operations Console | Enhancement | P1 | COMPLETE |
 | **OV-027** | Persistent Cloud Backend & Operations Console Deployment | DevOps | P0 | In Progress |
+| **OV-028** | GitHub Repository Experience & Documentation Navigation | Documentation | P2 | **Done** |
 
 ---
 
@@ -454,3 +455,14 @@
 * **Purpose:** Deploy OmniVoice backend and Operations Console to persistent public cloud infrastructure with stable HTTPS/WSS endpoints and durable volume storage.
 * **Scope:** Single-service container hardening, Silero model baking, persistent volume specification for SQLite, deployment guide documentation, health/readiness endpoints, and Exotel cutover procedure.
 * **Acceptance:** Container builds self-contained, `/healthz` and `/readyz` pass remotely, Operations Console loads securely, and deployment documentation is complete.
+
+---
+
+### [OV-028] GitHub Repository Experience & Documentation Navigation
+* **Type:** Documentation
+* **Priority:** P2
+* **Status:** **Done**
+* **Dependencies:** None
+* **Purpose:** Make the public repository immediately understandable without presenting targets, gateway benchmarks, or planned production features as achieved facts.
+* **Scope:** README hierarchy and diagrams, a lightweight static visual, linked developer details, contribution guidance, and a review template. No application behavior changes.
+* **Acceptance:** Local links and heading anchors resolve, Mermaid blocks parse, existing setup/action details remain available, and benchmark claims retain their measurement boundary.

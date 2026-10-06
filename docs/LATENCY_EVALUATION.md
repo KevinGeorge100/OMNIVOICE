@@ -1,6 +1,6 @@
 # OV-006 Latency Evaluation Protocol
 
-**Status: IMPLEMENTED — AWAITING BENCHMARK DATA.** No production latency distribution is asserted here. The sub-500 ms end-to-end objective remains a design target, not a measured result.
+**Status: instrumentation implemented; live-gateway baseline recorded.** The [56-turn benchmark](OV006_BENCHMARK_RESULTS.md) used real Groq and Sarvam provider calls but a gateway harness and synthetic STT endpoint offset. It is not a PSTN or physical acoustic latency distribution. The sub-500 ms end-to-end objective remains a design target, not a measured result.
 
 ## Clock and measurement boundaries
 
@@ -33,9 +33,9 @@ The export supports `--session`, `--to-date`, `--format json`, and `--include-in
 
 Default inclusion requires a completed call, a non-interrupted, error-free turn, and successful first outbound audio timing. Superseded or control-halt generations are not persisted as turns. The export reports exclusion counts by reason (`call_incomplete`, `interrupted`, `response_error`, `no_first_audio`, malformed data). `--include-incomplete` allows audit of excluded rows, but those rows must not be mixed into a valid-turn baseline. Per-metric nulls are ignored; each statistic carries its own `n`. Standard deviation is sample standard deviation and is null for `n < 2`. Percentiles use nearest rank; p99 is deliberately omitted for the initial 50-turn protocol.
 
-## Next benchmark sprint acceptance
+## Next PSTN and acoustic benchmark acceptance
 
-1. Capture at least **50 valid completed turns** across **multiple live sessions**, recording provider, date, and code revision outside the export if available. Do not substitute synthetic tests for real calling data.
+1. Capture at least **50 valid completed turns** across **multiple physical PSTN sessions**, recording provider, date, and code revision outside the export if available. The live-gateway harness baseline cannot substitute for this dataset.
 2. Separate fast-cache, foreground-RAG, and action paths. Confirm FAQ turns have no LLM TTFT and that interrupted or superseded turns never contribute a false first-audio sample.
 3. Publish per-stage `n`, mean, sample standard deviation, min, p50, p90, p95, and max, with exclusion counts and collection conditions. Do not claim statistical significance or an SLA from 50 turns.
 4. Compare any intervention to a separately captured baseline with matching provider, network, and call mix. Retain raw numeric exports for audit under appropriate access control.

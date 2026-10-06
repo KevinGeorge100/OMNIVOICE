@@ -1,21 +1,142 @@
 # OmniVoice
 
-Enterprise telephony infrastructure for your S7 project and commercial product: a FastAPI media engine, a private enterprise console, and a runnable Exotel/Sarvam/Groq integration. All code lives in this folder.
+![OmniVoice signal architecture banner](docs/assets/omnivoice-signal.svg)
 
-**This is a tested development implementation, not a certified production deployment. Sub-500ms turnaround and sub-50ms interruption remain targets. Real PSTN telephone validation has been verified over live carrier lines (see OV-005 in docs/PROJECT_STATUS.md); licensed Fisher/FD-Bench evaluation has not been run.**
+### A voice agent infrastructure built for the phone line.
 
-## Run locally on Windows
+OmniVoice connects live PSTN calls to streaming speech, grounded knowledge, and confirmation-gated enterprise actions through an asynchronous FastAPI media engine. It is a telephony platform with an operations console—not a browser chatbot.
 
-Python 3.11 is used for the native FAISS and ONNX dependencies.
+[Product site](https://omnivoice-self.vercel.app/) · [Quick start](#quick-start) · [Architecture](#architecture) · [Evaluation](#performance-and-evaluation) · [Developer guide](docs/DEVELOPER_GUIDE.md)
+
+`Python 3.11` &nbsp; `FastAPI + WebSockets` &nbsp; `Exotel / Twilio adapters` &nbsp; `Sarvam + Groq` &nbsp; `Silero + FAISS`
+
+> [!IMPORTANT]
+> **Engineering status, not a production SLA.** Live Exotel handset calls have validated the basic PSTN conversation path. The published 56-turn latency study used a live gateway harness with real Groq and Sarvam providers and a synthetic STT endpoint offset; it was **not** a physical PSTN mouth-to-ear test. Sub-500 ms voice turnaround and sub-50 ms interruption remain product targets. See [current status](docs/PROJECT_STATUS.md) and the [benchmark method](docs/OV006_BENCHMARK_RESULTS.md).
+
+## Why OmniVoice?
+
+A phone conversation cannot wait for a chain of blocking transcription, retrieval, inference, and synthesis requests. It also cannot ignore a caller who interrupts. OmniVoice keeps carrier audio, neural voice detection, speech recognition, retrieval, model generation, and speech output in overlapping asynchronous streams.
+
+| Conventional voice wrapper | OmniVoice's implemented path |
+| --- | --- |
+| Wait for a complete request before starting each stage | Stream STT, LLM text, and TTS audio across bounded async tasks |
+| Query remote knowledge for every answer | Check approved FAQ answers and an optional bounded in-memory semantic cache first; retrieve context on misses |
+| Treat noise or every short utterance as a barge-in | Combine per-call Silero VAD with transcript-based backchannel filtering and carrier playback clear |
+| Execute a model-proposed business write immediately | Stage registered writes and require playback acknowledgment plus an explicit final-turn confirmation |
+
+## Product preview
+
+The [product site](https://omnivoice-self.vercel.app/) presents the system and an illustrative browser audio experience. The actual caller path is **PSTN/SIP → carrier media WebSocket → OmniVoice**. The embedded [operations console](omnivoice/static/) manages tenants, knowledge, lines, calls, and action activity. No verified console screenshot is committed yet; the signal graphic above is an architectural illustration, not a product screenshot.
+
+<details>
+<summary>Explore the call lifecycle</summary>
+
+1. A caller reaches an Exotel or Twilio number connected to OmniVoice.
+2. Carrier audio is decoded and fanned out to STT and per-call neural VAD.
+3. The session checks for an armed action confirmation, then approved fast answers, then contextual retrieval and streamed inference.
+4. Speech segments stream to TTS and are framed for the carrier while the caller can still speak.
+5. An accepted interruption cancels the current response and sends a carrier `clear` event; a write never commits from partial speech.
+
+</details>
+
+## Core capabilities
+
+| Area | Implemented today |
+| --- | --- |
+| **Full-duplex call loop** | Concurrent receive, STT, VAD, response, and playback tasks with bounded queues and a Speak / Listen / Idle state machine. |
+| **Barge-in** | Neural speech detection, transcript-based backchannel suppression, response cancellation, and carrier buffer clear. Acoustic stop-at-handset timing remains unmeasured. |
+| **Indian-language speech pipeline** | Sarvam streaming STT/TTS and configurable language codes. End-to-end multilingual telephone verification is still planned. |
+| **Carrier adapters** | Exotel PCM16 AgentStream path and Twilio G.711 μ-law path. Live handset validation exists for Exotel; Twilio PSTN validation remains open. |
+| **Grounded answers** | Exact approved FAQs, optional local semantic embeddings/FAISS cache, foreground retrieval, and Groq token streaming. Background prediction warms likely FAQ topics. |
+| **Enterprise actions** | Tenant-registered read/write tools, speculative read calls, staged writes, playback-mark arming, explicit verbal confirmation, and idempotency-key dispatch. |
+| **Isolation and observation** | Tenant-scoped API tokens and data access, SQLite WAL, call metrics, a call inspector, benchmark export, and evaluation tooling. |
+
+The [architecture reference](docs/ARCHITECTURE.md) covers codecs, queue ownership, cancellation, cache coherence, and action state transitions.
+
+## Architecture
+
+```mermaid
+flowchart TB
+    Caller["PSTN caller"] --> Carrier["Exotel PCM16 / Twilio μ-law"]
+    Carrier --> Transport["FastAPI carrier WebSocket + transport adapter"]
+    Transport --> Audio["Decode + causal 8→16 kHz audio"]
+    Audio --> VAD["Silero VAD · per-call state"]
+    Audio --> STT["Sarvam streaming STT"]
+    VAD --> FSM["Speak / Listen / Idle · interruption"]
+    STT --> FSM
+    FSM --> Session["CallSession orchestration"]
+    Session --> Fast["Approved FAQ + speculative cache"]
+    Fast -->|miss| RAG["Tenant-scoped retrieval · FAISS when enabled"]
+    RAG --> LLM["Groq streaming inference"]
+    Fast -->|hit| TTS["Sarvam streaming TTS"]
+    LLM --> TTS
+    TTS --> Frames["Carrier framing + playback marks"]
+    Frames --> Carrier
+    Session --> Tools["Registered read tools / confirmation-gated writes"]
+    Session --> Store["SQLite tenant data + call telemetry"]
+    FSM -.->|cancel + clear| Transport
+```
+
+### A turn can be interrupted
+
+```mermaid
+sequenceDiagram
+    participant Caller
+    participant Carrier as Exotel / Twilio
+    participant Engine as VAD + CallSession
+    participant STT as Sarvam STT
+    participant Think as Cache / RAG / Groq
+    participant TTS as Sarvam TTS
+    Caller->>Carrier: Speech on PSTN
+    Carrier->>Engine: Streaming audio frames
+    par Concurrent listening
+        Engine->>STT: Forward decoded audio
+        Engine->>Engine: VAD probabilities
+    end
+    STT-->>Engine: Partial / final transcript
+    Engine->>Think: Fast answer or grounded generation
+    Think-->>Engine: Answer / streamed speech segments
+    Engine->>TTS: Stream text
+    TTS-->>Engine: PCM audio
+    Engine->>Carrier: Framed audio + playback mark
+    Carrier-->>Caller: Speech playback
+    Caller->>Carrier: Interrupts while agent speaks
+    Carrier->>Engine: New speech frames
+    Engine->>Engine: VAD candidate + transcript decision
+    Engine->>TTS: Cancel active generation
+    Engine->>Carrier: Clear queued playback
+    Engine->>STT: Continue listening for next turn
+```
+
+The diagrams show control flow, not measured network timing. Exotel and Twilio use different carrier codecs and frame sizes; [transport details](docs/DEVELOPER_GUIDE.md#media-and-duplex-invariants) distinguish them.
+
+## Tech stack
+
+| Layer | Technology |
+| --- | --- |
+| Media/API | Python 3.11, FastAPI, asyncio, Uvicorn, WebSockets |
+| Speech and turn-taking | Sarvam STT/TTS, Silero ONNX VAD, FlexDuo state machine |
+| Reasoning and knowledge | Groq streaming inference, local FAISS, optional FastEmbed multilingual embeddings |
+| Data and operations | SQLite WAL, tenant-scoped console, Server-Sent Events |
+| Product site | Next.js 16, React 19, Tailwind CSS 4; deployed separately from the voice backend |
+
+## Quick start
+
+On Windows with Python 3.11, install the local Silero model once before starting the service:
 
 ```powershell
-cd C:\Projects\OMNIVOICE
+git clone https://github.com/KevinGeorge100/OMNIVOICE.git
+cd OMNIVOICE
+py -3.11 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -c requirements.lock -e '.[dev,semantic]'
+.\.venv\Scripts\python.exe -m omnivoice.cli models
 .\start.ps1
 ```
 
-Open **http://127.0.0.1:8000**. Click **Connect console** and use `OMNI_ADMIN_TOKEN` from your local `.env`. The token is generated by `omnivoice init`, never printed, and `.env` is excluded from source control. An enterprise API token is shown once when you create an enterprise. It can only access that enterprise.
+The startup script initializes local configuration and serves the API/console at [http://127.0.0.1:8000](http://127.0.0.1:8000); on later runs it can also recreate a missing virtual environment. It does **not** download models, provision carrier numbers, or supply provider credentials. Read the locally generated `.env` to use `OMNI_ADMIN_TOKEN`; never commit or share it.
 
-If setting up a new machine:
+<details>
+<summary>Manual setup and optional semantic models</summary>
 
 ```powershell
 py -3.11 -m venv .venv
@@ -24,98 +145,62 @@ py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m omnivoice.cli models --semantic
 ```
 
-Set `OMNI_SEMANTIC_ENABLED=true` after model installation. Model weights are downloaded only by the setup command; application startup uses local files. Without embeddings, the console clearly reports exact-FAQ and lexical-document retrieval instead of claiming semantic retrieval is active. Do not publish the development server without TLS, access controls, and an appropriate egress policy.
+Set `OMNI_SEMANTIC_ENABLED=true` only after installing the embedding model. Without it, approved exact FAQs and lexical document retrieval remain available. Model downloads occur during setup, not application startup.
 
-## What is implemented
+</details>
 
-| Component | Behavior |
-|---|---|
-| Async call engine | Separate receive, VAD, STT sender/receiver, LLM producer, TTS consumer, and background speculation tasks; bounded queues; call timeouts and cleanup |
-| Exotel transport | AgentStream PCM16 little-endian mono at 8kHz, 20ms outbound chunks, mark acknowledgments, clear events |
-| Twilio transport | `/ws/twilio`, signed inbound TwiML webhook, 8kHz G.711 μ-law decoding/encoding, authenticated stream parameters |
-| Generic transport | `/ws/audio` with `Authorization: Bearer <line stream secret>` and `X-Omni-Line: <line id>`; Exotel-style JSON PCM framing |
-| Full duplex | Speak / Listen / Idle FSM; per-call Silero ONNX recurrent state; candidate speech buffering; transcript-based backchannel filtering; generation cancellation and playback clear |
-| Streaming speech | Sarvam Saaras realtime STT partial/final events; Bulbul WebSocket TTS; persistent call sockets and a pre-authenticated TTS standby |
-| Inference | Groq Llama 3.1 8B async SSE token streaming, concurrent sentence-level TTS, bounded dialogue history |
-| Speculative RAG | Background prediction of up to five topics; FAISS corpus and bounded FAQ cache, multilingual local embeddings, TTL/revision invalidation, worker-thread embedding/search |
-| Fast answers | Exact approved FAQs and high-confidence cached semantic FAQ matches bypass foreground LLM generation; arbitrary document chunks do not |
-| Actions | Tenant-specific registered tools; speculative reads; persistent staged writes; playback-acknowledged confirmation prompts; exact final-transcript confirmation; idempotency keys; uncertain outcomes never automatically retried |
-| Console | Enterprise creation, language/greeting setup, document/FAQ ingestion, phone routing configuration, live call metrics, action audit trail, tool registration, outbound call initiation |
-| Storage | Local SQLite WAL, tenant-scoped queries, hashed enterprise API tokens; no persisted raw audio or general call transcripts |
-| Evaluation | Weighted WER, TTFA percentiles, false/missed interruption scoring; audio replay utility and annotated JSONL input contract |
+## Real telephony setup
 
-The browser is an operations console. Caller audio comes from PSTN/SIP carrier media streams; there is no browser speech-synthesis or browser-chatbot substitute.
+| Stage | What you configure |
+| --- | --- |
+| **Local development** | `OMNI_SARVAM_API_KEY`, `OMNI_GROQ_API_KEY`, local Silero model, enterprise, approved knowledge, and greeting. The browser console is administrative; localhost is not publicly reachable by a carrier. |
+| **Exotel** | An existing Exophone with AgentStream enabled, a public HTTPS/WSS origin in `OMNI_PUBLIC_BASE_URL`, and the private stream URL returned by **Connection details** in the Exotel VoiceBot flow. |
+| **Twilio** | A configured line, the signed `/telephony/twilio/{line_id}` webhook from **Connection details**, `OMNI_TWILIO_AUTH_TOKEN`, and the resulting bidirectional Media Stream. Live PSTN verification is still pending. |
+| **Deployment** | A persistent single-worker backend, durable SQLite volume, TLS/WSS, WebSocket upgrades, secret management, and carrier-specific validation before customer use. |
 
-## First live Indian phone call
+[Step-by-step setup](docs/DEVELOPER_GUIDE.md#first-live-phone-call) · [Deployment guide](docs/DEPLOYMENT.md)
 
-1. In `.env`, set `OMNI_SARVAM_API_KEY` and `OMNI_GROQ_API_KEY`. Keep secrets out of chat and source control. Verify that your accounts have access to the configured models. The proposal's `llama-3.1-8b-instant` is preserved rather than silently substituted.
-2. Install models, start the service, and expose it through a public **HTTPS/WSS** origin that supports persistent WebSockets. Set `OMNI_PUBLIC_BASE_URL` to that origin with no path suffix. Restart after configuration changes.
-3. Create an enterprise. Choose its primary response language, supply a greeting in that language, and specify an explicit confirmation phrase. Add your own business documents and approved FAQs. No invented enterprise facts or sample customer records are seeded.
-4. Register your existing **Exotel** number under Phone lines. Get **Connection details** and configure the resulting private WSS URL in your Exotel VoiceBot/AgentStream flow. AgentStream must be enabled on your account. Registration does not buy a number or change carrier routing automatically.
-5. Make an inbound call to your configured Exophone. Inspect Call activity and the carrier logs. A green readiness result means required local settings/models are present, not that remote credentials or latency have been validated.
-6. For outbound calls, set Exotel account SID/API credentials, set `OMNI_ENABLE_OUTBOUND=true`, restart, and use Place a call with the intended recipient and consent confirmation. No call is placed during setup or tests.
+## Performance and evaluation
 
-Twilio uses its signed `/telephony/twilio/{line_id}` webhook URL from Connection details and a `<Connect><Stream>` response. `OMNI_TWILIO_AUTH_TOKEN` is required for webhook validation. Speech and inference still use Sarvam/Groq on that transport.
+| Evidence class | Current statement |
+| --- | --- |
+| **Target** | Sub-500 ms voice turnaround and sub-50 ms interruption are design goals, not service guarantees. |
+| **Measured — live gateway harness** | 56 valid turns across 6 sessions; median server transcript-to-first-outbound-audio was **774.76 ms** overall and **261.12 ms** for the fast-cache subset. Groq and Sarvam calls were live; the STT endpoint used a 120 ms synthetic harness offset. [Method and distributions](docs/OV006_BENCHMARK_RESULTS.md). |
+| **Verified separately — PSTN path** | Historical Exotel handset calls demonstrated inbound conversation and barge-in. They did not establish a mouth-to-ear latency distribution. [Validation status](docs/PROJECT_STATUS.md). |
+| **Not yet validated** | Physical acoustic mouth-to-ear latency, carrier transit, Twilio PSTN behavior, and a multilingual/noise corpus baseline. |
 
-Exotel's documented codec differs from the proposal's generalized μ-law diagram: Exotel uses raw 8kHz PCM; Twilio uses μ-law. The adapters preserve this distinction. Both paths feed stateful 16kHz linear-resampled PCM into Silero and Sarvam.
+The server records STT endpoint **proxy**, fast lookup, RAG retrieval, LLM TTFT, speech buffer delay, TTS first audio, carrier framing/send, and first outbound audio timings. Missing stages remain unavailable rather than zero. [Metric definitions and exclusions](docs/LATENCY_EVALUATION.md) · [Corpus/replay contract](docs/EVALUATION.md).
 
-## Enterprise business tools
+## Security & action safety
 
-Register an existing business adapter through Actions & tools or the authenticated API. Tool URLs and schemas are administrator-owned; an LLM cannot supply arbitrary destinations or executable SQL. Schemas uploaded as knowledge are never executed.
+Enterprise API tokens are hashed at rest and scoped to a tenant. Registered tool endpoints require public HTTPS addresses; DNS is checked and pinned, redirects are disabled, and the model cannot choose an arbitrary URL or execute uploaded SQL. Speculative tools are read-only. Write proposals are staged, bound to a call and tenant, armed after a playback mark, and committed only after an exact final-turn confirmation; an idempotency key accompanies dispatch. An ambiguous downstream write outcome requires reconciliation rather than an automatic retry. [Action details](docs/DEVELOPER_GUIDE.md#enterprise-action-contract).
 
-Each tool accepts a JSON POST matching its registered JSON Schema. Read tools must actually be side-effect free. A write tool must:
+This is an MVP security architecture, not a compliance certification. A current known issue is the Exotel stream token in the WSS path, which can appear in proxy logs; see [project status](docs/PROJECT_STATUS.md).
 
-- Forbid additional properties and require every defined argument.
-- Supply a confirmation template containing **every argument** as a simple `{field}` placeholder. Write this template in the caller's language.
-- Honor `Idempotency-Key` durably and perform its business transaction atomically, including availability revalidation.
-- Return `{"ok": true, ...}` only after successful commit. Timeouts, ambiguous responses, and missing positive acknowledgment become `unknown`, requiring reconciliation rather than retries.
+## Repository map
 
-`auth_env` can name an `OMNI_TOOL_...` variable in the server environment or `.env`. Its value is sent as a bearer credential and never exposed through the console. Register `auth_env` through `/docs` if connector authentication is needed. DNS results must be public; requests pin the checked IP and preserve TLS SNI. Redirects are disabled.
+| Path | Purpose |
+| --- | --- |
+| [`omnivoice/`](omnivoice/) | FastAPI endpoints, media session, providers, VAD, retrieval, actions, storage, and latency telemetry |
+| [`omnivoice/static/`](omnivoice/static/) | Embedded operations console |
+| [`landing/`](landing/) | Separate customer-facing Next.js product site |
+| [`docs/`](docs/) | Architecture, PRD, deployment, evaluation, status, backlog, and ADRs |
+| [`tests/`](tests/) | API, dialogue, streaming, tenant, voice continuity, latency, and browser checks |
+| [`scripts/`](scripts/) | Release gate, live-gateway benchmark, metric export, and summaries |
+| [`.agents/`](.agents/) | Repository development rules and validation skills |
 
-The write gate binds the proposal to the tenant, call, exact arguments and frozen tool configuration. It expires after 120 seconds. A completed playback mark arms it. Partial transcripts cannot commit. An exact configured confirmation on a subsequent completed caller turn can commit once. Interruption, another request, or call termination cancels uncommitted proposals. Cleared playback marks cannot arm them. Once an external write is dispatched, interruption does **not** claim to roll it back.
+## Status & roadmap
 
-No clinic/CRM/calendar schema or account credentials were supplied, so those concrete business connectors are not invented. Register your actual adapters. SMS/calendar/CRM systems do not support a universal rollback transaction.
+**Implemented:** single-worker telephony MVP, Exotel handset validation, Twilio adapter, full-duplex cancellation, tenant knowledge, confirmation-gated tools, operations console, and server-side latency instrumentation. **Next:** acoustic/PSTN latency measurement, Twilio and multilingual call validation, provider recovery, cloud rollout verification, stronger access control, and distributed persistence. The [backlog](docs/BACKLOG.md) separates completed work from planned work; the [roadmap](docs/ROADMAP.md) describes longer-term phases.
 
-## Measurements and evaluation
+## Documentation
 
-Call activity records actual measurements only:
+| Start here | Go deeper |
+| --- | --- |
+| [Developer guide](docs/DEVELOPER_GUIDE.md) · [Current project status](docs/PROJECT_STATUS.md) | [Architecture](docs/ARCHITECTURE.md) · [PRD](docs/PRD.md) · [ADR index](docs/adr/README.md) |
+| [Deployment](docs/DEPLOYMENT.md) · [Backlog](docs/BACKLOG.md) | [Latency protocol](docs/LATENCY_EVALUATION.md) · [Benchmark results](docs/OV006_BENCHMARK_RESULTS.md) · [Evaluation contract](docs/EVALUATION.md) |
+| [Contributing](CONTRIBUTING.md) · [Definition of done](docs/DEFINITION_OF_DONE.md) | [Roadmap](docs/ROADMAP.md) |
 
-- `final_transcript_to_first_audio_sent_ms`: completed transcript received → first outbound audio frame sent.
-- `last_vad_speech_to_first_audio_sent_ms`: last locally observed Silero speech frame → first outbound audio frame sent; includes local endpointing effects but is **not** ground-truth mouth-to-ear latency.
-- `decision_to_clear_sent_ms`: semantic interruption decision → carrier clear request sent. This excludes speech recognition delay and does **not** prove that remote playback has already stopped.
-- Cache hit type, lookup duration including query embedding, LLM first-token time, interruption/error counts.
+---
 
-FAISS index search time must be distinguished from query embedding and total retrieval time. Cache hits still incur STT, TTS, transport, and background prediction costs; they do not mean a free call. No business pricing or gross-margin target is presented as a measured result.
-
-Read [evaluation instructions](docs/EVALUATION.md) for licensed corpus input, real-time audio replay, annotation format, and scoring. A localhost synthetic test is not a PSTN benchmark. Fisher and FD-Bench data are not bundled or fabricated.
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m ruff check .
-.\.venv\Scripts\python.exe -m omnivoice.evaluation path\to\annotated-runs.jsonl --output artifacts\evaluation.json
-```
-
-## Deployment boundary and remaining validation
-
-This build uses **one process/worker**, SQLite, and process-local call/cache state. `Dockerfile` and `compose.yaml` package that same development runtime; Kubernetes/distributed state are not claimed to be implemented. Use one worker until durable distributed call admission, tenant routing, and cache invalidation are added.
-
-Before the proposed commercial pilots, remaining work includes:
-
-- Live Exotel and Twilio contract tests: codec negotiation, playback marks/clear semantics, provider quota behavior, failed-call handling, and measured end-to-end latency.
-- Language-specific backchannel/confirmation calibration, entity and negation-sensitive cache evaluation, noise/overlap testing, and human escalation rules. The current interruption semantic policy is conservative transcript matching, not a reproduction of a published FlexDuo classifier.
-- Actual business connector integration, result localization, call-transfer handling, authentication/SSO/RBAC, audit retention, encrypted storage/backups, billing, and operational alerting.
-- Load tests, provider failure/reconnection strategy, cross-call warm-pool tuning, distributed persistence, infrastructure deployment, and Fisher/FD-Bench evaluations.
-
-Sarvam's documented TTS WebSocket protocol has no context-cancel command. The implementation clears carrier playback immediately, closes the active TTS socket, and uses its warm standby for the next generation. Whether closing the socket stops provider-side billed computation is provider-dependent. This needs real-call validation.
-
-## Source layout
-
-`omnivoice/app.py` API and carrier entrypoints · `session.py` orchestration · `providers.py` Sarvam/Groq · `duplex.py` FSM · `vad.py` Silero · `audio.py` codecs · `transport.py` marks/clear · `rag.py` retrieval · `actions.py` transaction gate · `store.py` tenant data · `static/` console · `tests/` isolated tests.
-
-## Provider references checked during implementation
-
-- [Exotel AgentStream](https://docs.exotel.com/exotel-agentstream), [VoiceBot framing](https://docs.exotel.com/exotel-agentstream/voicebot-applet), [official Exotel starter and outbound request](https://github.com/exotel/voicebot-quick-starter).
-- [Twilio WebSocket protocol](https://www.twilio.com/docs/voice/media-streams/websocket-messages), [request signature validation](https://www.twilio.com/docs/usage/security).
-- [Sarvam realtime STT](https://docs.sarvam.ai/api/api-guides-tutorials/speech-to-text/realtime-streaming), [TTS WebSocket](https://docs.sarvam.ai/api-reference/text-to-speech/stream). The TTS reference lists raw codecs but also contains an older MP3-only description; the adapter requests linear16 and fails closed on compressed/container audio. Verify this with your account before telephony testing.
-- [Groq streaming text](https://console.groq.com/docs/text-chat), [Groq model availability](https://console.groq.com/docs/models).
-- [Silero VAD](https://github.com/snakers4/silero-vad), [FAISS](https://github.com/facebookresearch/faiss), [FastEmbed](https://github.com/qdrant/fastembed).
+**OmniVoice** · Real-time voice infrastructure for the telephone network. Built to be measured, interrupted, and improved.
