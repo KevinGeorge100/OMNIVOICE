@@ -150,7 +150,13 @@ def create_app(settings=None):
             "active_calls": len(services.active),
             "max_calls": settings.max_calls,
             "providers": {
-                "speech": "Sarvam",
+                "speech": (
+                    "Sarvam"
+                    if settings.stt_provider == settings.tts_provider == "sarvam"
+                    else f"STT: {settings.stt_provider.title()} · TTS: {settings.tts_provider.title()}"
+                ),
+                "stt": settings.stt_provider,
+                "tts": settings.tts_provider,
                 "reasoning": "Groq",
                 "reasoning_model": settings.groq_model,
                 "telephony": ["Exotel", "Twilio"],

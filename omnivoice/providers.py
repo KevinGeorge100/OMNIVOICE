@@ -11,6 +11,21 @@ import websockets
 from .models import Transcript
 
 
+class SpeechProviderUnavailable(RuntimeError):
+    """A selected speech provider has no verified streaming implementation."""
+
+
+def select_speech_provider(name, modality, sarvam_factory):
+    """Keep Sarvam construction unchanged until a second API contract is verified."""
+    if name == "sarvam":
+        return sarvam_factory()
+    if name == "gnani":
+        raise SpeechProviderUnavailable(
+            f"Gnani {modality} provider implementation requires a verified API contract"
+        )
+    raise ValueError(f"Unsupported {modality} provider: {name}")
+
+
 class SarvamSTT:
     def __init__(self, settings):
         self.settings = settings

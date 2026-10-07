@@ -506,12 +506,12 @@ function render() {
   const configEl = $("configuration");
   if (configEl) {
     configEl.innerHTML = [
-      ["Speech provider", "Sarvam · streaming STT + TTS"],
+      ["Speech providers", state.providers?.stt && state.providers?.tts ? `STT: ${state.providers.stt} · TTS: ${state.providers.tts}` : "Connect console to inspect"],
       ["Reasoning", state.providers?.reasoning_model ? "Groq · " + state.providers.reasoning_model : "Connect console to inspect"],
       ["Retrieval", state.retrieval_mode || "Connect console to inspect"],
       ["Neural VAD", state.missing?.includes("SILERO_MODEL") ? "Model not installed" : "Silero ONNX (<20ms)"],
       ["Voice engine", state.voice_ready ? "Configured; live-call validation required" : "Not ready"],
-      ["Missing configuration", state.missing?.join(", ") || "None"],
+      ["Readiness blockers", state.missing?.join(", ") || "None"],
       ["Outbound calls", state.outbound_enabled ? "Enabled" : "Disabled"],
       ["Deployment", "Single-worker development runtime"]
     ].map(([k, v]) => `<div class="config-row"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("");

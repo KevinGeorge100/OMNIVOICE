@@ -18,6 +18,8 @@ py -3.11 -m venv .venv
 
 `init` generates a private `.env` with `OMNI_ADMIN_TOKEN`; it is not printed and `.env` is ignored by Git. Use that token to connect the console. Creating an enterprise shows its scoped API token once. Keep both tokens private. `models --semantic` downloads Silero and optional embedding weights for local use. Enable `OMNI_SEMANTIC_ENABLED=true` only after the semantic model is installed. Without it, approved exact FAQ lookup and lexical document retrieval remain available; the console must not claim semantic indexing is active.
 
+Speech selection defaults to Sarvam for both directions. `STT_PROVIDER` and `TTS_PROVIDER` can each be `sarvam` or `gnani`; `GNANI_API_KEY` is the private credential name for a future Gnani integration. The Gnani network API is not implemented: selecting it marks readiness unavailable even when the key is present, and no live call is admitted. Keep both selectors at `sarvam` for working calls. No Gnani endpoint, authentication scheme, audio format, or model identifier is assumed until an official API contract is verified.
+
 ## First live phone call
 
 1. Set `OMNI_SARVAM_API_KEY` and `OMNI_GROQ_API_KEY` in your private `.env`. Confirm your accounts can access the configured `OMNI_STT_MODEL`, `OMNI_TTS_MODEL`, and `OMNI_GROQ_MODEL`; the defaults in [`.env.example`](../.env.example) are configuration, not a guarantee of provider availability.

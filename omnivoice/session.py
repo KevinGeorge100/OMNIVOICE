@@ -13,7 +13,7 @@ from .dialogue import (
     unsupported_action_reply,
 )
 from .duplex import CancelReason, FlexDuo, is_control_halt, normalize
-from .providers import SarvamSTT, SarvamTTS
+from .providers import SarvamSTT, SarvamTTS, select_speech_provider
 from .speech import SpeechSegmenter, normalize_speech
 
 
@@ -26,8 +26,14 @@ class CallSession:
         self.id, self.tenant, self.transport, self.services = call_id, tenant, transport, services
         self.config = tenant["config"]
         self.fsm = FlexDuo(self.config["backchannels"])
-        self.stt = SarvamSTT(services.settings)
-        self.tts = SarvamTTS(services.settings, self.config["language"])
+        self.stt = select_speech_provider(
+            services.settings.stt_provider, "STT", lambda: SarvamSTT(services.settings)
+        )
+        self.tts = select_speech_provider(
+            services.settings.tts_provider,
+            "TTS",
+            lambda: SarvamTTS(services.settings, self.config["language"]),
+        )
         self.vad = services.vad.session()
         self.upsample = Upsample8k()
         self.audio_queue = asyncio.Queue(maxsize=100)

@@ -1,6 +1,7 @@
 from pathlib import Path
+from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,6 +11,15 @@ class Settings(BaseSettings):
     database: Path = Path("data/omnivoice.db")
     public_base_url: str = ""
     sarvam_api_key: SecretStr = SecretStr("")
+    gnani_api_key: SecretStr = Field(
+        default=SecretStr(""), validation_alias=AliasChoices("GNANI_API_KEY", "OMNI_GNANI_API_KEY")
+    )
+    stt_provider: Literal["sarvam", "gnani"] = Field(
+        default="sarvam", validation_alias=AliasChoices("STT_PROVIDER", "OMNI_STT_PROVIDER")
+    )
+    tts_provider: Literal["sarvam", "gnani"] = Field(
+        default="sarvam", validation_alias=AliasChoices("TTS_PROVIDER", "OMNI_TTS_PROVIDER")
+    )
     groq_api_key: SecretStr = SecretStr("")
     groq_model: str = "llama-3.1-8b-instant"
     stt_model: str = "saaras:v3-realtime"
@@ -34,9 +44,17 @@ class Settings(BaseSettings):
 
     def missing_voice_settings(self) -> list[str]:
         missing = []
-        for name in ("sarvam_api_key", "groq_api_key"):
-            if not getattr(self, name).get_secret_value():
-                missing.append(name.upper())
+        if "sarvam" in (self.stt_provider, self.tts_provider) and not self.sarvam_api_key.get_secret_value():
+            missing.append("SARVAM_API_KEY")
+        if "gnani" in (self.stt_provider, self.tts_provider):
+            if not self.gnani_api_key.get_secret_value():
+                missing.append("GNANI_API_KEY")
+            if self.stt_provider == "gnani":
+                missing.append("GNANI_STT_API_CONTRACT_UNAVAILABLE")
+            if self.tts_provider == "gnani":
+                missing.append("GNANI_TTS_API_CONTRACT_UNAVAILABLE")
+        if not self.groq_api_key.get_secret_value():
+            missing.append("GROQ_API_KEY")
         if not self.silero_model.is_file():
             missing.append("SILERO_MODEL")
         return missing

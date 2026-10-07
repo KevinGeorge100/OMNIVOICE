@@ -466,3 +466,14 @@
 * **Purpose:** Make the public repository immediately understandable without presenting targets, gateway benchmarks, or planned production features as achieved facts.
 * **Scope:** README hierarchy and diagrams, a lightweight static visual, linked developer details, contribution guidance, and a review template. No application behavior changes.
 * **Acceptance:** Local links and heading anchors resolve, Mermaid blocks parse, existing setup/action details remain available, and benchmark claims retain their measurement boundary.
+
+---
+
+### [OV-028A] Gnani Speech Provider Foundation
+* **Type:** Engineering
+* **Priority:** P1
+* **Status:** In Progress
+* **Dependencies:** None
+* **Purpose:** Prepare optional Gnani STT/TTS selection while retaining Sarvam as the active default.
+* **Scope:** Safe configuration parsing, explicit provider selection boundary, readiness blockers for unimplemented Gnani contracts, focused regression tests, and setup guidance. No Gnani network calls.
+* **Acceptance:** Sarvam calls remain unchanged; selecting Gnani never reports ready or starts a live call; no credential is exposed; all six release gates pass.
