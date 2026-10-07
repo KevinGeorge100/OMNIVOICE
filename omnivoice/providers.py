@@ -3,9 +3,15 @@
 import asyncio
 import base64
 import contextlib
+import io
 import json
+import logging
+import time
+import wave
 from urllib.parse import urlencode
 
+import httpx
+import numpy as np
 import websockets
 
 from .models import Transcript
@@ -15,15 +21,206 @@ class SpeechProviderUnavailable(RuntimeError):
     """A selected speech provider has no verified streaming implementation."""
 
 
-def select_speech_provider(name, modality, sarvam_factory):
-    """Keep Sarvam construction unchanged until a second API contract is verified."""
+def pcm_to_wav(pcm_s16le: bytes, sample_rate: int = 16000, channels: int = 1) -> bytes:
+    """Pack 16-bit linear PCM into a standard WAV container."""
+    if len(pcm_s16le) % 2:
+        raise ValueError("PCM data must be 16-bit aligned")
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(pcm_s16le)
+    return buffer.getvalue()
+
+
+GNANI_STT_LANGUAGES: dict[str, str] = {
+    "en-IN": "en-IN",
+    "hi-IN": "hi-IN",
+    "bn-IN": "bn-IN",
+    "gu-IN": "gu-IN",
+    "kn-IN": "kn-IN",
+    "ml-IN": "ml-IN",
+    "mr-IN": "mr-IN",
+    "od-IN": "od-IN",
+    "pa-IN": "pa-IN",
+    "ta-IN": "ta-IN",
+    "te-IN": "te-IN",
+}
+
+
+def select_speech_provider(name, modality, sarvam_factory, gnani_factory=None):
+    """Keep Sarvam construction unchanged; route to gnani_factory when supported."""
     if name == "sarvam":
         return sarvam_factory()
     if name == "gnani":
+        if gnani_factory is not None:
+            return gnani_factory()
         raise SpeechProviderUnavailable(
             f"Gnani {modality} provider implementation requires a verified API contract"
         )
     raise ValueError(f"Unsupported {modality} provider: {name}")
+
+
+class GnaniSTT:
+    """Utterance-based REST STT adapter for Gnani Prisma (v3).
+
+    Buffers caller audio during voice activity using VAD/energy thresholding,
+    packages completed utterances into a standard 16 kHz WAV container, and
+    submits to https://api.vachana.ai/stt/v3 via multipart/form-data.
+    Emits final Transcript objects on completion. Fake partials are never fabricated.
+    """
+
+    def __init__(self, settings, http=None, language="en-IN", vad=None):
+        self.settings = settings
+        if language not in GNANI_STT_LANGUAGES:
+            raise ValueError(f"Unsupported Gnani STT language code: {language}")
+        self.language = language
+        self.gnani_language = GNANI_STT_LANGUAGES[language]
+        self.http = http
+        self.owns_http = False
+        self.vad = vad
+        self.endpoint_silence_s = getattr(settings, "endpoint_silence_ms", 200) / 1000.0
+        self._speech_buffer = bytearray()
+        self._preroll = bytearray()
+        self._is_speaking = False
+        self._last_speech_time = 0.0
+        self._events: asyncio.Queue[Transcript | Exception | None] = asyncio.Queue()
+        self._pending_tasks: set[asyncio.Task] = set()
+        self._closed = False
+
+    async def open(self):
+        if self.http is None:
+            self.http = httpx.AsyncClient(
+                limits=httpx.Limits(max_connections=10), follow_redirects=False, trust_env=False
+            )
+            self.owns_http = True
+        self._closed = False
+
+    def _detect_speech(self, pcm: bytes) -> bool:
+        if self.vad is not None:
+            probs = self.vad.process(pcm)
+            if probs:
+                return any(p >= 0.6 for p in probs)
+        if len(pcm) < 2:
+            return False
+        samples = np.frombuffer(pcm, dtype="<i2")
+        rms = np.sqrt(np.mean(np.square(samples.astype(np.float32))))
+        return float(rms) >= 400.0
+
+    async def send(self, pcm16k: bytes):
+        if self._closed:
+            return
+        has_speech = self._detect_speech(pcm16k)
+        now = time.monotonic()
+        if has_speech:
+            if not self._is_speaking:
+                self._is_speaking = True
+                self._speech_buffer.extend(self._preroll)
+                self._preroll.clear()
+            self._speech_buffer.extend(pcm16k)
+            self._last_speech_time = now
+        else:
+            if self._is_speaking:
+                self._speech_buffer.extend(pcm16k)
+                if now - self._last_speech_time >= self.endpoint_silence_s:
+                    self._is_speaking = False
+                    pcm_data = bytes(self._speech_buffer)
+                    self._speech_buffer.clear()
+                    if len(pcm_data) >= 1600:
+                        task = asyncio.create_task(self._transcribe_and_emit(pcm_data))
+                        self._pending_tasks.add(task)
+                        task.add_done_callback(self._pending_tasks.discard)
+            else:
+                self._preroll.extend(pcm16k)
+                max_preroll = 9600
+                if len(self._preroll) > max_preroll:
+                    del self._preroll[: len(self._preroll) - max_preroll]
+
+    async def _transcribe_and_emit(self, pcm: bytes):
+        try:
+            wav = pcm_to_wav(pcm, sample_rate=16000)
+            transcript = await self.transcribe_wav(wav)
+            await self._events.put(transcript)
+        except Exception as exc:
+            await self._events.put(exc)
+
+    async def transcribe_wav(self, wav: bytes) -> Transcript:
+        if self.http is None:
+            await self.open()
+        api_key = self.settings.gnani_api_key.get_secret_value()
+        headers = {"X-API-Key-ID": api_key}
+        data = {
+            "language_code": self.gnani_language,
+            "preferred_language": self.gnani_language,
+            "format": "transcribe",
+            "itn_native_numerals": "true",
+        }
+        files = {"audio_file": ("audio.wav", wav, "audio/wav")}
+        try:
+            response = await self.http.post(
+                "https://api.vachana.ai/stt/v3",
+                headers=headers,
+                data=data,
+                files=files,
+                timeout=15.0,
+            )
+        except httpx.TimeoutException:
+            raise RuntimeError("STT provider timeout") from None
+        except httpx.RequestError as exc:
+            raise RuntimeError(f"STT provider connection error: {exc.__class__.__name__}") from None
+
+        if response.status_code >= 400:
+            raise RuntimeError(f"STT provider HTTP error: {response.status_code}")
+
+        try:
+            payload = response.json()
+        except Exception:
+            raise RuntimeError("STT provider returned malformed JSON") from None
+
+        if not isinstance(payload, dict):
+            raise RuntimeError("STT provider returned unexpected payload shape")
+
+        if not payload.get("success", False) and "transcript" not in payload:
+            raise RuntimeError(f"STT provider error: {payload.get('message', 'unsuccessful')}")
+
+        req_id = payload.get("request_id")
+        if req_id:
+            logging.getLogger("omnivoice.providers").debug("Gnani STT success request_id=%s", req_id)
+
+        text = payload.get("transcript") or ""
+        return Transcript(text=text, final=True, language=self.language)
+
+    async def flush(self):
+        if self._speech_buffer:
+            pcm_data = bytes(self._speech_buffer)
+            self._speech_buffer.clear()
+            self._is_speaking = False
+            if len(pcm_data) >= 1600:
+                await self._transcribe_and_emit(pcm_data)
+
+    async def events(self):
+        while not self._closed or not self._events.empty():
+            try:
+                item = await self._events.get()
+            except asyncio.CancelledError:
+                break
+            if item is None:
+                break
+            if isinstance(item, Exception):
+                raise item
+            yield item
+
+    async def close(self):
+        self._closed = True
+        for task in list(self._pending_tasks):
+            task.cancel()
+        if self._pending_tasks:
+            await asyncio.gather(*self._pending_tasks, return_exceptions=True)
+        await self._events.put(None)
+        if self.owns_http and self.http:
+            await self.http.aclose()
+            self.http = None
 
 
 class SarvamSTT:

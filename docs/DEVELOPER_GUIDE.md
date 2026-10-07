@@ -18,7 +18,7 @@ py -3.11 -m venv .venv
 
 `init` generates a private `.env` with `OMNI_ADMIN_TOKEN`; it is not printed and `.env` is ignored by Git. Use that token to connect the console. Creating an enterprise shows its scoped API token once. Keep both tokens private. `models --semantic` downloads Silero and optional embedding weights for local use. Enable `OMNI_SEMANTIC_ENABLED=true` only after the semantic model is installed. Without it, approved exact FAQ lookup and lexical document retrieval remain available; the console must not claim semantic indexing is active.
 
-Speech selection defaults to Sarvam for both directions. `STT_PROVIDER` and `TTS_PROVIDER` can each be `sarvam` or `gnani`; `GNANI_API_KEY` is the private credential name for a future Gnani integration. The Gnani network API is not implemented: selecting it marks readiness unavailable even when the key is present, and no live call is admitted. Keep both selectors at `sarvam` for working calls. No Gnani endpoint, authentication scheme, audio format, or model identifier is assumed until an official API contract is verified.
+Speech selection defaults to Sarvam for both directions. `STT_PROVIDER=gnani` enables Gnani Prisma transcription via its verified REST STT endpoint (`https://api.vachana.ai/stt/v3`), buffering utterances with VAD/energy thresholding and packaging them into standard 16 kHz WAV containers; streaming Prisma WebSocket support remains future work pending verified streaming protocol contracts. `TTS_PROVIDER=gnani` remains unimplemented and fails closed. Keep `TTS_PROVIDER=sarvam` for working calls. No Gnani TTS endpoint or streaming schema is assumed until an official API contract is verified.
 
 ## First live phone call
 

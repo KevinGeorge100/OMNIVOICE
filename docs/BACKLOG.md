@@ -472,8 +472,19 @@
 ### [OV-028A] Gnani Speech Provider Foundation
 * **Type:** Engineering
 * **Priority:** P1
-* **Status:** In Progress
+* **Status:** Complete
 * **Dependencies:** None
 * **Purpose:** Prepare optional Gnani STT/TTS selection while retaining Sarvam as the active default.
 * **Scope:** Safe configuration parsing, explicit provider selection boundary, readiness blockers for unimplemented Gnani contracts, focused regression tests, and setup guidance. No Gnani network calls.
 * **Acceptance:** Sarvam calls remain unchanged; selecting Gnani never reports ready or starts a live call; no credential is exposed; all six release gates pass.
+
+---
+
+### [OV-028B] Gnani Prisma STT Integration
+* **Type:** Engineering
+* **Priority:** P1
+* **Status:** Complete
+* **Dependencies:** OV-028A
+* **Purpose:** Integrate Gnani Prisma transcription via verified REST STT endpoint while keeping Sarvam default and preserving all duplex/barge-in invariants.
+* **Scope:** GnaniSTT adapter with utterance buffering and WAV conversion, request formatting for https://api.vachana.ai/stt/v3, language mapping, error isolation, unit and integration tests. Gnani TTS remains unimplemented.
+* **Acceptance:** STT_PROVIDER=gnani transcribes speech utterances; Sarvam remains default; Gnani TTS fails closed; secret keys are never leaked; all release gates pass.

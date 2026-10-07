@@ -1,3 +1,4 @@
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -7,6 +8,7 @@ from pydantic import ValidationError
 from omnivoice.app import create_app
 from omnivoice.config import Settings
 from omnivoice.providers import (
+    GnaniSTT,
     SarvamSTT,
     SarvamTTS,
     SpeechProviderUnavailable,
@@ -55,7 +57,7 @@ def test_gnani_environment_configuration_is_parsed_and_redacted(monkeypatch):
 
 
 @pytest.mark.parametrize("modality", ["stt", "tts"])
-def test_gnani_selection_requires_key_and_verified_contract(tmp_path, modality):
+def test_gnani_selection_requires_key(tmp_path, modality):
     kwargs = {f"{modality}_provider": "gnani"}
     settings = Settings(
         _env_file=None,
@@ -67,11 +69,14 @@ def test_gnani_selection_requires_key_and_verified_contract(tmp_path, modality):
     )
     blockers = settings.missing_voice_settings()
     assert "GNANI_API_KEY" in blockers
-    assert f"GNANI_{modality.upper()}_API_CONTRACT_UNAVAILABLE" in blockers
+    if modality == "tts":
+        assert "GNANI_TTS_API_CONTRACT_UNAVAILABLE" in blockers
+    else:
+        assert "GNANI_STT_API_CONTRACT_UNAVAILABLE" not in blockers
     assert "SARVAM_API_KEY" not in blockers
 
 
-def test_configured_gnani_still_fails_closed_at_readiness_and_construction(tmp_path):
+def test_configured_gnani_tts_still_fails_closed_at_readiness_and_construction(tmp_path):
     key = "test-only-gnani-secret"
     settings = Settings(
         _env_file=None,
@@ -90,13 +95,41 @@ def test_configured_gnani_still_fails_closed_at_readiness_and_construction(tmp_p
         assert state["voice_ready"] is False
         assert state["providers"]["stt"] == "gnani"
         assert state["providers"]["tts"] == "gnani"
-        assert "GNANI_STT_API_CONTRACT_UNAVAILABLE" in state["missing"]
+        assert "GNANI_STT_API_CONTRACT_UNAVAILABLE" not in state["missing"]
         assert "GNANI_TTS_API_CONTRACT_UNAVAILABLE" in state["missing"]
         assert "GNANI_API_KEY" not in state["missing"]
         assert key not in response.text
         assert key not in client.get("/readyz").text
     with pytest.raises(SpeechProviderUnavailable, match="verified API contract"):
         make_session(settings)
+
+
+def test_gnani_stt_with_sarvam_tts_is_constructed_and_voice_ready(tmp_path):
+    key = "test-only-gnani-secret"
+    settings = Settings(
+        _env_file=None,
+        database=tmp_path / "provider.db",
+        admin_token="test-admin-token",
+        gnani_api_key=key,
+        sarvam_api_key="test-sarvam-key",
+        groq_api_key="test-groq-key",
+        stt_provider="gnani",
+        tts_provider="sarvam",
+        silero_model=Path("models/silero_vad.onnx"),
+    )
+    session = make_session(settings)
+    assert isinstance(session.stt, GnaniSTT)
+    assert isinstance(session.tts, SarvamTTS)
+    with TestClient(create_app(settings)) as client:
+        response = client.get("/api/status", headers={"Authorization": "Bearer test-admin-token"})
+        state = response.json()
+        assert state["providers"]["stt"] == "gnani"
+        assert state["providers"]["tts"] == "sarvam"
+        assert "GNANI_STT_API_CONTRACT_UNAVAILABLE" not in state["missing"]
+        assert "GNANI_TTS_API_CONTRACT_UNAVAILABLE" not in state["missing"]
+        assert "GNANI_API_KEY" not in state["missing"]
+        assert state["voice_ready"] is True
+        assert client.get("/readyz").status_code == 200
 
 
 def test_selector_does_not_construct_sarvam_when_gnani_is_selected():

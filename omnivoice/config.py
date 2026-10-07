@@ -49,8 +49,6 @@ class Settings(BaseSettings):
         if "gnani" in (self.stt_provider, self.tts_provider):
             if not self.gnani_api_key.get_secret_value():
                 missing.append("GNANI_API_KEY")
-            if self.stt_provider == "gnani":
-                missing.append("GNANI_STT_API_CONTRACT_UNAVAILABLE")
             if self.tts_provider == "gnani":
                 missing.append("GNANI_TTS_API_CONTRACT_UNAVAILABLE")
         if not self.groq_api_key.get_secret_value():

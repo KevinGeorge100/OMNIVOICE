@@ -13,7 +13,7 @@ from .dialogue import (
     unsupported_action_reply,
 )
 from .duplex import CancelReason, FlexDuo, is_control_halt, normalize
-from .providers import SarvamSTT, SarvamTTS, select_speech_provider
+from .providers import GnaniSTT, SarvamSTT, SarvamTTS, select_speech_provider
 from .speech import SpeechSegmenter, normalize_speech
 
 
@@ -27,7 +27,15 @@ class CallSession:
         self.config = tenant["config"]
         self.fsm = FlexDuo(self.config["backchannels"])
         self.stt = select_speech_provider(
-            services.settings.stt_provider, "STT", lambda: SarvamSTT(services.settings)
+            services.settings.stt_provider,
+            "STT",
+            sarvam_factory=lambda: SarvamSTT(services.settings),
+            gnani_factory=lambda: GnaniSTT(
+                services.settings,
+                http=getattr(services, "http", None),
+                language=self.config.get("language", "en-IN"),
+                vad=services.vad.session() if getattr(services, "vad", None) else None,
+            ),
         )
         self.tts = select_speech_provider(
             services.settings.tts_provider,
