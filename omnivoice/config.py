@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     tts_provider: Literal["sarvam", "gnani"] = Field(
         default="sarvam", validation_alias=AliasChoices("TTS_PROVIDER", "OMNI_TTS_PROVIDER")
     )
+    gnani_tts_model: str = Field(
+        default="timbre-v2.5", validation_alias=AliasChoices("GNANI_TTS_MODEL", "OMNI_GNANI_TTS_MODEL")
+    )
+    gnani_tts_voice: str = Field(
+        default="Pranav", validation_alias=AliasChoices("GNANI_TTS_VOICE", "OMNI_GNANI_TTS_VOICE")
+    )
+    gnani_tts_sample_rate: int = Field(
+        default=8000, validation_alias=AliasChoices("GNANI_TTS_SAMPLE_RATE", "OMNI_GNANI_TTS_SAMPLE_RATE")
+    )
     groq_api_key: SecretStr = SecretStr("")
     groq_model: str = "llama-3.1-8b-instant"
     stt_model: str = "saaras:v3-realtime"
@@ -49,8 +58,13 @@ class Settings(BaseSettings):
         if "gnani" in (self.stt_provider, self.tts_provider):
             if not self.gnani_api_key.get_secret_value():
                 missing.append("GNANI_API_KEY")
-            if self.tts_provider == "gnani":
-                missing.append("GNANI_TTS_API_CONTRACT_UNAVAILABLE")
+        if self.tts_provider == "gnani":
+            if not self.gnani_tts_voice:
+                missing.append("GNANI_TTS_VOICE")
+            if not self.gnani_tts_model:
+                missing.append("GNANI_TTS_MODEL")
+            if self.gnani_tts_sample_rate not in (8000, 16000, 24000, 48000):
+                missing.append("GNANI_TTS_SAMPLE_RATE")
         if not self.groq_api_key.get_secret_value():
             missing.append("GROQ_API_KEY")
         if not self.silero_model.is_file():

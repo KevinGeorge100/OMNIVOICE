@@ -48,6 +48,109 @@ GNANI_STT_LANGUAGES: dict[str, str] = {
     "te-IN": "te-IN",
 }
 
+GNANI_TTS_LANGUAGES: dict[str, str] = {
+    "en-IN": "en-IN",
+    "hi-IN": "hi-IN",
+    "bn-IN": "bn-IN",
+    "gu-IN": "gu-IN",
+    "kn-IN": "kn-IN",
+    "ml-IN": "ml-IN",
+    "mr-IN": "mr-IN",
+    "od-IN": "od-IN",
+    "pa-IN": "pa-IN",
+    "ta-IN": "ta-IN",
+    "te-IN": "te-IN",
+    "en": "en-IN",
+    "hi": "hi-IN",
+    "bn": "bn-IN",
+    "gu": "gu-IN",
+    "kn": "kn-IN",
+    "ml": "ml-IN",
+    "mr": "mr-IN",
+    "od": "od-IN",
+    "pa": "pa-IN",
+    "ta": "ta-IN",
+    "te": "te-IN",
+}
+
+GNANI_TIMBRE_VOICES: frozenset[str] = frozenset(
+    {
+        "Nalini",
+        "Bhavna",
+        "Yashvi",
+        "Urmila",
+        "Jwala",
+        "Chitra",
+        "Ambuja",
+        "Deepak",
+        "Roopesh",
+        "Vikrant",
+        "Hemraj",
+        "Jalaj",
+        "Omkar",
+        "Aarohi",
+        "Bhavini",
+        "Charvi",
+        "Eishani",
+        "Falguni",
+        "Gauri",
+        "Iravati",
+        "Janaki",
+        "Kamakshi",
+        "Madhuri",
+        "Radhika",
+        "Shweta",
+        "Tanvi",
+        "Vidya",
+        "Wamika",
+        "Yamini",
+        "Abhimanyu",
+        "Chirag",
+        "Deven",
+        "Farhan",
+        "Jatin",
+        "Kartik",
+        "Kaveri",
+        "Trupti",
+        "Devika",
+        "Pranav",
+        "Shlok",
+        "Girish",
+        "Asmita",
+        "Trisha",
+        "Brinda",
+        "Vedika",
+        "Noopur",
+        "Oviya",
+        "Parvati",
+        "Suhana",
+        "Lehara",
+        "Lavanya",
+        "Yukti",
+        "Varuni",
+        "Saanvi",
+        "Kavin",
+        "Hansika",
+        "Reshma",
+        "Riyaan",
+        "Zahira",
+        "Ishaan",
+        "Kirra",
+        "Dhruva",
+        "Damini",
+        "Urvashi",
+        "Falak",
+        "Veera",
+        "Lalita",
+        "Nayana",
+        "Gaurav",
+        "Harshit",
+        "Mehuli",
+        "Zayan",
+        "Poorvi",
+    }
+)
+
 
 def select_speech_provider(name, modality, sarvam_factory, gnani_factory=None):
     """Keep Sarvam construction unchanged; route to gnani_factory when supported."""
@@ -426,6 +529,224 @@ class SarvamTTS:
             if not finished and self.active is ws:
                 # No cancellation message exists in the provider protocol. A
                 # partial stream may contain stale audio and is never reused.
+                self.active = None
+                await ws.close()
+
+    async def cancel(self):
+        ws, self.active = self.active, None
+        if ws:
+            await ws.close()
+
+    async def close(self):
+        self.closed = True
+        for task in (self.keepalive, self.refill):
+            if task:
+                task.cancel()
+        await asyncio.gather(*(t for t in (self.keepalive, self.refill) if t), return_exceptions=True)
+        await asyncio.gather(*(ws.close() for ws in (self.active, self.spare) if ws), return_exceptions=True)
+
+
+class GnaniTTS:
+    """Streaming WebSocket TTS adapter for Gnani Timbre (timbre-v2.5).
+
+    Maintains one active socket and one warm standby socket per session.
+    A cancelled or faulted socket is never reused. Audio is streamed progressively
+    as 16-bit linear PCM at carrier rate (8000 Hz) without blocking or full-response buffering.
+    """
+
+    def __init__(self, settings, language="en-IN"):
+        self.settings = settings
+        if language not in GNANI_TTS_LANGUAGES:
+            raise ValueError(f"Unsupported Gnani TTS language code: {language}")
+        self.language = language
+        self.gnani_language = GNANI_TTS_LANGUAGES[language]
+        voice = getattr(settings, "gnani_tts_voice", "Pranav")
+        if voice and voice not in GNANI_TIMBRE_VOICES:
+            raise ValueError(f"Unsupported Gnani TTS voice: {voice}")
+        self.voice = voice
+        raw_model = getattr(settings, "gnani_tts_model", "timbre-v2.5")
+        self.model = "timbre-v2.5" if raw_model in ("timbre", "timbre-2.5") else raw_model
+        self.sample_rate = getattr(settings, "gnani_tts_sample_rate", 8000)
+        self.active = None
+        self.spare = None
+        self.refill = None
+        self.keepalive = None
+        self.closed = False
+
+    def __repr__(self) -> str:
+        return f"<GnaniTTS model={self.model!r} voice={self.voice!r} language={self.language!r}>"
+
+    async def connect(self):
+        api_key = self.settings.gnani_api_key.get_secret_value()
+        ws = await websockets.connect(
+            "wss://api.vachana.ai/api/v1/tts",
+            additional_headers={
+                "X-API-Key-ID": api_key,
+                "Authorization": f"Bearer {api_key}",
+            },
+            open_timeout=10,
+            max_size=2**20,
+            max_queue=16,
+            ping_interval=15,
+        )
+        return ws
+
+    async def open(self):
+        self.active = await self.connect()
+        self.refill = asyncio.create_task(self._refill())
+        self.keepalive = asyncio.create_task(self._keepalive())
+
+    async def _refill(self):
+        try:
+            ws = await self.connect()
+            if self.closed:
+                await ws.close()
+            else:
+                self.spare = ws
+        except Exception:
+            # Active stream can proceed; next turn reconnects if no standby exists.
+            self.spare = None
+
+    async def _keepalive(self):
+        while True:
+            await asyncio.sleep(20)
+            for ws in (self.active, self.spare):
+                if ws:
+                    with contextlib.suppress(Exception):
+                        await ws.ping()
+
+    async def _voice_socket(self):
+        if self.active is None:
+            self.active = self.spare
+            self.spare = None
+            if self.active is None:
+                if self.refill:
+                    await self.refill
+                    self.active, self.spare = self.spare, None
+                if self.active is None:
+                    self.active = await self.connect()
+            self.refill = asyncio.create_task(self._refill())
+        return self.active
+
+    async def speak(self, text):
+        async def one():
+            yield text
+
+        async for pcm in self.stream_text(one()):
+            yield pcm
+
+    async def stream_text(self, texts):
+        """Stream text chunks to Gnani and yield progressive 8 kHz PCM chunks."""
+        ws = await self._voice_socket()
+        sent_count = 0
+        completed_count = 0
+        current_req_completed = False
+
+        async def feed():
+            nonlocal sent_count
+            async for text in texts:
+                chunk = text.strip() if isinstance(text, str) else ""
+                if not chunk:
+                    continue
+                req = {
+                    "text": chunk,
+                    "model": self.model,
+                    "language": self.gnani_language,
+                    "voice": self.voice,
+                    "sample_rate": self.sample_rate,
+                }
+                await ws.send(json.dumps(req))
+                sent_count += 1
+
+        sender = asyncio.create_task(feed())
+        receiver = None
+        finished = False
+        try:
+            while True:
+                if sender and sender.done():
+                    await sender
+                    if sent_count == 0:
+                        finished = True
+                        return
+                    if completed_count >= sent_count:
+                        finished = True
+                        return
+
+                receiver = asyncio.create_task(ws.recv())
+                pending = {receiver, sender} if sender and not sender.done() else {receiver}
+                if sender and not sender.done():
+                    done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
+                else:
+                    done = set()
+
+                if sender and sender in done:
+                    await sender
+                    if sent_count == 0:
+                        finished = True
+                        return
+                    if completed_count >= sent_count:
+                        finished = True
+                        return
+
+                raw = (
+                    await receiver
+                    if (sender and not sender.done())
+                    else await asyncio.wait_for(receiver, timeout=15)
+                )
+                receiver = None
+                try:
+                    event = json.loads(raw)
+                except Exception:
+                    raise RuntimeError("TTS provider returned malformed JSON") from None
+
+                if not isinstance(event, dict):
+                    raise RuntimeError("TTS provider returned non-dict JSON")
+
+                event_type = event.get("type")
+                if event_type == "start":
+                    current_req_completed = False
+                elif event_type == "audio":
+                    data = event.get("data", {})
+                    if not isinstance(data, dict):
+                        raise RuntimeError("TTS provider returned invalid audio payload")
+                    content_type = data.get("content_type", "").lower()
+                    if any(codec in content_type for codec in ("mp3", "mpeg", "wav", "ogg", "flac")):
+                        raise ValueError("TTS did not return the requested raw PCM format")
+                    audio_b64 = data.get("audio", "")
+                    if audio_b64:
+                        pcm = base64.b64decode(audio_b64, validate=True)
+                        if len(pcm) % 2 or pcm.startswith(b"RIFF"):
+                            raise ValueError("Invalid raw PCM from TTS")
+                        yield pcm
+                elif event_type == "complete":
+                    data = event.get("data", {})
+                    if isinstance(data, dict):
+                        audio_b64 = data.get("audio", "")
+                        if audio_b64:
+                            pcm = base64.b64decode(audio_b64, validate=True)
+                            if len(pcm) % 2 or pcm.startswith(b"RIFF"):
+                                raise ValueError("Invalid raw PCM from TTS")
+                            yield pcm
+                    is_final = isinstance(data, dict) and data.get("is_final") is True
+                    is_streaming_completed = event.get("message") == "Streaming completed"
+                    if is_final or is_streaming_completed:
+                        if not current_req_completed:
+                            current_req_completed = True
+                            completed_count += 1
+                        if (sender is None or sender.done()) and completed_count >= sent_count:
+                            if sender and sender.done():
+                                await sender
+                            finished = True
+                            return
+                elif event_type == "error":
+                    msg = event.get("message") or "TTS provider error"
+                    raise RuntimeError(f"TTS provider error: {msg}")
+        finally:
+            for task in (sender, receiver):
+                if task and not task.done():
+                    task.cancel()
+            await asyncio.gather(*(t for t in (sender, receiver) if t), return_exceptions=True)
+            if not finished and self.active is ws:
                 self.active = None
                 await ws.close()
 

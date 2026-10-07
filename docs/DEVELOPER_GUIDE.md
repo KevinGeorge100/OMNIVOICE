@@ -42,7 +42,7 @@ Outbound dialing is opt-in. Set the Exotel account SID/API credentials and `OMNI
 
 `omnivoice.audio.Upsample8k` carries interpolation state across inbound packet boundaries while converting to 16 kHz PCM for Silero and Sarvam. Per-call `vad_queue` and `audio_queue` are bounded. The Speak / Listen / Idle state machine combines acoustic candidates with transcript-level backchannel checks. An accepted interruption cancels response work, invalidates the carrier send epoch, and dispatches a `clear` envelope. The server cannot infer when a physical handset actually stops playback from that dispatch timestamp.
 
-Sarvam TTS uses an active socket and warm standby. Closing the active socket and clearing carrier playback does not prove provider-side billed computation stopped. No model or carrier latency target should be presented as verified without measured call evidence.
+Both Sarvam TTS and Gnani Timbre TTS use an active WebSocket and warm standby socket. Closing the active socket on barge-in invalidates in-flight audio and rotates to the warm standby, preventing stale audio from leaking into subsequent turns. Closing the active socket and clearing carrier playback does not prove provider-side billed computation stopped. No model or carrier latency target should be presented as verified without measured call evidence. Sarvam remains the default provider.
 
 ## Knowledge and inference
 
@@ -83,4 +83,5 @@ The backend has one process/worker, SQLite WAL, and process-local sessions and F
 - [Twilio Media Streams messages](https://www.twilio.com/docs/voice/media-streams/websocket-messages) and [request validation](https://www.twilio.com/docs/usage/security).
 - [Sarvam realtime STT](https://docs.sarvam.ai/api/api-guides-tutorials/speech-to-text/realtime-streaming) and [TTS WebSocket](https://docs.sarvam.ai/api-reference/text-to-speech/stream). Verify raw linear16 behavior with your provider account before a live call.
 - [Groq streaming](https://console.groq.com/docs/text-chat) and [model availability](https://console.groq.com/docs/models).
+- [Gnani STT and Timbre TTS](https://docs.gnani.ai/api/TTS/tts-inference). Configure `GNANI_API_KEY`, `STT_PROVIDER=gnani`, and `TTS_PROVIDER=gnani` for optional Gnani speech services.
 - [Silero VAD](https://github.com/snakers4/silero-vad), [FAISS](https://github.com/facebookresearch/faiss), and [FastEmbed](https://github.com/qdrant/fastembed).

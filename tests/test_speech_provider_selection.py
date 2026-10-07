@@ -9,6 +9,7 @@ from omnivoice.app import create_app
 from omnivoice.config import Settings
 from omnivoice.providers import (
     GnaniSTT,
+    GnaniTTS,
     SarvamSTT,
     SarvamTTS,
     SpeechProviderUnavailable,
@@ -69,39 +70,38 @@ def test_gnani_selection_requires_key(tmp_path, modality):
     )
     blockers = settings.missing_voice_settings()
     assert "GNANI_API_KEY" in blockers
-    if modality == "tts":
-        assert "GNANI_TTS_API_CONTRACT_UNAVAILABLE" in blockers
-    else:
-        assert "GNANI_STT_API_CONTRACT_UNAVAILABLE" not in blockers
+    assert "GNANI_STT_API_CONTRACT_UNAVAILABLE" not in blockers
+    assert "GNANI_TTS_API_CONTRACT_UNAVAILABLE" not in blockers
     assert "SARVAM_API_KEY" not in blockers
 
 
-def test_configured_gnani_tts_still_fails_closed_at_readiness_and_construction(tmp_path):
+def test_gnani_stt_and_tts_are_constructed_and_voice_ready(tmp_path):
     key = "test-only-gnani-secret"
     settings = Settings(
         _env_file=None,
         database=tmp_path / "provider.db",
         admin_token="test-admin-token",
         gnani_api_key=key,
+        groq_api_key="test-groq-key",
         stt_provider="gnani",
         tts_provider="gnani",
-        silero_model=tmp_path / "missing.onnx",
+        silero_model=Path("models/silero_vad.onnx"),
     )
+    session = make_session(settings)
+    assert isinstance(session.stt, GnaniSTT)
+    assert isinstance(session.tts, GnaniTTS)
     with TestClient(create_app(settings)) as client:
-        assert client.get("/readyz").status_code == 503
-        assert client.get("/api/status").status_code == 401
+        assert client.get("/readyz").status_code == 200
         response = client.get("/api/status", headers={"Authorization": "Bearer test-admin-token"})
+        assert response.status_code == 200
         state = response.json()
-        assert state["voice_ready"] is False
+        assert state["voice_ready"] is True
         assert state["providers"]["stt"] == "gnani"
         assert state["providers"]["tts"] == "gnani"
-        assert "GNANI_STT_API_CONTRACT_UNAVAILABLE" not in state["missing"]
-        assert "GNANI_TTS_API_CONTRACT_UNAVAILABLE" in state["missing"]
         assert "GNANI_API_KEY" not in state["missing"]
+        assert "GNANI_TTS_API_CONTRACT_UNAVAILABLE" not in state["missing"]
         assert key not in response.text
         assert key not in client.get("/readyz").text
-    with pytest.raises(SpeechProviderUnavailable, match="verified API contract"):
-        make_session(settings)
 
 
 def test_gnani_stt_with_sarvam_tts_is_constructed_and_voice_ready(tmp_path):

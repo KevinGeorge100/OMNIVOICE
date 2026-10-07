@@ -488,3 +488,14 @@
 * **Purpose:** Integrate Gnani Prisma transcription via verified REST STT endpoint while keeping Sarvam default and preserving all duplex/barge-in invariants.
 * **Scope:** GnaniSTT adapter with utterance buffering and WAV conversion, request formatting for https://api.vachana.ai/stt/v3, language mapping, error isolation, unit and integration tests. Gnani TTS remains unimplemented.
 * **Acceptance:** STT_PROVIDER=gnani transcribes speech utterances; Sarvam remains default; Gnani TTS fails closed; secret keys are never leaked; all release gates pass.
+
+---
+
+### [OV-028C] Gnani Timbre Streaming TTS
+* **Type:** Engineering
+* **Priority:** P1
+* **Status:** Complete
+* **Dependencies:** OV-028A, OV-028B
+* **Purpose:** Integrate Gnani Timbre streaming synthesis via verified WebSocket endpoint while keeping Sarvam default and preserving all duplex/barge-in invariants.
+* **Scope:** GnaniTTS adapter connecting to `wss://api.vachana.ai/api/v1/tts`, warm standby rotation, barge-in cancellation safety, 8 kHz linear PCM streaming, language and voice catalog validation, comprehensive mocked unit tests, live smoke testing.
+* **Acceptance:** TTS_PROVIDER=gnani streams audio with low latency (~233 ms observed TTFA); TTS_PROVIDER=sarvam remains default; barge-in and cancellation rotate sockets cleanly; no credentials leaked; all release gates pass.

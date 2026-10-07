@@ -13,7 +13,7 @@ from .dialogue import (
     unsupported_action_reply,
 )
 from .duplex import CancelReason, FlexDuo, is_control_halt, normalize
-from .providers import GnaniSTT, SarvamSTT, SarvamTTS, select_speech_provider
+from .providers import GnaniSTT, GnaniTTS, SarvamSTT, SarvamTTS, select_speech_provider
 from .speech import SpeechSegmenter, normalize_speech
 
 
@@ -40,7 +40,8 @@ class CallSession:
         self.tts = select_speech_provider(
             services.settings.tts_provider,
             "TTS",
-            lambda: SarvamTTS(services.settings, self.config["language"]),
+            sarvam_factory=lambda: SarvamTTS(services.settings, self.config["language"]),
+            gnani_factory=lambda: GnaniTTS(services.settings, self.config.get("language", "en-IN")),
         )
         self.vad = services.vad.session()
         self.upsample = Upsample8k()
