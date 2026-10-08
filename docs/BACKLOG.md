@@ -19,7 +19,7 @@
 | **OV-007** | Real Acoustic Barge-in & Background Noise Rehearsal | Task | P1 | Planned |
 | **OV-008** | Real Multilingual Telephone Turn Verification | Task | P1 | Planned |
 | **OV-009** | Provider Failure Recovery & Resilience | Feature | P1 | **Done** (Local Fault Injection) |
-| **OV-010** | LLM & STT Rate-Limit Handling & Graceful Backoff | Feature | P1 | Planned |
+| **OV-010** | LLM & STT Rate-Limit Handling & Graceful Backoff | Feature | P1 | **Done** (Local Overload Controls) |
 | **OV-011** | Database Migration Framework (Alembic) | TechDebt | P2 | Planned |
 | **OV-012** | Relational Database Migration (SQLite to PostgreSQL) | Feature | P2 | Planned |
 | **OV-013** | Distributed Session Registry & State Hub (Redis) | Architecture | P2 | Planned |
@@ -185,13 +185,17 @@
 ### [OV-010] LLM & STT Rate-Limit Handling & Graceful Backoff
 * **Type:** Feature
 * **Priority:** P1
-* **Status:** Planned
+* **Status:** **Done** (Local Overload Controls)
 * **Dependencies:** OV-009
-* **Description:** Extend the basic bounded HTTP 429 recovery delivered in OV-009 with quota-aware call admission, provider budget monitoring, and operational rate-limit reporting.
+* **Description:** Extend the basic bounded HTTP 429 recovery delivered in OV-009 with quota-aware call admission, provider budget monitoring, provider concurrency gating, audio backpressure, and operational rate-limit reporting.
 * **Acceptance Criteria:**
-  1. Expose provider quota and rate-limit state without leaking credentials or caller content.
-  2. Apply admission/backpressure decisions before initiating calls that cannot be served within quota.
-  3. Verify the policy against provider account limits without fabricated live PSTN claims.
+  1. Expose provider quota, in-flight counts, and rate-limit state in `/api/status` without leaking credentials, caller audio, or transcripts. Admin sees full snapshot; tenant sees only own active count and limit.
+  2. Apply atomic single-process call admission and per-tenant caps (`MAX_CALLS`, `TENANT_MAX_CALLS`) rejecting saturated calls with WebSocket close code 1013 (`local_capacity_exhausted` / `tenant_capacity_exhausted`).
+  3. Gate LLM, TTS, and STT concurrency with modality semaphores and a bounded 50 ms acquire timeout (`ProviderCapacityError`).
+  4. Enforce audio and VAD queue backlog ceilings (32 packets, 32,000 bytes) terminating overflow calls cleanly with close code 1013 and `end_reason="audio_queue_overflow"`.
+  5. Parse standard HTTP 429 `Retry-After` headers (integer seconds, decimal seconds, HTTP-date) capped at `PROVIDER_BACKOFF_MAX_MS` with immediate cancellation support.
+  6. Rate-limit sensitive API endpoints (auth failures, tenant creation, knowledge writes, analytics, dial) using bounded memory sliding windows.
+  7. Deterministic unit/integration tests and browser E2E tests pass. Single-process limitation explicitly documented; distributed Redis/PostgreSQL rate limiting remains future work.
 
 ---
 

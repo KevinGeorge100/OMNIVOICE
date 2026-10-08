@@ -10,6 +10,7 @@ let liveController = null;
 let liveKey = "";
 let liveRetry = null;
 let historyDebounce = null;
+let historyRequestId = 0;
 
 const opsEsc = value => esc(String(value ?? ""));
 const opsDate = value => Number.isFinite(value) ? new Date(value * 1000).toLocaleString() : "Not recorded";
@@ -158,14 +159,22 @@ function opsCallRow(call) {
 function renderHistory() {
   const target = $("calls-list");
   if (!target) return;
+  target.removeAttribute("data-loading");
+  target.dataset.search = $("call-search")?.value.trim() || "";
   target.innerHTML = historyRows.length ? opsTable(
     ["Session ID", "Carrier", "Duration", "Turns", "Outcome", "Started", "Inspect", "First audio"], historyRows.map(opsCallRow)
   ) : opsEmpty("No matching calls", "Adjust the filters or connect a phone line to begin recording sessions.");
   $("calls-load-more").hidden = !historyHasMore;
+  $("calls-load-more").disabled = false;
 }
 
 async function loadHistory(append = false) {
   if (!tenantId || !token) return;
+  const target = $("calls-list");
+  if (target) target.setAttribute("data-loading", "true");
+  const loadMoreBtn = $("calls-load-more");
+  if (loadMoreBtn) loadMoreBtn.disabled = true;
+  const requestId = ++historyRequestId;
   const requestedTenant = tenantId;
   const params = new URLSearchParams({ limit: "25", offset: String(append ? historyOffset : 0) });
   const search = $("call-search")?.value.trim();
@@ -176,12 +185,19 @@ async function loadHistory(append = false) {
   if (provider) params.set("provider", provider);
   if (status) params.set("status", status);
   if (period) params.set("since", String(Date.now() / 1000 - Number(period) * 86400));
-  const page = await api(route(`calls?${params}`));
-  if (requestedTenant !== tenantId) return;
-  historyRows = append ? historyRows.concat(page) : page;
-  historyOffset = historyRows.length;
-  historyHasMore = page.length === 25;
-  renderHistory();
+  try {
+    const page = await api(route(`calls?${params}`));
+    if (requestedTenant !== tenantId || requestId !== historyRequestId) return;
+    historyRows = append ? historyRows.concat(page) : page;
+    historyOffset = historyRows.length;
+    historyHasMore = page.length === 25;
+    renderHistory();
+  } finally {
+    if (requestId === historyRequestId && target) {
+      target.removeAttribute("data-loading");
+      if (loadMoreBtn) loadMoreBtn.disabled = false;
+    }
+  }
 }
 
 function renderLiveCalls() {
@@ -348,8 +364,18 @@ document.addEventListener("DOMContentLoaded", () => {
   $("knowledge-search")?.addEventListener("input", renderKnowledgeOperations);
   ["call-provider", "call-status", "call-period"].forEach(id => $(id)?.addEventListener("change", () => loadHistory().catch(error => notify(error.message))));
   $("call-search")?.addEventListener("input", () => {
+    historyRequestId++;
+    const target = $("calls-list");
+    if (target) target.setAttribute("data-loading", "true");
     clearTimeout(historyDebounce);
     historyDebounce = setTimeout(() => loadHistory().catch(error => notify(error.message)), 250);
+  });
+  $("call-search")?.addEventListener("keydown", event => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      clearTimeout(historyDebounce);
+      loadHistory().catch(error => notify(error.message));
+    }
   });
   $("calls-load-more")?.addEventListener("click", () => loadHistory(true).catch(error => notify(error.message)));
   setInterval(() => document.querySelectorAll("[data-live-duration]").forEach(node => {

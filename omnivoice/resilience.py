@@ -2,7 +2,10 @@
 
 import asyncio
 import logging
+import math
 import random
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 import httpx
 from websockets.exceptions import ConnectionClosed
@@ -29,6 +32,10 @@ class ProviderTimeoutError(ProviderTransientError):
 
 class ProviderRateLimitError(ProviderTransientError):
     category = "rate_limit"
+
+    def __init__(self, provider: str, modality: str, detail: str, retry_after_ms=None):
+        super().__init__(provider, modality, detail)
+        self.retry_after_ms = retry_after_ms
 
 
 class ProviderUnavailableError(ProviderTransientError):
@@ -57,7 +64,23 @@ def classify_error(error: Exception, provider: str, modality: str) -> ProviderEr
     elif hasattr(error, "response"):
         status = getattr(error.response, "status_code", None)
     if status == 429:
-        return ProviderRateLimitError(provider, modality, "HTTP error: 429")
+        headers = getattr(getattr(error, "response", None), "headers", {})
+        value = headers.get("Retry-After") if headers else None
+        retry_after_ms = None
+        if value is not None:
+            try:
+                seconds = float(value)
+                if math.isfinite(seconds):
+                    retry_after_ms = max(0.0, seconds * 1000)
+            except (TypeError, ValueError):
+                try:
+                    date = parsedate_to_datetime(value)
+                    if date.tzinfo is None:
+                        date = date.replace(tzinfo=timezone.utc)
+                    retry_after_ms = max(0.0, (date - datetime.now(timezone.utc)).total_seconds() * 1000)
+                except (TypeError, ValueError, OverflowError):
+                    pass
+        return ProviderRateLimitError(provider, modality, "HTTP error: 429", retry_after_ms)
     if status in (502, 503, 504):
         return ProviderUnavailableError(provider, modality, f"HTTP error: {status}")
     if status in (401, 403):
@@ -72,12 +95,13 @@ def classify_error(error: Exception, provider: str, modality: str) -> ProviderEr
 
 
 class RetryPolicy:
-    def __init__(self, settings, *, jitter=None, sleep=None):
+    def __init__(self, settings, *, jitter=None, sleep=None, capacity=None):
         self.max_retries = settings.provider_max_retries
         self.base_ms = settings.provider_backoff_base_ms
         self.max_ms = settings.provider_backoff_max_ms
         self.jitter = jitter or random.random
         self.sleep = sleep or asyncio.sleep
+        self.capacity = capacity
 
     def delay_ms(self, retry_number: int) -> float:
         exponential = min(self.max_ms, self.base_ms * (2 ** (retry_number - 1)))
@@ -108,6 +132,15 @@ class RetryPolicy:
         failure = classify_error(error, provider, modality)
         retry = failure.retryable and not emitted and attempt <= self.max_retries
         delay = self.delay_ms(attempt) if retry else 0
+        if isinstance(failure, ProviderRateLimitError):
+            if self.capacity is not None:
+                self.capacity.provider_rate_limit_events += 1
+            if retry and failure.retry_after_ms is not None:
+                delay = min(self.max_ms, failure.retry_after_ms)
+            logging.getLogger("omnivoice.resilience").warning(
+                "provider_rate_limited provider=%s modality=%s retry_delay_ms=%.0f",
+                provider, modality, delay,
+            )
         logging.getLogger("omnivoice.resilience").warning(
             "provider_failure provider=%s modality=%s attempt_number=%d "
             "failure_category=%s recovered=false retry_delay_ms=%.0f final_outcome=%s",
@@ -209,6 +242,8 @@ class ReplayableText:
         try:
             async for text in self.source:
                 async with self.condition:
+                    if len(self.cache) >= 64:
+                        raise ProviderProtocolError("tts", "TTS", "text replay buffer overflow")
                     self.cache.append(text)
                     self.condition.notify_all()
         except Exception as error:

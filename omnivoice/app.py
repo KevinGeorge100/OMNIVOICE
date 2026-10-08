@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from pypdf import PdfReader
 
 from .actions import ActionEngine, validate_public_url, validate_tool
+from .capacity import Capacity
 from .config import Settings
 from .events import TenantEvents
 from .models import DialInput, FAQInput, LineInput, TenantInput, ToolInput
@@ -34,7 +35,8 @@ from .vad import SileroFactory
 def create_app(settings=None):
     settings = settings or Settings()
     services = SimpleNamespace(
-        settings=settings, active={}, events=TenantEvents(), vad=None, model_error=None
+        settings=settings, active={}, events=TenantEvents(), vad=None, model_error=None,
+        capacity=Capacity(settings),
     )
 
     @asynccontextmanager
@@ -70,7 +72,7 @@ def create_app(settings=None):
             services.store, embedder, settings.cache_threshold, settings.cache_ttl_seconds
         )
         services.actions = ActionEngine(services.store, services.http)
-        services.llm = Groq(settings, services.http)
+        services.llm = Groq(settings, services.http, capacity=services.capacity)
         try:
             yield
         finally:
@@ -95,8 +97,11 @@ def create_app(settings=None):
             )
         return response
 
-    async def identity(authorization: str = Header(default="")):
+    async def identity(request: Request, authorization: str = Header(default="")):
+        source = request.client.host if request.client else "unknown"
         if not authorization.startswith("Bearer "):
+            if not services.capacity.allow_api("auth_failure", source, 20):
+                raise HTTPException(429, "Authentication rate limited", headers={"Retry-After": "60"})
             raise HTTPException(401, "A bearer token is required")
         token = authorization[7:]
         admin = settings.admin_token.get_secret_value()
@@ -104,8 +109,14 @@ def create_app(settings=None):
             return "admin"
         row = await services.store.one("SELECT id FROM tenants WHERE token_hash=?", (token_hash(token),))
         if not row:
+            if not services.capacity.allow_api("auth_failure", source, 20):
+                raise HTTPException(429, "Authentication rate limited", headers={"Retry-After": "60"})
             raise HTTPException(401, "Invalid token")
         return row["id"]
+
+    def limit_api(scope: str, tenant_id: str, limit: int):
+        if not services.capacity.allow_api(scope, tenant_id, limit):
+            raise HTTPException(429, "Request rate limited", headers={"Retry-After": "60"})
 
     async def admin(who=Depends(identity)):
         if who != "admin":
@@ -147,7 +158,7 @@ def create_app(settings=None):
             "retrieval_mode": retrieval_mode,
             "model_error": services.model_error,
             "outbound_enabled": settings.enable_outbound,
-            "active_calls": len(services.active),
+            "active_calls": services.capacity.snapshot()["active_calls"],
             "max_calls": settings.max_calls,
             "providers": {
                 "speech": (
@@ -169,8 +180,18 @@ def create_app(settings=None):
         return JSONResponse({"ready": state["voice_ready"]}, status_code=200 if state["voice_ready"] else 503)
 
     @app.get("/api/status", dependencies=[Depends(identity)])
-    async def status():
-        return readiness()
+    async def status(who=Depends(identity)):
+        state = readiness()
+        if who == "admin":
+            state["capacity"] = services.capacity.snapshot()
+        else:
+            state["active_calls"] = services.capacity.tenant_calls(who)
+            state["capacity"] = {
+                "active_calls": state["active_calls"],
+                "tenant_call_limit": settings.tenant_max_calls,
+                "scope": "tenant_single_process",
+            }
+        return state
 
     @app.get("/api/tenants")
     async def tenants(who=Depends(identity)):
@@ -180,6 +201,7 @@ def create_app(settings=None):
 
     @app.post("/api/tenants", status_code=201, dependencies=[Depends(admin)])
     async def create_tenant(body: TenantInput):
+        limit_api("tenant_create", "admin", 30)
         if {s.casefold().strip() for s in body.backchannels} & {
             s.casefold().strip() for s in body.confirmation_phrases
         }:
@@ -199,6 +221,7 @@ def create_app(settings=None):
 
     @app.post("/api/tenants/{tenant_id}/faqs", status_code=201)
     async def faq(body: FAQInput, tenant=Depends(tenant_access)):
+        limit_api("knowledge_write", tenant["id"], 12)
         item = await services.store.add_knowledge(
             tenant["id"], "faq", body.question, body.answer, body.approved
         )
@@ -208,6 +231,7 @@ def create_app(settings=None):
 
     @app.post("/api/tenants/{tenant_id}/documents", status_code=201)
     async def document(file: UploadFile = File(...), tenant=Depends(tenant_access)):
+        limit_api("knowledge_write", tenant["id"], 12)
         raw = await file.read(5 * 1024 * 1024 + 1)
         if len(raw) > 5 * 1024 * 1024:
             raise HTTPException(413, "Documents are limited to 5 MiB")
@@ -333,6 +357,7 @@ def create_app(settings=None):
     @app.get("/api/tenants/{tenant_id}/analytics")
     async def analytics(tenant=Depends(tenant_access)):
         tenant_id = tenant["id"]
+        limit_api("analytics", tenant_id, 60)
         summary = await services.store.one(
             "SELECT COUNT(*) total_calls, "
             "AVG(CASE WHEN ended IS NOT NULL THEN MAX(0,ended-started) END) avg_duration_seconds "
@@ -428,6 +453,10 @@ def create_app(settings=None):
 
     @app.post("/api/tenants/{tenant_id}/dial")
     async def dial(body: DialInput, tenant=Depends(tenant_access)):
+        limit_api("dial", tenant["id"], 6)
+        snapshot = services.capacity.snapshot()
+        if snapshot["saturated"] or services.capacity.tenant_calls(tenant["id"]) >= settings.tenant_max_calls:
+            raise HTTPException(503, "Local call capacity exhausted", headers={"Retry-After": "1"})
         if not settings.enable_outbound or not body.consent_confirmed:
             raise HTTPException(409, "Outbound calling must be enabled and recipient consent confirmed")
         if not readiness()["voice_ready"]:
@@ -548,17 +577,17 @@ def create_app(settings=None):
             if not line or not token or not secrets.compare_digest(token, line["stream_secret"]):
                 await ws.close(1008)
                 return
-            if not readiness()["voice_ready"] or not stream_id or len(services.active) >= settings.max_calls:
+            if not readiness()["voice_ready"] or not stream_id:
                 await ws.close(1013)
                 return
             tenant = await services.store.tenant(line["tenant_id"])
             call_id = uuid4().hex
+            reason = await services.capacity.admit(call_id, tenant["id"])
+            if reason:
+                await ws.close(1013, reason=reason)
+                return
             session = CallSession(call_id, tenant, MediaTransport(ws, provider, stream_id), services)
             session.line_number = line["number"]
-            # No await between capacity check and admission in the single-worker runtime.
-            if len(services.active) >= settings.max_calls:
-                await ws.close(1013)
-                return
             services.active[call_id] = session
             started = time.time()
             await services.store.execute(
@@ -581,32 +610,31 @@ def create_app(settings=None):
                 "Media session ended: %s", type(error).__name__
             )
         finally:
-            if call_id and call_id in services.active:
-                session = services.active.pop(call_id)
-                ended = time.time()
-                final_status = "failed" if session.metrics["errors"] else "completed"
-                await services.store.execute(
-                    "UPDATE calls SET status=?,ended=?,metrics=? WHERE id=?",
-                    (
-                        final_status,
-                        ended,
-                        json.dumps(session.metrics),
-                        call_id,
-                    ),
-                )
-                try:
-                    services.events.publish(
-                        session.tenant["id"], "call.ended",
-                        {"id": call_id, "status": final_status, "ended": ended},
-                    )
-                except Exception as error:
-                    logging.getLogger("omnivoice.media").warning(
-                        "Failed to publish call.ended event: %s", error
-                    )
             try:
-                await ws.close()
-            except Exception:
-                pass
+                if call_id and call_id in services.active:
+                    session = services.active.pop(call_id)
+                    ended = time.time()
+                    final_status = "failed" if session.metrics["errors"] else "completed"
+                    await services.store.execute(
+                        "UPDATE calls SET status=?,ended=?,metrics=? WHERE id=?",
+                        (final_status, ended, json.dumps(session.metrics), call_id),
+                    )
+                    try:
+                        services.events.publish(
+                            session.tenant["id"], "call.ended",
+                            {"id": call_id, "status": final_status, "ended": ended},
+                        )
+                    except Exception as error:
+                        logging.getLogger("omnivoice.media").warning(
+                            "Failed to publish call.ended event: %s", error
+                        )
+            finally:
+                if call_id:
+                    await services.capacity.release(call_id)
+                try:
+                    await ws.close()
+                except Exception:
+                    pass
 
     @app.websocket("/ws/twilio")
     async def twilio(ws: WebSocket):

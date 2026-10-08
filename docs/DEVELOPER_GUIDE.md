@@ -81,6 +81,30 @@ Call telemetry records final-transcript-to-first-outbound-audio time, a VAD-base
 
 The last command requires your own annotated input; it is not a benchmark result. `scripts/verify-dod.ps1` runs the repository's six-check release gate.
 
+## Capacity and overload controls
+
+OmniVoice implements local process-level admission, provider concurrency gating, audio backpressure, and API rate limiting via `omnivoice.capacity.Capacity`. These controls protect the single Python process against exhaustion under high load:
+
+- **Single-process scope**: All limits and meters are held in memory within the local process. They are NOT distributed rate limits across multiple workers, Redis, or cloud instances. Multi-worker coordination and PostgreSQL-backed quotas remain future work.
+- **Call admission**: Global concurrent calls are bounded by `MAX_CALLS` (default 20). Per-tenant active calls are bounded by `TENANT_MAX_CALLS` (default 5). Inbound WebSockets (`/ws/exotel`, `/ws/twilio`, `/ws/audio`) atomically acquire capacity before session startup; saturated requests are rejected with WebSocket close code 1013 (`local_capacity_exhausted` or `tenant_capacity_exhausted`). Releasing a call decrements counters exactly once and cleans up tenant map entries.
+- **Outbound dial admission pre-check**: `POST /api/tenants/{tenant_id}/dial` performs a best-effort pre-check against global saturation and `tenant_max_calls`, returning HTTP 503 (`Retry-After: 1`) if exhausted. Because carrier media streams connect asynchronously after dialing, actual admission is authoritatively enforced when the inbound carrier WebSocket arrives. Concurrent dial requests could both pass the initial check before either WebSocket connects; carrier WebSocket admission remains the authoritative gatekeeper.
+- **Provider concurrency gating**: External provider calls are gated by modality-scoped asyncio semaphores:
+  - `MAX_LLM_INFLIGHT` (default 12)
+  - `MAX_TTS_INFLIGHT` (default 12)
+  - `MAX_STT_INFLIGHT` (default 8)
+  Acquiring a provider slot enforces a bounded wait timeout of 50 ms. If no slot becomes free within 50 ms, `ProviderCapacityError` is raised immediately to prevent unserviced queue pileups. When cancelled during wait, resources and waiters are cleanly released without leaking counters.
+- **Audio queue backpressure**: Session `audio_queue` and `vad_queue` enforce `maxsize=32` packets and an aggregate byte ceiling of 32,000 bytes. When incoming audio backpressure exceeds 32,000 bytes without being drained, the call is terminated deterministically with WebSocket close code 1013 and `end_reason="audio_queue_overflow"`. The call slot is released immediately in the `finally` block.
+- **Gnani STT backpressure**: `GnaniSTT._events` is capped at `maxsize=8` (dropping the oldest entry if full on close to avoid deadlocks). Concurrently running background transcription tasks are limited to 2 (`_pending_tasks`); a third concurrent attempt raises `ProviderCapacityError`. All pending tasks are cleanly cancelled on session teardown without unretrieved task exception warnings.
+- **HTTP 429 Retry-After parsing**: Provider rate limits parsing handles integer seconds, decimal seconds, and RFC 7231 HTTP-date formats. If `Retry-After` is missing or malformed, the system falls back to configured exponential backoff. Excessive `Retry-After` delays are capped at `PROVIDER_BACKOFF_MAX_MS`. Explicit cancellation interrupts the retry sleep immediately.
+- **API rate limits**: REST API routes enforce fixed 60-second sliding window limits with automatic memory pruning (capped at 2,048 keys):
+  - Failed authentication: 20/min per client IP (HTTP 429)
+  - Tenant creation: 30/min for administrators (HTTP 429)
+  - FAQ and document writes: 12/min per tenant (HTTP 429)
+  - Analytics queries: 60/min per tenant (HTTP 429)
+  - Outbound dialing: 6/min per tenant (HTTP 429)
+- **Readiness vs. saturation**: `/readyz` evaluates whether required models and provider configurations are present (`voice_ready`). Saturated call capacity returns 200 on `/readyz` but rejects incoming calls with 1013 / 503, ensuring orchestrators (e.g. Kubernetes, Docker) do not restart healthy saturated instances.
+- **Observability and tenant isolation**: `GET /api/status` for administrators includes the full process capacity snapshot (`global_call_limit`, `tenant_call_limit`, active calls, rejection counters, provider in-flight counts, provider concurrency rejections, and last wait latencies). Tenant tokens see only their own tenant's active call count and `tenant_call_limit` (`scope="tenant_single_process"`), preventing cross-tenant information leakage.
+
 ## Deployment boundary and open work
 
 The backend has one process/worker, SQLite WAL, and process-local sessions and FAISS state. `Dockerfile` and `compose.yaml` package that architecture; they do not implement Kubernetes, distributed session routing, PostgreSQL, billing, granular RBAC, or compliance certification. Other open work includes Twilio live-call verification, multilingual and noise/overlap evaluation, live PSTN provider-outage rehearsal, action connector integration, call transfer, load testing, encrypted backups, and physical acoustic latency measurement. Track exact status in the [backlog](BACKLOG.md).

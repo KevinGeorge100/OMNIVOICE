@@ -40,7 +40,26 @@ class Settings(BaseSettings):
     embedding_cache: str = "models/embeddings"
     cache_threshold: float = Field(0.93, ge=0.8, le=1)
     cache_ttl_seconds: int = Field(300, ge=1)
-    max_calls: int = Field(20, ge=1, le=1000)
+    max_calls: int = Field(
+        default=20, ge=1, le=1000,
+        validation_alias=AliasChoices("MAX_CALLS", "OMNI_MAX_CALLS"),
+    )
+    tenant_max_calls: int = Field(
+        default=5, ge=1, le=1000,
+        validation_alias=AliasChoices("TENANT_MAX_CALLS", "OMNI_TENANT_MAX_CALLS"),
+    )
+    max_llm_inflight: int = Field(
+        default=12, ge=1, le=1000,
+        validation_alias=AliasChoices("MAX_LLM_INFLIGHT", "OMNI_MAX_LLM_INFLIGHT"),
+    )
+    max_tts_inflight: int = Field(
+        default=12, ge=1, le=1000,
+        validation_alias=AliasChoices("MAX_TTS_INFLIGHT", "OMNI_MAX_TTS_INFLIGHT"),
+    )
+    max_stt_inflight: int = Field(
+        default=8, ge=1, le=1000,
+        validation_alias=AliasChoices("MAX_STT_INFLIGHT", "OMNI_MAX_STT_INFLIGHT"),
+    )
     max_call_seconds: int = Field(1800, ge=30, le=14400)
     endpoint_silence_ms: int = Field(200, ge=100, le=2000)
     continuation_interval_ms: int = Field(750, ge=100, le=2000)

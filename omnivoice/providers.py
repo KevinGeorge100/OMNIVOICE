@@ -13,6 +13,7 @@ import httpx
 import numpy as np
 import websockets
 
+from .capacity import ProviderCapacityError
 from .models import Transcript
 from .resilience import (
     ProviderCancelledError,
@@ -182,14 +183,15 @@ class GnaniSTT:
     Emits final Transcript objects on completion. Fake partials are never fabricated.
     """
 
-    def __init__(self, settings, http=None, language="en-IN", vad=None):
+    def __init__(self, settings, http=None, language="en-IN", vad=None, capacity=None):
         self.settings = settings
-        self.retry = RetryPolicy(settings)
+        self.retry = RetryPolicy(settings, capacity=capacity)
         if language not in GNANI_STT_LANGUAGES:
             raise ValueError(f"Unsupported Gnani STT language code: {language}")
         self.language = language
         self.gnani_language = GNANI_STT_LANGUAGES[language]
         self.http = http
+        self.capacity = capacity
         self.owns_http = False
         self.vad = vad
         self.endpoint_silence_s = getattr(settings, "endpoint_silence_ms", 200) / 1000.0
@@ -197,7 +199,7 @@ class GnaniSTT:
         self._preroll = bytearray()
         self._is_speaking = False
         self._last_speech_time = 0.0
-        self._events: asyncio.Queue[Transcript | Exception | None] = asyncio.Queue()
+        self._events: asyncio.Queue[Transcript | Exception | None] = asyncio.Queue(maxsize=8)
         self._pending_tasks: set[asyncio.Task] = set()
         self._closed = False
 
@@ -240,6 +242,8 @@ class GnaniSTT:
                     pcm_data = bytes(self._speech_buffer)
                     self._speech_buffer.clear()
                     if len(pcm_data) >= 1600:
+                        if len(self._pending_tasks) >= 2 or self._events.full():
+                            raise ProviderCapacityError("gnani", "STT")
                         task = asyncio.create_task(self._transcribe_and_emit(pcm_data))
                         self._pending_tasks.add(task)
                         task.add_done_callback(self._pending_tasks.discard)
@@ -270,13 +274,14 @@ class GnaniSTT:
         }
         files = {"audio_file": ("audio.wav", wav, "audio/wav")}
         async def attempt():
-            response = await self.http.post(
-                "https://api.vachana.ai/stt/v3",
-                headers=headers,
-                data=data,
-                files=files,
-                timeout=15.0,
-            )
+            async with (self.capacity.provider_slot("STT", "gnani") if self.capacity else contextlib.nullcontext()):
+                response = await self.http.post(
+                    "https://api.vachana.ai/stt/v3",
+                    headers=headers,
+                    data=data,
+                    files=files,
+                    timeout=15.0,
+                )
             if response.status_code >= 400:
                 response.raise_for_status()
             try:
@@ -320,17 +325,19 @@ class GnaniSTT:
             task.cancel()
         if self._pending_tasks:
             await asyncio.gather(*self._pending_tasks, return_exceptions=True)
-        await self._events.put(None)
+        if self._events.full():
+            self._events.get_nowait()
+        self._events.put_nowait(None)
         if self.owns_http and self.http:
             await self.http.aclose()
             self.http = None
 
 
 class SarvamSTT:
-    def __init__(self, settings):
+    def __init__(self, settings, capacity=None):
         self.settings = settings
         self.ws = None
-        self.retry = RetryPolicy(settings)
+        self.retry = RetryPolicy(settings, capacity=capacity)
         self._reconnect_lock = asyncio.Lock()
         self._closed = False
         self._closed_event = asyncio.Event()
@@ -448,9 +455,10 @@ class SarvamTTS:
     socket stops generation; switching to the standby avoids reuse of stale audio.
     """
 
-    def __init__(self, settings, language):
+    def __init__(self, settings, language, capacity=None):
         self.settings, self.language = settings, language
-        self.retry = RetryPolicy(settings)
+        self.capacity = capacity
+        self.retry = RetryPolicy(settings, capacity=capacity)
         self._cancel_event = asyncio.Event()
         self.active = None
         self.spare = None
@@ -554,12 +562,17 @@ class SarvamTTS:
         replay = ReplayableText(texts)
         try:
             async for pcm in self.retry.stream(
-                lambda: self._stream_text_once(replay.iterate(), cancel_event),
+                lambda: self._bounded_stream_text_once(replay.iterate(), cancel_event),
                 "sarvam", "TTS", cancel_event=cancel_event,
             ):
                 yield pcm
         finally:
             await replay.close()
+
+    async def _bounded_stream_text_once(self, texts, cancel_event):
+        async with (self.capacity.provider_slot("TTS", "sarvam") if self.capacity else contextlib.nullcontext()):
+            async for pcm in self._stream_text_once(texts, cancel_event):
+                yield pcm
 
     async def _stream_text_once(self, texts, cancel_event):
         """Send adjacent text chunks on one socket; flush once per utterance.
@@ -658,9 +671,10 @@ class GnaniTTS:
     as 16-bit linear PCM at carrier rate (8000 Hz) without blocking or full-response buffering.
     """
 
-    def __init__(self, settings, language="en-IN"):
+    def __init__(self, settings, language="en-IN", capacity=None):
         self.settings = settings
-        self.retry = RetryPolicy(settings)
+        self.capacity = capacity
+        self.retry = RetryPolicy(settings, capacity=capacity)
         self._cancel_event = asyncio.Event()
         if language not in GNANI_TTS_LANGUAGES:
             raise ValueError(f"Unsupported Gnani TTS language code: {language}")
@@ -761,12 +775,17 @@ class GnaniTTS:
         replay = ReplayableText(texts)
         try:
             async for pcm in self.retry.stream(
-                lambda: self._stream_text_once(replay.iterate(), cancel_event),
+                lambda: self._bounded_stream_text_once(replay.iterate(), cancel_event),
                 "gnani", "TTS", cancel_event=cancel_event,
             ):
                 yield pcm
         finally:
             await replay.close()
+
+    async def _bounded_stream_text_once(self, texts, cancel_event):
+        async with (self.capacity.provider_slot("TTS", "gnani") if self.capacity else contextlib.nullcontext()):
+            async for pcm in self._stream_text_once(texts, cancel_event):
+                yield pcm
 
     async def _stream_text_once(self, texts, cancel_event):
         """Stream text chunks to Gnani and yield progressive 8 kHz PCM chunks."""
@@ -905,15 +924,21 @@ class GnaniTTS:
 
 
 class Groq:
-    def __init__(self, settings, http):
+    def __init__(self, settings, http, capacity=None):
         self.settings, self.http = settings, http
-        self.retry = RetryPolicy(settings)
+        self.capacity = capacity
+        self.retry = RetryPolicy(settings, capacity=capacity)
 
     async def stream(self, messages, tools=None):
         async for delta in self.retry.stream(
-            lambda: self._stream_once(messages, tools), "groq", "LLM"
+            lambda: self._bounded_stream_once(messages, tools), "groq", "LLM"
         ):
             yield delta
+
+    async def _bounded_stream_once(self, messages, tools):
+        async with (self.capacity.provider_slot("LLM", "groq") if self.capacity else contextlib.nullcontext()):
+            async for delta in self._stream_once(messages, tools):
+                yield delta
 
     async def _stream_once(self, messages, tools=None):
         body = {

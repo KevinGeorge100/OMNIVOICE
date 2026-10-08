@@ -56,12 +56,22 @@ class CallSession:
             services.settings.tts_provider,
             "TTS",
             sarvam_factory=lambda: SarvamTTS(services.settings, self.config["language"]),
-            gnani_factory=lambda: GnaniTTS(services.settings, self.config.get("language", "en-IN")),
+            gnani_factory=lambda: GnaniTTS(
+                services.settings, self.config.get("language", "en-IN")
+            ),
         )
+        capacity = getattr(services, "capacity", None)
+        if capacity is not None:
+            for provider in (self.stt, self.tts):
+                provider.capacity = capacity
+                if hasattr(provider, "retry"):
+                    provider.retry.capacity = capacity
         self.vad = services.vad.session()
         self.upsample = Upsample8k()
-        self.audio_queue = asyncio.Queue(maxsize=100)
-        self.vad_queue = asyncio.Queue(maxsize=100)
+        self.audio_queue = asyncio.Queue(maxsize=32)
+        self.vad_queue = asyncio.Queue(maxsize=32)
+        self.audio_backlog_bytes = 0
+        self.vad_backlog_bytes = 0
         self.response = None
         self.slow = None
         self.history = []
@@ -132,8 +142,24 @@ class CallSession:
                 if event == "media":
                     pcm = self.upsample.process(self.transport.decode(message))
                     # Never silently drop caller speech; overload terminates the call.
-                    self.audio_queue.put_nowait(pcm)
-                    self.vad_queue.put_nowait(pcm)
+                    try:
+                        if (
+                            self.audio_backlog_bytes + len(pcm) > 32000
+                            or self.vad_backlog_bytes + len(pcm) > 32000
+                        ):
+                            raise asyncio.QueueFull
+                        self.audio_queue.put_nowait(pcm)
+                        self.vad_queue.put_nowait(pcm)
+                        self.audio_backlog_bytes += len(pcm)
+                        self.vad_backlog_bytes += len(pcm)
+                    except asyncio.QueueFull:
+                        self.metrics["end_reason"] = "audio_queue_overflow"
+                        logging.getLogger("omnivoice.media").warning(
+                            "queue_overflow tenant_id=%s modality=audio reason=local_capacity_exhausted limit_bytes=32000",
+                            self.tenant["id"],
+                        )
+                        await self.transport.ws.close(code=1013)
+                        raise CallEnded() from None
                 elif event == "mark":
                     name = message.get("mark", {}).get("name")
                     if name in self.marks:
@@ -170,7 +196,9 @@ class CallSession:
     async def send_stt(self):
         try:
             while True:
-                await self.stt.send(await self.audio_queue.get())
+                pcm = await self.audio_queue.get()
+                self.audio_backlog_bytes -= len(pcm)
+                await self.stt.send(pcm)
         except ProviderError as error:
             await self._stt_unavailable(error)
             raise CallEnded() from None
@@ -195,6 +223,7 @@ class CallSession:
     async def detect_voice(self):
         while True:
             pcm = await self.vad_queue.get()
+            self.vad_backlog_bytes -= len(pcm)
             probabilities = await asyncio.to_thread(self.vad.process, pcm)
             for probability in probabilities:
                 self.fsm.voice(probability)
