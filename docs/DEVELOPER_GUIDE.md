@@ -20,6 +20,14 @@ py -3.11 -m venv .venv
 
 Speech selection defaults to Sarvam for both directions. `STT_PROVIDER=gnani` enables Gnani Prisma transcription via its verified REST STT endpoint (`https://api.vachana.ai/stt/v3`), buffering utterances with VAD/energy thresholding and packaging them into standard 16 kHz WAV containers; streaming Prisma WebSocket support remains future work pending verified streaming protocol contracts. `TTS_PROVIDER=gnani` enables Gnani Timbre streaming synthesis via its verified WebSocket endpoint (`wss://api.vachana.ai/api/v1/tts`), with dual-socket warm rotation for low-latency phrase streaming and immediate barge-in cancellation. Sarvam remains the default provider for both STT and TTS.
 
+## Provider failure recovery
+
+`PROVIDER_MAX_RETRIES=2`, `PROVIDER_BACKOFF_BASE_MS=150`, and `PROVIDER_BACKOFF_MAX_MS=1200` configure retries after the initial attempt. Limits are validated at startup; zero retries is valid. Classified timeouts, connection failures, HTTP 429, and HTTP 502/503/504 may retry with capped exponential backoff and jitter. Authentication failures, invalid requests, unsupported configuration, malformed payloads, and explicit cancellation do not retry. Failure and recovery logs contain provider, modality, attempt number, category, and delay, without credentials, caller audio, or transcript text.
+
+Sarvam STT reconnects without replaying previously sent audio or transcript events. Gnani Prisma can resubmit the same buffered utterance, but produces one final transcript only after a successful response. Sarvam and Gnani TTS may retry a phrase only before yielding its first PCM; after partial PCM, they abort rather than replay speech. Groq may restart only before its first meaningful streamed delta; after a partial token or tool-call fragment, it aborts. Barge-in cancellation interrupts backoff, closes the active synthesis socket, and invalidates the carrier playback epoch. A failed standby socket never blocks an otherwise healthy active turn.
+
+When STT recovery is exhausted, the session attempts a brief hearing-trouble message and ends the call; if synthesis is unavailable, it ends without waiting indefinitely. An exhausted LLM generation may speak a brief response-trouble message only if no audio from that generation reached the carrier. TTS failure after output clears playback and closes the call without repeating the phrase. Retry logic is confined to speech and LLM providers: it never repeats an action write. The existing staged → armed → confirmed → committed path and durable idempotency requirement remain in force. These are deterministic local failure-injection guarantees, not a measured physical PSTN outage-recovery latency.
+
 ## First live phone call
 
 1. Set `OMNI_SARVAM_API_KEY` and `OMNI_GROQ_API_KEY` in your private `.env`. Confirm your accounts can access the configured `OMNI_STT_MODEL`, `OMNI_TTS_MODEL`, and `OMNI_GROQ_MODEL`; the defaults in [`.env.example`](../.env.example) are configuration, not a guarantee of provider availability.
@@ -75,7 +83,7 @@ The last command requires your own annotated input; it is not a benchmark result
 
 ## Deployment boundary and open work
 
-The backend has one process/worker, SQLite WAL, and process-local sessions and FAISS state. `Dockerfile` and `compose.yaml` package that architecture; they do not implement Kubernetes, distributed session routing, PostgreSQL, billing, granular RBAC, or compliance certification. Other open work includes Twilio live-call verification, multilingual and noise/overlap evaluation, provider recovery, action connector integration, call transfer, load testing, encrypted backups, and physical acoustic latency measurement. Track exact status in the [backlog](BACKLOG.md).
+The backend has one process/worker, SQLite WAL, and process-local sessions and FAISS state. `Dockerfile` and `compose.yaml` package that architecture; they do not implement Kubernetes, distributed session routing, PostgreSQL, billing, granular RBAC, or compliance certification. Other open work includes Twilio live-call verification, multilingual and noise/overlap evaluation, live PSTN provider-outage rehearsal, action connector integration, call transfer, load testing, encrypted backups, and physical acoustic latency measurement. Track exact status in the [backlog](BACKLOG.md).
 
 ## Provider references
 

@@ -10,6 +10,7 @@ from omnivoice.config import Settings
 from omnivoice.duplex import CancelReason
 from omnivoice.models import Transcript
 from omnivoice.providers import SarvamSTT, SarvamTTS
+from omnivoice.resilience import ProviderTransientError
 from omnivoice.session import CallSession
 from omnivoice.transport import MediaTransport
 
@@ -49,7 +50,7 @@ class ProviderSocket:
 
 
 async def test_sarvam_realtime_interims_and_finals():
-    provider = SarvamSTT(Settings(_env_file=None))
+    provider = SarvamSTT(Settings(_env_file=None, provider_max_retries=0))
     provider.ws = ProviderSocket(
         [
             {"event": "transcript.partial", "text": "hello", "language": "en-IN"},
@@ -59,7 +60,7 @@ async def test_sarvam_realtime_interims_and_finals():
     await provider.send(b"\0\0")
     assert provider.ws.sent[0]["event"] == "audio_input"
     events = []
-    with pytest.raises(ConnectionError):
+    with pytest.raises(ProviderTransientError):
         async for event in provider.events():
             events.append(event)
     assert [e.final for e in events] == [False, True]
@@ -90,7 +91,7 @@ async def test_tts_rejects_encoded_audio_on_raw_telephony_path():
     provider.active = ProviderSocket(
         [{"type": "audio", "data": {"content_type": "audio/mp3", "audio": "AAAA"}}]
     )
-    with pytest.raises(ValueError, match="raw PCM"):
+    with pytest.raises(RuntimeError, match="raw PCM"):
         async for _ in provider.speak("Test"):
             pass
 

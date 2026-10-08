@@ -203,7 +203,7 @@ async def test_malformed_json_and_non_pcm_codecs_rejected():
         {"type": "audio", "data": {"content_type": "audio/mp3", "audio": "AAAA"}}
     ])
     tts.active = mock_ws2
-    with pytest.raises(ValueError, match="raw PCM"):
+    with pytest.raises(RuntimeError, match="raw PCM"):
         async for _ in tts.speak("Test"):
             pass
 
@@ -213,7 +213,7 @@ async def test_malformed_json_and_non_pcm_codecs_rejected():
         {"type": "audio", "data": {"audio": base64.b64encode(riff_bytes).decode()}}
     ])
     tts.active = mock_ws3
-    with pytest.raises(ValueError, match="Invalid raw PCM"):
+    with pytest.raises(RuntimeError, match="invalid raw PCM"):
         async for _ in tts.speak("Test"):
             pass
 
@@ -226,7 +226,7 @@ async def test_provider_error_frame_raises():
         {"type": "error", "message": "Voice quota exhausted"}
     ])
     tts.active = mock_ws
-    with pytest.raises(RuntimeError, match="Voice quota exhausted"):
+    with pytest.raises(RuntimeError, match="error event"):
         async for _ in tts.speak("Test"):
             pass
 

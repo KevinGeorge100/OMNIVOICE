@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import AliasChoices, Field, SecretStr
+from pydantic import AliasChoices, Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -44,12 +44,30 @@ class Settings(BaseSettings):
     max_call_seconds: int = Field(1800, ge=30, le=14400)
     endpoint_silence_ms: int = Field(200, ge=100, le=2000)
     continuation_interval_ms: int = Field(750, ge=100, le=2000)
+    provider_max_retries: int = Field(
+        default=2, ge=0, le=5,
+        validation_alias=AliasChoices("PROVIDER_MAX_RETRIES", "OMNI_PROVIDER_MAX_RETRIES"),
+    )
+    provider_backoff_base_ms: int = Field(
+        default=150, ge=1, le=2000,
+        validation_alias=AliasChoices("PROVIDER_BACKOFF_BASE_MS", "OMNI_PROVIDER_BACKOFF_BASE_MS"),
+    )
+    provider_backoff_max_ms: int = Field(
+        default=1200, ge=1, le=5000,
+        validation_alias=AliasChoices("PROVIDER_BACKOFF_MAX_MS", "OMNI_PROVIDER_BACKOFF_MAX_MS"),
+    )
     exotel_account_sid: str = ""
     exotel_api_key: SecretStr = SecretStr("")
     exotel_api_token: SecretStr = SecretStr("")
     twilio_account_sid: str = ""
     twilio_auth_token: SecretStr = SecretStr("")
     enable_outbound: bool = False
+
+    @model_validator(mode="after")
+    def validate_provider_backoff(self):
+        if self.provider_backoff_max_ms < self.provider_backoff_base_ms:
+            raise ValueError("PROVIDER_BACKOFF_MAX_MS must be >= PROVIDER_BACKOFF_BASE_MS")
+        return self
 
     def missing_voice_settings(self) -> list[str]:
         missing = []

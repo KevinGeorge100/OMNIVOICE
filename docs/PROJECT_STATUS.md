@@ -2,7 +2,7 @@
 
 **Current Maturity Level:** **MINIMUM VIABLE PRODUCT (MVP) — Real PSTN Verified**
 **Document Status:** Living reality baseline
-**Last Updated:** 2026-10-03
+**Last Updated:** 2026-10-08
 
 ---
 
@@ -16,7 +16,9 @@
 > **OV-023 & OV-024 Validation Status:**
 > Voice continuity / natural TTS pipelining (OV-023) and graceful dialogue limitation handling (OV-024) are **COMPLETE** and verified via live bidirectional telephony gateway validation (`/ws/audio`). Real carrier/PSTN re-validation is deferred because Exotel trial credit is exhausted and additional credit requires commercial GST/KYC (this is an external carrier billing/KYC constraint for this academic/student project, not a software blocker). Historical OV-005 real PSTN evidence remains fully intact.
 
-OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice application and media server**. It demonstrates a working integration between telephony WebSockets (Exotel/Twilio) and AI cloud providers (Sarvam AI for regional STT/TTS, Groq for Llama-3 LLM reasoning). It features a local neural VAD (Silero ONNX), an in-memory document vector index (FAISS), and an embedded administrative console.
+> **OV-028 / OV-009 update (2026-10-08):** Gnani Prisma STT and Timbre TTS are optional alongside the default Sarvam speech path; their latest healthy-path validation used provider/gateway flows, not a physical PSTN call. OV-009 adds bounded provider retries, cancellation-aware reconnects, no-replay protection after partial TTS/LLM output, and safe session fallbacks. The recovery behavior is validated by local failure injection and existing call tests; live PSTN provider-outage recovery has not been measured.
+
+OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice application and media server**. It demonstrates a working integration between telephony WebSockets (Exotel/Twilio) and AI cloud providers (Sarvam or Gnani for speech, Groq for LLM reasoning). It features a local neural VAD (Silero ONNX), an in-memory document vector index (FAISS), and an embedded administrative console.
 
 ---
 

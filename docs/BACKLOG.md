@@ -18,7 +18,7 @@
 | **OV-006** | Instrument & Evaluate Server-Observed Voice Latency | Task | P1 | **Done** |
 | **OV-007** | Real Acoustic Barge-in & Background Noise Rehearsal | Task | P1 | Planned |
 | **OV-008** | Real Multilingual Telephone Turn Verification | Task | P1 | Planned |
-| **OV-009** | Upstream Provider Disconnect & Recovery Handlers | Feature | P1 | Planned |
+| **OV-009** | Provider Failure Recovery & Resilience | Feature | P1 | **Done** (Local Fault Injection) |
 | **OV-010** | LLM & STT Rate-Limit Handling & Graceful Backoff | Feature | P1 | Planned |
 | **OV-011** | Database Migration Framework (Alembic) | TechDebt | P2 | Planned |
 | **OV-012** | Relational Database Migration (SQLite to PostgreSQL) | Feature | P2 | Planned |
@@ -167,16 +167,18 @@
 
 ---
 
-### [OV-009] Upstream Provider Disconnect & Recovery Handlers
+### [OV-009] Provider Failure Recovery & Resilience
 * **Type:** Feature
 * **Priority:** P1
-* **Status:** Planned
+* **Status:** **Done** (Local Fault Injection)
 * **Dependencies:** OV-005
-* **Description:** Implement resilient reconnection loops for Sarvam STT WebSocket dropouts and TTS socket failures mid-call.
+* **Description:** Classify provider failures and apply bounded, cancellation-aware recovery to Sarvam/Gnani STT and TTS plus Groq streaming. Preserve carrier generation ownership and the unchanged confirmation-gated action commit path.
 * **Acceptance Criteria:**
-  1. STT socket reconnects automatically within 500 ms if dropped.
-  2. Active call is preserved during brief provider hiccups.
-  3. If unrecoverable, caller hears a polite apology before call is hung up.
+  1. Retry only classified transient failures, with configurable small limits and capped exponential backoff with jitter; invalid auth, request, configuration, and payloads fail immediately.
+  2. Sarvam STT reconnects without replaying audio or transcript events; Gnani STT resubmits one buffered utterance but emits no duplicate final.
+  3. TTS and Groq retry only before first emitted output. After partial audio or token output, no phrase or token is replayed. Cancellation and carrier epoch checks override retries.
+  4. Exhausted STT and pre-audio LLM paths produce bounded, honest fallback where synthesis is available; TTS failure clears playback and closes cleanly. Provider retry never executes a write action.
+  5. Fault-injection tests, existing streaming/action tests, browser E2E, and six release gates pass. Live Gnani resilience over physical PSTN remains unclaimed.
 
 ---
 
@@ -185,11 +187,11 @@
 * **Priority:** P1
 * **Status:** Planned
 * **Dependencies:** OV-009
-* **Description:** Handle Groq HTTP 429 rate-limiting and Sarvam quota exhaustion with exponential backoff and fallback responses.
+* **Description:** Extend the basic bounded HTTP 429 recovery delivered in OV-009 with quota-aware call admission, provider budget monitoring, and operational rate-limit reporting.
 * **Acceptance Criteria:**
-  1. Intercept HTTP 429 and retry with jitter up to 2 times.
-  2. Fallback to approved FAQ answers when LLM is unavailable.
-  3. Log rate-limit events into call metrics JSON.
+  1. Expose provider quota and rate-limit state without leaking credentials or caller content.
+  2. Apply admission/backpressure decisions before initiating calls that cannot be served within quota.
+  3. Verify the policy against provider account limits without fabricated live PSTN claims.
 
 ---
 

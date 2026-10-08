@@ -196,7 +196,7 @@ async def test_gnani_stt_unsuccessful_payload_handled_cleanly():
     stt = GnaniSTT(settings, http=client)
     wav = pcm_to_wav(make_sine_pcm(0.1))
 
-    with pytest.raises(RuntimeError, match="Internal processing failure"):
+    with pytest.raises(RuntimeError, match="unsuccessful response"):
         await stt.transcribe_wav(wav)
 
 

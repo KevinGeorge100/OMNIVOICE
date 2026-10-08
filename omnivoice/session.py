@@ -14,7 +14,22 @@ from .dialogue import (
 )
 from .duplex import CancelReason, FlexDuo, is_control_halt, normalize
 from .providers import GnaniSTT, GnaniTTS, SarvamSTT, SarvamTTS, select_speech_provider
+from .resilience import ProviderError
 from .speech import SpeechSegmenter, normalize_speech
+
+STT_FAILURE_REPLY = "I'm having trouble hearing you right now. Please try again."
+LLM_FAILURE_REPLY = "I'm having trouble responding right now. Please try again."
+
+
+def provider_failure(error):
+    if isinstance(error, ProviderError):
+        return error
+    if isinstance(error, BaseExceptionGroup):
+        for nested in error.exceptions:
+            found = provider_failure(nested)
+            if found is not None:
+                return found
+    return None
 
 
 class CallEnded(Exception):
@@ -60,6 +75,8 @@ class CallSession:
         self.cancellation_reasons = {}
         self.pending_text = ""
         self.pending_final_time = 0.0
+        self._stt_failed = False
+        self._stt_failure_done = asyncio.Event()
 
     async def run(self):
         try:
@@ -82,6 +99,14 @@ class CallSession:
             _, unexpected = group.split((CallEnded,))
             if unexpected:
                 self.metrics["errors"] += 1
+                if failure := provider_failure(unexpected):
+                    self.metrics.setdefault("provider_failures", []).append(
+                        {
+                            "provider": failure.provider,
+                            "modality": failure.modality,
+                            "category": failure.category,
+                        }
+                    )
         except (CallEnded, TimeoutError):
             pass
         except Exception:
@@ -135,14 +160,37 @@ class CallSession:
         except Exception:
             self.metrics["errors"] += 1
             with contextlib.suppress(Exception):
+                await self.transport.clear()
+                await self.tts.cancel()
                 await self.transport.ws.close(code=1011)
         finally:
             self.metrics["greeting_audio_sent"] = "final_transcript_to_first_audio_sent_ms" in metric
             self.metrics["greeting_first_audio_ms"] = metric.get("final_transcript_to_first_audio_sent_ms")
 
     async def send_stt(self):
-        while True:
-            await self.stt.send(await self.audio_queue.get())
+        try:
+            while True:
+                await self.stt.send(await self.audio_queue.get())
+        except ProviderError as error:
+            await self._stt_unavailable(error)
+            raise CallEnded() from None
+
+    async def _stt_unavailable(self, error):
+        if self._stt_failed:
+            await self._stt_failure_done.wait()
+            return
+        self._stt_failed = True
+        try:
+            self.metrics.setdefault("provider_failures", []).append(
+                {"provider": error.provider, "modality": "STT", "category": error.category}
+            )
+            await self._cancel_pending_generation(CancelReason.SUPERSEDED)
+            with contextlib.suppress(Exception):
+                await self.transport.clear()
+                await self.tts.cancel()
+                await asyncio.wait_for(self.say(STT_FAILURE_REPLY), timeout=5)
+        finally:
+            self._stt_failure_done.set()
 
     async def detect_voice(self):
         while True:
@@ -177,6 +225,13 @@ class CallSession:
             await asyncio.gather(self.tts.cancel(), self.services.actions.cancel(self.id))
 
     async def transcripts(self):
+        try:
+            await self._transcripts()
+        except ProviderError as error:
+            await self._stt_unavailable(error)
+            raise CallEnded() from None
+
+    async def _transcripts(self):
         async for transcript in self.stt.events():
             text = transcript.text.strip()
             if not text:
@@ -490,14 +545,32 @@ class CallSession:
             elif history_pushed and self.history and self.history[-1].get("content") == text:
                 self.history.pop()
             raise
-        except Exception:
+        except Exception as error:
             self.metrics["errors"] += 1
             metric["error"] = "response_failed"
+            failure = provider_failure(error)
+            if failure is not None:
+                metric["provider_failure"] = {
+                    "provider": failure.provider,
+                    "modality": failure.modality,
+                    "category": failure.category,
+                }
+            if (
+                failure is not None
+                and failure.modality == "LLM"
+                and not metric.get("outbound_audio_bytes")
+                and self.active_generation_id == gen_id
+            ):
+                with contextlib.suppress(Exception):
+                    await self.transport.clear()
+                    await self.tts.cancel()
+                    await asyncio.wait_for(self.say(LLM_FAILURE_REPLY, metric=metric), timeout=5)
+                    metric["agent_response"] = LLM_FAILURE_REPLY
+                    return
             with contextlib.suppress(Exception):
                 await self.transport.clear()
                 await self.tts.cancel()
                 await self.transport.ws.close(code=1011)
-            # Do not substitute fake speech or an ungrounded provider fallback.
         finally:
             reason = self.cancellation_reasons.pop(gen_id, None)
             if reason not in {CancelReason.SUPERSEDED, CancelReason.CONTROL_HALT}:
