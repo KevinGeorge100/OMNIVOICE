@@ -10,6 +10,7 @@ import httpx
 import pytest
 from pydantic import ValidationError
 
+from omnivoice.actions import ActionEngine
 from omnivoice.config import Settings
 from omnivoice.providers import GnaniSTT, GnaniTTS, Groq, SarvamSTT, SarvamTTS
 from omnivoice.resilience import (
@@ -20,6 +21,7 @@ from omnivoice.resilience import (
     RetryPolicy,
 )
 from omnivoice.session import LLM_FAILURE_REPLY, STT_FAILURE_REPLY, CallSession
+from omnivoice.store import Store
 from omnivoice.transport import MediaTransport
 
 
@@ -782,3 +784,81 @@ async def test_llm_retry_does_not_duplicate_action_proposal(monkeypatch):
     assert attempts == 2
     assert len(staged) == 1
     assert session.metrics["turns"][0]["tool_called"] is True
+
+
+@pytest.mark.asyncio
+async def test_committed_action_remains_exactly_once_under_retry_scenario(tmp_path):
+    store = Store(tmp_path / "action_resilience.db")
+    await store.open()
+    try:
+        created = await store.create_tenant({"name": "Tenant", "confirmation_phrases": ["yes confirm"]})
+        tenant_id = created["id"]
+        tool = {
+            "name": "reserve",
+            "kind": "write",
+            "url": "https://example.com/reserve",
+            "description": "Reserve a slot",
+            "parameters": {
+                "type": "object",
+                "properties": {"slot": {"type": "string"}},
+                "required": ["slot"],
+                "additionalProperties": False,
+            },
+            "confirmation_template": "Reserve slot {slot}",
+        }
+        await store.execute("INSERT INTO tools VALUES (?,?,?)", (tenant_id, "reserve", json.dumps(tool)))
+        engine = ActionEngine(store, None)
+        invocations = []
+
+        async def mock_invoke(t, args, action_id=None):
+            invocations.append(action_id)
+            return {"ok": True}
+
+        engine.invoke = mock_invoke
+
+        action = await engine.stage(tenant_id, "call", "reserve", {"slot": "A"})
+        await engine.arm(action["id"], "call")
+
+        tts_attempts = 0
+
+        class FlakyTTS:
+            def __init__(self):
+                self.policy = RetryPolicy(settings(provider_backoff_base_ms=1, provider_backoff_max_ms=2))
+
+            async def stream_text(self, texts):
+                nonlocal tts_attempts
+
+                async def generate():
+                    nonlocal tts_attempts
+                    tts_attempts += 1
+                    if tts_attempts == 1:
+                        raise ProviderTransientError("test", "TTS", "transient connection reset")
+                    async for _ in texts:
+                        yield b"\0" * 3200
+
+                async for chunk in self.policy.stream(generate, "test", "TTS"):
+                    yield chunk
+
+            async def cancel(self):
+                return None
+
+        async def llm_placeholder(*_):
+            yield {"content": "unused"}
+
+        session, _ = make_session(llm_placeholder, FlakyTTS())
+        session.tenant["id"] = tenant_id
+        session.config["confirmation_phrases"] = ["yes confirm"]
+        session.services.actions = engine
+
+        await asyncio.wait_for(session.respond("yes confirm", time.perf_counter(), 1), 2)
+
+        assert len(invocations) == 1
+        assert tts_attempts == 2
+
+        row = await store.one("SELECT status FROM actions WHERE id=?", (action["id"],))
+        assert row["status"] == "committed"
+
+        await asyncio.wait_for(session.respond("yes confirm", time.perf_counter(), 2), 2)
+        assert len(invocations) == 1
+    finally:
+        await store.close()
