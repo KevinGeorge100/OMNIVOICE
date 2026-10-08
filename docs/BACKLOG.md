@@ -499,3 +499,21 @@
 * **Purpose:** Integrate Gnani Timbre streaming synthesis via verified WebSocket endpoint while keeping Sarvam default and preserving all duplex/barge-in invariants.
 * **Scope:** GnaniTTS adapter connecting to `wss://api.vachana.ai/api/v1/tts`, warm standby rotation, barge-in cancellation safety, 8 kHz linear PCM streaming, language and voice catalog validation, comprehensive mocked unit tests, live smoke testing.
 * **Acceptance:** TTS_PROVIDER=gnani streams audio with low latency (~233 ms observed TTFA); TTS_PROVIDER=sarvam remains default; barge-in and cancellation rotate sockets cleanly; no credentials leaked; all release gates pass.
+
+---
+
+### [OV-028D] Live Gnani End-to-End Validation
+* **Type:** Validation & Documentation
+* **Priority:** P1
+* **Status:** Complete
+* **Dependencies:** OV-028A, OV-028B, OV-028C
+* **Purpose:** Empirically validate real Gnani STT (Prisma) and TTS (Timbre) together through the OmniVoice pipeline prior to merging.
+* **Scope:**
+  - Live Gnani STT smoke verification using synthetic utterance generated via Gnani TTS.
+  - Audio format empirical validation: tested both 8 kHz and 16 kHz WAV containers against Gnani Prisma REST STT (`https://api.vachana.ai/stt/v3`). Both accepted; 16 kHz preserved domain terminology more accurately while 8 kHz had lower latency.
+  - Language check: English (en-IN) and smoke validation for Malayalam (ml-IN) producing native Malayalam script.
+  - Integrated `CallSession` live test with `STT_PROVIDER=gnani` and `TTS_PROVIDER=gnani`, testing greeting synthesis, STT turn transcription, FAQ resolution, Timbre streaming synthesis, and carrier framing.
+  - Barge-in verification: interruption closes active WebSocket, cancels playback, flushes buffer, rotates generation ID, and re-establishes a fresh socket without stale audio leakage.
+  - Provider failure behavior: timeout and connection-close degradation validated cleanly.
+  - Note: Physical Exotel PSTN validation is deferred due to exhausted carrier trial credits (no physical PSTN claim is made; live gateway / loopback transport validated).
+* **Acceptance:** Real STT and TTS live flows validated; all 6 Definition of Done gates pass; zero credentials leaked; Sarvam remains default.
