@@ -6,6 +6,10 @@ data/*
 !data/research/
 data/research/*
 !data/research/agent_tool_eval.json
+!data/research/agent_eval_cases.json
+!data/research/ov030_live_selection_results.json
+!data/research/ov030_workflow_results.json
+!data/research/ov030_summary.json
 models/
 __pycache__/
 *.egg-info/

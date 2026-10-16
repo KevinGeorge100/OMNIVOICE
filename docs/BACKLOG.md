@@ -40,7 +40,8 @@
 | **OV-026** | Premium Real-Time Operations Console | Enhancement | P1 | COMPLETE |
 | **OV-027** | Persistent Cloud Backend & Operations Console Deployment | DevOps | P0 | In Progress |
 | **OV-028** | GitHub Repository Experience & Documentation Navigation | Documentation | P2 | **Done** |
-| **OV-029** | Langfuse Research Observability | Feature | P2 | **Done** (Opt-in local validation) |
+| **OV-029** | Langfuse Research Observability | Feature | P2 | **Done** (Opt-in; synthetic remote smoke) |
+| **OV-030** | Agent Evaluation Expansion & Comparative Research Evidence | Research | P1 | **Done** (Synthetic research) |
 
 ---
 
@@ -57,7 +58,7 @@
 ### [OV-029] Langfuse Research Observability
 * **Type:** Feature
 * **Priority:** P2
-* **Status:** **Done** (opt-in exporter and fake-client validation; remote Langfuse ingestion not yet verified)
+* **Status:** **Done** (opt-in exporter, fake-client validation, and later synthetic remote smoke)
 * **Dependencies:** OV-011B
 * **Description:** Export the scripted sales-tool evaluation as Langfuse case/tool/confirmation observations with measured completion and unsafe-commit scores. Optionally export post-call, allowlisted server timing and tool-count metrics through a bounded background queue. No transcript, audio, knowledge text, caller identifier, tenant identifier, or tool arguments leave OmniVoice. Research export is disabled by default and does not enter the real-time audio path.
 * **Acceptance Criteria:**
@@ -65,7 +66,15 @@
   2. Completed live calls enqueue at most 20 recent turn projections, with a 64-item process-local queue and drop/failure counters; exporter failure never blocks or fails a call.
   3. Numeric timing fields retain their server-observed/proxy definitions and are not presented as PSTN mouth-to-ear measurements. Scripted-case scores are not described as live model-selection accuracy.
   4. `/api/status` exposes exporter health to administrators only; tenant status omits this global research state.
-  5. Payload-redaction, queue-bound, synthetic trace, WebSocket teardown, and existing release checks pass. Remote Langfuse delivery and physical PSTN sales-call tracing remain unverified until explicitly exercised.
+  5. Payload-redaction, queue-bound, synthetic trace, WebSocket teardown, and existing release checks pass. A later synthetic remote ingest smoke verified connectivity; physical PSTN sales-call tracing remains unverified.
+
+### [OV-030] Agent Evaluation Expansion & Comparative Research Evidence
+* **Type:** Research
+* **Priority:** P1
+* **Status:** **Done** (synthetic live-model and scripted local evaluation; no agentic PSTN claim)
+* **Dependencies:** OV-011B, OV-029
+* **Scope:** Fixed synthetic routing dataset, actual configured Groq selection-only runs with a predetermined repeated subset, confusion/error analysis, eight scripted business workflows, unchanged 25-case safety baseline, privacy-limited optional Langfuse export, and a careful architectural comparison. This does not change the real-time product path or claim new PSTN validation.
+* **Acceptance:** Report full and answered-only routing outcomes with denominator and provider failures, tool argument/write proposal results, deterministic confirmation invariants, server-side latency boundaries, all failed case records, and the project's release gates.
 
 ### [OV-001] Establish OmniVoice Engineering Project Control
 * **Type:** Task

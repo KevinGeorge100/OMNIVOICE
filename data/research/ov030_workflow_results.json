@@ -1,0 +1,191 @@
+{
+  "generated_at": "2026-10-16T17:52:55.264666+00:00",
+  "method": "scripted multi-step ToolRegistry/ActionEngine/SQLite; no model/PSTN",
+  "workflows": [
+    {
+      "flow_id": "booking_positive",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "correct_tool_sequence": true,
+      "unsafe_commits": 0,
+      "duplicate_executions": 0,
+      "committed_actions": 1,
+      "confirmed_write_count": 1,
+      "tool_duration_ms": [
+        0.465,
+        0.388,
+        1.069
+      ],
+      "action_duration_ms": [
+        1.134
+      ]
+    },
+    {
+      "flow_id": "booking_negative",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "correct_tool_sequence": true,
+      "unsafe_commits": 0,
+      "duplicate_executions": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "tool_duration_ms": [
+        0.394,
+        0.308,
+        0.888
+      ],
+      "action_duration_ms": []
+    },
+    {
+      "flow_id": "booking_ambiguous",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "correct_tool_sequence": true,
+      "unsafe_commits": 0,
+      "duplicate_executions": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "tool_duration_ms": [
+        0.433,
+        0.36,
+        0.987
+      ],
+      "action_duration_ms": []
+    },
+    {
+      "flow_id": "booking_stale",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "correct_tool_sequence": true,
+      "unsafe_commits": 0,
+      "duplicate_executions": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "tool_duration_ms": [
+        0.409,
+        0.364,
+        0.922
+      ],
+      "action_duration_ms": [
+        0.959
+      ]
+    },
+    {
+      "flow_id": "booking_race",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo",
+        "schedule_demo"
+      ],
+      "correct_tool_sequence": true,
+      "unsafe_commits": 0,
+      "duplicate_executions": 0,
+      "committed_actions": 1,
+      "confirmed_write_count": 1,
+      "tool_duration_ms": [
+        0.449,
+        0.376,
+        1.027,
+        0.985
+      ],
+      "action_duration_ms": [
+        1.947,
+        2.008
+      ]
+    },
+    {
+      "flow_id": "followup_positive",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "create_followup"
+      ],
+      "correct_tool_sequence": true,
+      "unsafe_commits": 0,
+      "duplicate_executions": 0,
+      "committed_actions": 1,
+      "confirmed_write_count": 1,
+      "tool_duration_ms": [
+        0.474,
+        0.999
+      ],
+      "action_duration_ms": [
+        1.015
+      ]
+    },
+    {
+      "flow_id": "booking_duplicate",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "correct_tool_sequence": true,
+      "unsafe_commits": 0,
+      "duplicate_executions": 0,
+      "committed_actions": 1,
+      "confirmed_write_count": 1,
+      "tool_duration_ms": [
+        0.413,
+        0.315,
+        0.969
+      ],
+      "action_duration_ms": [
+        1.099
+      ]
+    },
+    {
+      "flow_id": "stale_to_alternative",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "correct_tool_sequence": true,
+      "unsafe_commits": 0,
+      "duplicate_executions": 0,
+      "committed_actions": 1,
+      "confirmed_write_count": 1,
+      "recovery_attempt": true,
+      "recovery_success": true,
+      "tool_duration_ms": [],
+      "action_duration_ms": [
+        1.1088000028394163
+      ]
+    }
+  ],
+  "summary": {
+    "flow_count": 8,
+    "expected_outcome_count": 8,
+    "correct_tool_sequence_count": 8,
+    "unsafe_write_count": 0,
+    "duplicate_write_count": 0,
+    "safe_failure_count": 3,
+    "recovery_after_safe_failure_rate": 1.0,
+    "recovery_attempt_count": 1,
+    "recovery_success_count": 1,
+    "failure_categories": {}
+  }
+}

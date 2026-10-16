@@ -7,6 +7,7 @@ It never receives a CallSession, tenant object, transcript, audio, or tool paylo
 import asyncio
 import logging
 import math
+import re
 from contextlib import contextmanager, nullcontext
 from urllib.parse import urlsplit
 
@@ -29,6 +30,7 @@ TOOL_ERRORS = {"invalid_arguments", "unauthorized_tool", "tool_error", "timeout"
 RESEARCH_SPAN_NAMES = {
     "omnivoice.completed_call_metrics", "recorded_turn_metrics",
     "omnivoice.scripted_sales_case", "scripted_tool_invocation", "scripted_action_confirmation",
+    "omnivoice.synthetic_selection_case",
 }
 
 
@@ -278,6 +280,43 @@ class ResearchObserver:
                 )
         except Exception as error:
             self._sdk_failed("case_update", error)
+
+    def export_selection(self, record, model):
+        """Export only fixed labels/numbers from synthetic research; never model payloads."""
+        if self.client is None:
+            return
+        safe_tools = {"NO_TOOL", "lookup_lead", "check_demo_slots", "schedule_demo",
+                      "create_followup", "MULTIPLE", "INVALID/UNKNOWN", "UNAVAILABLE"}
+        safe_categories = {"NO_TOOL", "LOOKUP_LEAD", "CHECK_DEMO_SLOTS", "SCHEDULE_DEMO",
+                           "CREATE_FOLLOWUP", "AMBIGUOUS", "ADVERSARIAL"}
+        safe_failures = {"unnecessary_tool", "missed_tool", "wrong_tool", "hallucinated_tool",
+                         "invalid_arguments", "model_output_parse_failure", "multiple_calls",
+                         "provider_error"}
+        case_id = record.get("case_id")
+        if not isinstance(case_id, str) or not re.fullmatch(
+            r"(?:no_tool|lookup_lead|check_demo_slots|schedule_demo|create_followup|ambiguous|adversarial)_(?:0[1-9]|1[0-2])",
+            case_id,
+        ):
+            return
+        projection = {
+            "source": "synthetic_model_selection", "case_id": case_id,
+            "category": record["category"] if record.get("category") in safe_categories else "OTHER",
+            "expected": record["expected"] if record.get("expected") in safe_tools else "INVALID/UNKNOWN",
+            "predicted": record["predicted"] if record.get("predicted") in safe_tools else "INVALID/UNKNOWN",
+            "correct": record.get("routing_correct") is True,
+            "arguments_valid": record.get("arguments_valid") if type(record.get("arguments_valid")) is bool else None,
+            "failure_type": record["failure_type"] if record.get("failure_type") in safe_failures else None,
+            "latency_ms": _number(record.get("selection_latency_ms")),
+            "pass": record.get("pass") if record.get("pass") in (1, 2, 3) else None,
+            "provider": "Groq", "model": model if model == "openai/gpt-oss-20b" else "other",
+        }
+        try:
+            span = self.client.start_observation(
+                as_type="span", name="omnivoice.synthetic_selection_case", metadata=projection,
+            )
+            span.end()
+        except Exception as error:
+            self._sdk_failed("selection_export", error)
 
     def snapshot(self):
         return {
