@@ -35,6 +35,7 @@ class ToolDefinition:
     output_schema: dict | None = None
     confirmation_required: bool = False
     stage_validator: ReadHandler | None = None
+    reset_state: tuple[str, ...] = ()
 
     def __post_init__(self):
         if not self.name or not self.description or self.timeout_ms < 1:
@@ -157,6 +158,9 @@ class ToolRegistry:
             self._event(ctx, name, "tool.failed", "unknown", "unknown",
                         error_category="unauthorized_tool")
             return ToolResult(False, name, error_code="unauthorized_tool", safe_summary="That tool is unavailable.")
+        if ctx.state is not None:
+            for key in definition.reset_state:
+                ctx.state.pop(key, None)
         self._event(ctx, name, "tool.requested", definition.kind, definition.transport)
         try:
             if not isinstance(arguments, dict) or len(json.dumps(arguments).encode()) > MAX_ARGUMENT_BYTES:

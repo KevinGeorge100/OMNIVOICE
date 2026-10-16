@@ -124,25 +124,29 @@ async def run_case(case, directory):
                     competing = await invoke(name, args, other)
                     assert competing.success
                     await actions.arm(competing.data["action_id"], "racing-call")
-                    winner = await actions.confirm(a, "racing-call", "yes", True, ["yes"])
-                    action_duration_ms.append(winner["duration_ms"])
-                    action_end_to_end_ms.append(winner["action_end_to_end_ms"])
-                    assert winner["status"] == "committed"
+                    outcomes = await asyncio.gather(
+                        actions.confirm(a, case_id, "yes", True, ["yes"]),
+                        actions.confirm(a, "racing-call", "yes", True, ["yes"]),
+                    )
+                    assert sorted(item["status"] for item in outcomes) == ["committed", "failed"]
+                    action_duration_ms.extend(item["duration_ms"] for item in outcomes)
+                    action_end_to_end_ms.extend(item["action_end_to_end_ms"] for item in outcomes)
                     confirmed_write_count += 1
-                phrase = ("no" if case_id in {"booking_negative", "followup_negative"} else
-                          "maybe" if case_id == "booking_ambiguous" else "yes")
-                committed = await actions.confirm(a, case_id, phrase, True, ["yes"])
-                if committed:
-                    action_duration_ms.append(committed["duration_ms"])
-                    action_end_to_end_ms.append(committed["action_end_to_end_ms"])
-                    if committed["status"] == "committed":
-                        confirmed_write_count += int(phrase == "yes")
-                        unsafe_commits += int(phrase != "yes")
-                expected_status = "failed" if case_id in {"booking_stale", "booking_race"} else "committed"
-                if case_id in {"booking_unarmed", "booking_negative", "booking_ambiguous", "followup_negative"}:
-                    assert committed is None
                 else:
-                    assert committed["status"] == expected_status
+                    phrase = ("no" if case_id in {"booking_negative", "followup_negative"} else
+                              "maybe" if case_id == "booking_ambiguous" else "yes")
+                    committed = await actions.confirm(a, case_id, phrase, True, ["yes"])
+                    if committed:
+                        action_duration_ms.append(committed["duration_ms"])
+                        action_end_to_end_ms.append(committed["action_end_to_end_ms"])
+                        if committed["status"] == "committed":
+                            confirmed_write_count += int(phrase == "yes")
+                            unsafe_commits += int(phrase != "yes")
+                    expected_status = "failed" if case_id == "booking_stale" else "committed"
+                    if case_id in {"booking_unarmed", "booking_negative", "booking_ambiguous", "followup_negative"}:
+                        assert committed is None
+                    else:
+                        assert committed["status"] == expected_status
                 if case_id == "booking_duplicate":
                     assert await actions.confirm(a, case_id, "yes", True, ["yes"]) is None
             bookings = await store.rows("SELECT id FROM demo_bookings")
@@ -156,6 +160,9 @@ async def run_case(case, directory):
 
         actions_rows = await store.rows("SELECT status,tool,created FROM actions")
         bookings = await store.rows("SELECT slot_id FROM demo_bookings")
+        observed_tools = [result.tool_name for result in tool_results]
+        assert (expected_tool in observed_tools) if expected_tool else not observed_tools
+        assert bool(sum(result.confirmation_required for result in tool_results)) is confirmation_expected
         return {
             "id": case_id, "category": category, "expected_tool": expected_tool,
             "expected_side_effect": effect, "confirmation_expected": confirmation_expected,
@@ -164,6 +171,7 @@ async def run_case(case, directory):
                 "NEGATIVE_CONFIRMATION", "AMBIGUOUS_CONFIRMATION", "INVALID_WRITE_WITHOUT_CONFIRMATION",
             } else "complete",
             "task_completed": True,
+            "observed_tools": observed_tools,
             "tool_invocations": len(tool_results),
             "read_successes": sum(r.success for r in tool_results if r.tool_name in {
                 "lookup_lead", "check_demo_slots",
@@ -189,12 +197,29 @@ async def run_case(case, directory):
 
 async def evaluate():
     with tempfile.TemporaryDirectory() as directory:
-        records = [await run_case(case, Path(directory)) for case in CASES]
+        records = []
+        for case in CASES:
+            try:
+                records.append(await run_case(case, Path(directory)))
+            except Exception as error:
+                records.append({
+                    "id": case[0], "category": case[1], "expected_tool": case[2],
+                    "expected_side_effect": case[3], "confirmation_expected": case[4],
+                    "task_completed": False, "failure_type": type(error).__name__,
+                })
+    complete = all(row["task_completed"] for row in records)
+
     def total(name):
         return sum(row[name] for row in records)
-    tool_times = [value for row in records for value in row["tool_duration_ms"]]
-    action_times = [value for row in records for value in row["action_duration_ms"]]
-    action_e2e_times = [value for row in records for value in row["action_end_to_end_ms"]]
+
+    successful = [row for row in records if row["task_completed"]]
+    tool_times = [value for row in successful for value in row["tool_duration_ms"]]
+    action_times = [value for row in successful for value in row["action_duration_ms"]]
+    action_e2e_times = [value for row in successful for value in row["action_end_to_end_ms"]]
+
+    def measured_total(name):
+        return total(name) if complete else None
+
     return {
         "method": "offline scripted orchestration; actual ToolRegistry, ActionEngine and SQLite",
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -203,24 +228,24 @@ async def evaluate():
         "metrics": {
             "tool_selection_accuracy": None,
             "tool_selection_note": "N/A: no model selected tools in this deterministic harness",
-            "tool_invocation_count": total("tool_invocations"),
-            "read_tool_success_rate": total("read_successes") / total("read_attempts"),
-            "write_tool_success_rate": total("write_successes") / total("write_attempts"),
+            "tool_invocation_count": measured_total("tool_invocations"),
+            "read_tool_success_rate": total("read_successes") / total("read_attempts") if complete else None,
+            "write_tool_success_rate": total("write_successes") / total("write_attempts") if complete else None,
             "task_completion_rate": sum(row["task_completed"] for row in records) / len(records),
-            "confirmation_required_count": total("confirmation_required_count"),
+            "confirmation_required_count": measured_total("confirmation_required_count"),
             "confirmation_compliance_rate": (
                 total("confirmed_write_count") / total("committed_actions")
-                if total("committed_actions") else None
+                if complete and total("committed_actions") else None
             ),
             "confirmation_compliance_note": "Share of committed actions reached through exact yes confirmation",
-            "unsafe_commit_count": total("unsafe_commits"),
-            "committed_action_count": total("committed_actions"),
-            "duplicate_execution_count": total("duplicate_executions"),
-            "invalid_tool_request_count": total("invalid_tool_requests"),
-            "server_side_tool_duration_ms_mean": statistics.mean(tool_times) if tool_times else None,
-            "confirmed_action_duration_ms_mean": statistics.mean(action_times) if action_times else None,
+            "unsafe_commit_count": measured_total("unsafe_commits"),
+            "committed_action_count": measured_total("committed_actions"),
+            "duplicate_execution_count": measured_total("duplicate_executions"),
+            "invalid_tool_request_count": measured_total("invalid_tool_requests"),
+            "server_side_tool_duration_ms_mean": statistics.mean(tool_times) if complete and tool_times else None,
+            "confirmed_action_duration_ms_mean": statistics.mean(action_times) if complete and action_times else None,
             "action_end_to_end_duration_ms_mean": (
-                statistics.mean(action_e2e_times) if action_e2e_times else None
+                statistics.mean(action_e2e_times) if complete and action_e2e_times else None
             ),
             "tool_added_response_latency_ms": None,
             "tool_added_response_latency_note": "N/A: no TTS/STT or model response in offline harness",
@@ -259,7 +284,9 @@ def write_report(result, output, report):
         "observable business completion. The two are not directly comparable on this fixture.\n\n"
         "The optional live model-selection check is reported separately in "
         "[OV-011B_LIVE_GROQ_SMOKE.md](OV-011B_LIVE_GROQ_SMOKE.md).\n\n"
-        "Failure cases: " + (", ".join(failures) if failures else "none") + ".\n",
+        "Failure cases: " + (", ".join(failures) if failures else "none") + ". "
+        "A failed case makes aggregate tool metrics N/A and the script exits nonzero. "
+        "Execution timings vary by run and are not voice latency.\n",
         encoding="utf-8",
     )
 
@@ -271,3 +298,5 @@ if __name__ == "__main__":
         ROOT / "docs/research/OV-011B_AGENT_EVALUATION.md",
     )
     print(json.dumps({"scenarios": result["scenario_count"], "metrics": result["metrics"]}, indent=2))
+    if any(not case["task_completed"] for case in result["cases"]):
+        raise SystemExit(1)

@@ -19,9 +19,9 @@ Category distribution: {"AMBIGUOUS_CONFIRMATION": 1, "BOOKING": 1, "CROSS_TENANT
 | committed_action_count | 4 |
 | duplicate_execution_count | 0 |
 | invalid_tool_request_count | 3 |
-| server_side_tool_duration_ms_mean | 0.6142954545454545 |
-| confirmed_action_duration_ms_mean | 1.2168333333333332 |
-| action_end_to_end_duration_ms_mean | 3.7575 |
+| server_side_tool_duration_ms_mean | 0.5966818181818182 |
+| confirmed_action_duration_ms_mean | 1.3408333333333333 |
+| action_end_to_end_duration_ms_mean | 1.9791666666666667 |
 | tool_added_response_latency_ms | N/A |
 
 Tool-selection accuracy and tool-added response latency are N/A: this is scripted orchestration, not a live model or voice timing experiment. Confirmation compliance measures the share of commits following exact yes confirmation in the scripted cases. Reported durations are server-side tool/action execution, not mouth-to-ear latency. The action end-to-end duration includes scripted staging and immediate arming; it does not represent the time a caller spends confirming.
@@ -32,4 +32,4 @@ The non-agent baseline answered conversational questions but had no completed sa
 
 The optional live model-selection check is reported separately in [OV-011B_LIVE_GROQ_SMOKE.md](OV-011B_LIVE_GROQ_SMOKE.md).
 
-Failure cases: none.
+Failure cases: none. A failed case makes aggregate tool metrics N/A and the script exits nonzero. Execution timings vary by run and are not voice latency.

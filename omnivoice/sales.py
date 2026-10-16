@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import time
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from uuid import uuid4
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .tools import ToolDefinition
 
@@ -36,6 +37,17 @@ class SalesService:
             "available", "booked",
         }:
             raise ValueError("Slots require ordered timezone-aware datetimes")
+        tenant = await self.store.tenant(tenant_id)
+        if tenant is None:
+            raise ValueError("Tenant unavailable")
+        zone_name = tenant["config"].get("timezone", "Asia/Kolkata")
+        try:
+            zone = ZoneInfo(zone_name)
+        except ZoneInfoNotFoundError:
+            if zone_name != "Asia/Kolkata":
+                raise
+            zone = timezone(timedelta(hours=5, minutes=30))
+        start, end = start.astimezone(zone), end.astimezone(zone)
         slot_id = uuid4().hex
         await self.store.execute(
             "INSERT INTO demo_slots VALUES (?,?,?,?,?,?)",
@@ -176,6 +188,7 @@ def register_sales_tools(registry, sales):
         "lookup_lead", "Find an existing lead for this tenant by exact caller identifier. Ask for it if unknown.",
         {"type": "object", "properties": {"identifier": identifier}, "additionalProperties": False},
         "read", "local", registry.timeout_ms, handler=sales.lookup_lead,
+        reset_state=("lead_id", "lead_name"),
     ))
     registry.register(ToolDefinition(
         "check_demo_slots", "Return available demo slots on a specified ISO date for this tenant.",
@@ -184,6 +197,7 @@ def register_sales_tools(registry, sales):
             "time_preference": {"enum": ["any", "morning", "afternoon", "evening"]},
         }, "required": ["date"], "additionalProperties": False},
         "read", "local", registry.timeout_ms, handler=sales.check_demo_slots,
+        reset_state=("offered_slots", "offered_slot_details"),
     ))
     registry.register(ToolDefinition(
         "schedule_demo", "Book a previously offered slot for a resolved lead. Requires explicit confirmation.",

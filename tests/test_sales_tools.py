@@ -1,5 +1,6 @@
 import asyncio
 import json
+import sqlite3
 import time
 from types import SimpleNamespace
 
@@ -59,6 +60,36 @@ async def test_exact_lookup_and_tenant_isolation(sales):
     }
     assert (await sales.registry.invoke(a, "lookup_lead", {})).data["reason"] == "identity_required"
     assert (await sales.registry.invoke(a, "lookup_lead", {"identifier": "missing"})).data["reason"] == "not_found"
+    assert "lead_id" not in a.state
+    assert "lead_name" not in a.state
+
+
+async def test_failed_new_lookup_cannot_reuse_prior_resolved_lead(sales):
+    ctx = await prepared(sales, sales.a, "changed-identity")
+    assert ctx.state["lead_id"] == sales.lead_a
+    missing = await sales.registry.invoke(ctx, "lookup_lead", {"identifier": "+910000000099"})
+    assert missing.data == {"found": False, "reason": "not_found"}
+    assert "lead_id" not in ctx.state
+    staged = await sales.registry.invoke(ctx, "schedule_demo", {
+        "lead_id": sales.lead_a, "slot_id": sales.slot_a,
+    })
+    assert staged.error_code == "selection_required"
+    assert await sales.store.rows("SELECT id FROM actions WHERE call_id=?", ("changed-identity",)) == []
+
+
+async def test_invalid_new_search_clears_prior_call_selection(sales):
+    ctx = await prepared(sales, sales.a, "invalid-replacement")
+    assert ctx.state["lead_id"] == sales.lead_a
+    assert sales.slot_a in ctx.state["offered_slots"]
+    invalid_lead = await sales.registry.invoke(ctx, "lookup_lead", {"identifier": 123})
+    assert invalid_lead.error_code == "invalid_arguments"
+    assert "lead_id" not in ctx.state
+    invalid_slot = await sales.registry.invoke(ctx, "check_demo_slots", {"date": "tomorrow"})
+    assert invalid_slot.error_code == "invalid_arguments"
+    assert "offered_slots" not in ctx.state
+    assert (await sales.registry.invoke(ctx, "schedule_demo", {
+        "lead_id": sales.lead_a, "slot_id": sales.slot_a,
+    })).error_code == "selection_required"
 
 
 async def test_slot_filter_bound_and_tenancy(sales):
@@ -92,6 +123,18 @@ async def test_slot_filter_bound_and_tenancy(sales):
     })).error_code == "invalid_arguments"
 
 
+async def test_slot_input_is_normalized_to_tenant_business_timezone(sales):
+    slot = await sales.service.add_slot(
+        sales.a, "2030-03-09T10:30:00+00:00", "2030-03-09T11:00:00+00:00",
+    )
+    row = await sales.store.one("SELECT start_at FROM demo_slots WHERE id=?", (slot,))
+    assert row["start_at"] == "2030-03-09T16:00:00+05:30"
+    result = await sales.registry.invoke(ToolContext(sales.a, "zone", {}), "check_demo_slots", {
+        "date": "2030-03-09", "time_preference": "afternoon",
+    })
+    assert slot in [item["id"] for item in result.data["slots"]]
+
+
 async def test_booking_stages_and_commits_once(sales):
     ctx = await prepared(sales, sales.a, "call-a")
     args = {"lead_id": sales.lead_a, "slot_id": sales.slot_a}
@@ -121,6 +164,21 @@ async def test_cross_tenant_write_and_selection_fail_closed(sales):
         assert not result.success
     assert await sales.store.rows("SELECT * FROM actions") == []
     assert await sales.store.rows("SELECT * FROM demo_bookings") == []
+
+
+async def test_database_foreign_keys_reject_cross_tenant_relations(sales):
+    with pytest.raises(sqlite3.IntegrityError):
+        await sales.store.execute(
+            "INSERT INTO demo_bookings VALUES (?,?,?,?,?,?,?)",
+            ("bad-booking", sales.a, sales.lead_b, sales.slot_a, "call", "booked", time.time()),
+        )
+    with pytest.raises(sqlite3.IntegrityError):
+        await sales.store.execute(
+            "INSERT INTO followups VALUES (?,?,?,?,?,?,?)",
+            ("bad-followup", sales.a, sales.lead_b, "call", "note", "open", time.time()),
+        )
+    assert await sales.store.rows("SELECT id FROM demo_bookings") == []
+    assert await sales.store.rows("SELECT id FROM followups") == []
 
 
 async def test_stale_slot_and_two_call_race(sales):
@@ -286,6 +344,25 @@ async def test_evaluation_cases_are_labeled_and_metrics_are_measured():
     assert result["metrics"]["tool_selection_accuracy"] is None
     assert result["metrics"]["tool_added_response_latency_ms"] is None
     assert result["metrics"]["server_side_tool_duration_ms_mean"] >= 0
+
+
+async def test_evaluation_failure_cannot_retain_success_metrics(monkeypatch):
+    from scripts import evaluate_agent_tools as evaluation
+
+    original = evaluation.run_case
+
+    async def fail_one(case, directory):
+        if case[0] == "booking_positive":
+            raise AssertionError("injected scenario failure")
+        return await original(case, directory)
+
+    monkeypatch.setattr(evaluation, "run_case", fail_one)
+    result = await evaluation.evaluate()
+    failed = [case for case in result["cases"] if not case["task_completed"]]
+    assert [case["id"] for case in failed] == ["booking_positive"]
+    assert result["metrics"]["task_completion_rate"] == 24 / 25
+    assert result["metrics"]["tool_invocation_count"] is None
+    assert result["metrics"]["confirmation_compliance_rate"] is None
 
 
 async def test_external_unknown_result_does_not_break_confirmation_voice(sales):

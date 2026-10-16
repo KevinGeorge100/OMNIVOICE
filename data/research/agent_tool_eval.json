@@ -1,6 +1,6 @@
 {
   "method": "offline scripted orchestration; actual ToolRegistry, ActionEngine and SQLite",
-  "generated_at": "2026-10-16T15:01:21.997936+00:00",
+  "generated_at": "2026-10-16T16:19:53.285847+00:00",
   "scenario_count": 25,
   "categories": {
     "FAQ_ONLY": 2,
@@ -31,9 +31,9 @@
     "committed_action_count": 4,
     "duplicate_execution_count": 0,
     "invalid_tool_request_count": 3,
-    "server_side_tool_duration_ms_mean": 0.6142954545454545,
-    "confirmed_action_duration_ms_mean": 1.2168333333333332,
-    "action_end_to_end_duration_ms_mean": 3.7575,
+    "server_side_tool_duration_ms_mean": 0.5966818181818182,
+    "confirmed_action_duration_ms_mean": 1.3408333333333333,
+    "action_end_to_end_duration_ms_mean": 1.9791666666666667,
     "tool_added_response_latency_ms": null,
     "tool_added_response_latency_note": "N/A: no TTS/STT or model response in offline harness"
   },
@@ -46,6 +46,7 @@
       "confirmation_expected": false,
       "expected_task_outcome": "complete",
       "task_completed": true,
+      "observed_tools": [],
       "tool_invocations": 0,
       "read_successes": 0,
       "read_attempts": 0,
@@ -60,7 +61,7 @@
       "tool_duration_ms": [],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 56.543
+      "workflow_duration_ms": 61.525
     },
     {
       "id": "faq_policy",
@@ -70,6 +71,7 @@
       "confirmation_expected": false,
       "expected_task_outcome": "complete",
       "task_completed": true,
+      "observed_tools": [],
       "tool_invocations": 0,
       "read_successes": 0,
       "read_attempts": 0,
@@ -84,7 +86,7 @@
       "tool_duration_ms": [],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 8.403
+      "workflow_duration_ms": 11.554
     },
     {
       "id": "lead_known",
@@ -94,6 +96,9 @@
       "confirmation_expected": false,
       "expected_task_outcome": "complete",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead"
+      ],
       "tool_invocations": 1,
       "read_successes": 1,
       "read_attempts": 1,
@@ -106,11 +111,11 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.404
+        0.503
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 7.54
+      "workflow_duration_ms": 10.326
     },
     {
       "id": "lead_unknown",
@@ -120,6 +125,9 @@
       "confirmation_expected": false,
       "expected_task_outcome": "complete",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead"
+      ],
       "tool_invocations": 1,
       "read_successes": 1,
       "read_attempts": 1,
@@ -132,11 +140,11 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.37
+        0.479
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 7.282
+      "workflow_duration_ms": 11.264
     },
     {
       "id": "lead_cross_tenant",
@@ -146,6 +154,9 @@
       "confirmation_expected": false,
       "expected_task_outcome": "safe_rejection",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead"
+      ],
       "tool_invocations": 1,
       "read_successes": 1,
       "read_attempts": 1,
@@ -158,11 +169,11 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.371
+        0.425
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 7.275
+      "workflow_duration_ms": 9.998
     },
     {
       "id": "lead_no_identity",
@@ -172,6 +183,9 @@
       "confirmation_expected": false,
       "expected_task_outcome": "complete",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead"
+      ],
       "tool_invocations": 1,
       "read_successes": 1,
       "read_attempts": 1,
@@ -184,11 +198,11 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.219
+        0.45
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 6.732
+      "workflow_duration_ms": 10.707
     },
     {
       "id": "slots_afternoon",
@@ -198,6 +212,9 @@
       "confirmation_expected": false,
       "expected_task_outcome": "complete",
       "task_completed": true,
+      "observed_tools": [
+        "check_demo_slots"
+      ],
       "tool_invocations": 1,
       "read_successes": 1,
       "read_attempts": 1,
@@ -210,11 +227,11 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.451
+        0.665
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 7.195
+      "workflow_duration_ms": 14.74
     },
     {
       "id": "slots_morning",
@@ -224,6 +241,9 @@
       "confirmation_expected": false,
       "expected_task_outcome": "complete",
       "task_completed": true,
+      "observed_tools": [
+        "check_demo_slots"
+      ],
       "tool_invocations": 1,
       "read_successes": 1,
       "read_attempts": 1,
@@ -236,11 +256,11 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.448
+        0.565
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 7.533
+      "workflow_duration_ms": 10.564
     },
     {
       "id": "slots_other_date",
@@ -250,6 +270,9 @@
       "confirmation_expected": false,
       "expected_task_outcome": "complete",
       "task_completed": true,
+      "observed_tools": [
+        "check_demo_slots"
+      ],
       "tool_invocations": 1,
       "read_successes": 1,
       "read_attempts": 1,
@@ -262,11 +285,11 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.461
+        0.51
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 8.515
+      "workflow_duration_ms": 11.006
     },
     {
       "id": "slots_occupied",
@@ -276,6 +299,9 @@
       "confirmation_expected": false,
       "expected_task_outcome": "complete",
       "task_completed": true,
+      "observed_tools": [
+        "check_demo_slots"
+      ],
       "tool_invocations": 1,
       "read_successes": 1,
       "read_attempts": 1,
@@ -288,11 +314,11 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.467
+        0.466
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 7.175
+      "workflow_duration_ms": 9.928
     },
     {
       "id": "slots_cross_tenant",
@@ -302,6 +328,9 @@
       "confirmation_expected": false,
       "expected_task_outcome": "safe_rejection",
       "task_completed": true,
+      "observed_tools": [
+        "check_demo_slots"
+      ],
       "tool_invocations": 1,
       "read_successes": 1,
       "read_attempts": 1,
@@ -314,11 +343,11 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.418
+        0.515
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 7.237
+      "workflow_duration_ms": 10.336
     },
     {
       "id": "booking_positive",
@@ -328,6 +357,11 @@
       "confirmation_expected": true,
       "expected_task_outcome": "complete",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
       "tool_invocations": 3,
       "read_successes": 2,
       "read_attempts": 2,
@@ -340,17 +374,17 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.436,
-        0.338,
-        0.945
+        0.441,
+        0.383,
+        1.013
       ],
       "action_duration_ms": [
-        1.267
+        1.292
       ],
       "action_end_to_end_ms": [
-        0.0
+        8.121
       ],
-      "workflow_duration_ms": 10.691
+      "workflow_duration_ms": 15.453
     },
     {
       "id": "booking_unarmed",
@@ -360,6 +394,11 @@
       "confirmation_expected": true,
       "expected_task_outcome": "safe_rejection",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
       "tool_invocations": 3,
       "read_successes": 2,
       "read_attempts": 2,
@@ -372,13 +411,13 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.404,
-        0.332,
-        1.452
+        0.452,
+        0.541,
+        1.474
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 10.977
+      "workflow_duration_ms": 12.371
     },
     {
       "id": "booking_negative",
@@ -388,6 +427,11 @@
       "confirmation_expected": true,
       "expected_task_outcome": "safe_rejection",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
       "tool_invocations": 3,
       "read_successes": 2,
       "read_attempts": 2,
@@ -400,13 +444,13 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.392,
-        0.35,
-        0.969
+        0.45,
+        0.427,
+        1.261
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 9.769
+      "workflow_duration_ms": 14.808
     },
     {
       "id": "booking_ambiguous",
@@ -416,6 +460,11 @@
       "confirmation_expected": true,
       "expected_task_outcome": "safe_rejection",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
       "tool_invocations": 3,
       "read_successes": 2,
       "read_attempts": 2,
@@ -428,13 +477,13 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.386,
-        0.336,
-        1.016
+        0.545,
+        0.464,
+        1.219
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 9.725
+      "workflow_duration_ms": 13.226
     },
     {
       "id": "booking_duplicate",
@@ -444,6 +493,11 @@
       "confirmation_expected": true,
       "expected_task_outcome": "complete",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
       "tool_invocations": 3,
       "read_successes": 2,
       "read_attempts": 2,
@@ -456,17 +510,17 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.552,
-        0.371,
-        1.083
+        0.451,
+        0.403,
+        1.036
       ],
       "action_duration_ms": [
-        1.504
+        1.255
       ],
       "action_end_to_end_ms": [
-        10.95
+        0.0
       ],
-      "workflow_duration_ms": 12.975
+      "workflow_duration_ms": 14.844
     },
     {
       "id": "booking_stale",
@@ -476,6 +530,11 @@
       "confirmation_expected": true,
       "expected_task_outcome": "safe_rejection",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
       "tool_invocations": 3,
       "read_successes": 2,
       "read_attempts": 2,
@@ -488,17 +547,17 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.608,
-        0.564,
-        1.182
+        0.73,
+        0.522,
+        1.028
       ],
       "action_duration_ms": [
-        0.872
+        0.905
       ],
       "action_end_to_end_ms": [
-        3.22
+        3.754
       ],
-      "workflow_duration_ms": 13.792
+      "workflow_duration_ms": 15.464
     },
     {
       "id": "booking_foreign_lead",
@@ -508,6 +567,11 @@
       "confirmation_expected": false,
       "expected_task_outcome": "safe_rejection",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
       "tool_invocations": 3,
       "read_successes": 2,
       "read_attempts": 2,
@@ -520,13 +584,13 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        1.292,
-        0.896,
-        0.388
+        0.413,
+        0.365,
+        0.185
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 17.567
+      "workflow_duration_ms": 10.785
     },
     {
       "id": "booking_foreign_slot",
@@ -536,6 +600,11 @@
       "confirmation_expected": false,
       "expected_task_outcome": "safe_rejection",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
       "tool_invocations": 3,
       "read_successes": 2,
       "read_attempts": 2,
@@ -548,13 +617,13 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.559,
-        0.41,
-        0.285
+        0.646,
+        0.451,
+        0.133
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 11.334
+      "workflow_duration_ms": 12.378
     },
     {
       "id": "booking_race",
@@ -564,6 +633,12 @@
       "confirmation_expected": true,
       "expected_task_outcome": "safe_rejection",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo",
+        "schedule_demo"
+      ],
       "tool_invocations": 4,
       "read_successes": 2,
       "read_attempts": 2,
@@ -576,20 +651,20 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.979,
-        0.4,
-        1.224,
-        1.403
+        0.429,
+        0.355,
+        1.026,
+        0.924
       ],
       "action_duration_ms": [
-        1.71,
-        0.785
+        1.787,
+        1.733
       ],
       "action_end_to_end_ms": [
-        2.126,
-        4.246
+        0.0,
+        0.0
       ],
-      "workflow_duration_ms": 18.134
+      "workflow_duration_ms": 17.874
     },
     {
       "id": "followup_positive",
@@ -599,6 +674,10 @@
       "confirmation_expected": true,
       "expected_task_outcome": "complete",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "create_followup"
+      ],
       "tool_invocations": 2,
       "read_successes": 1,
       "read_attempts": 1,
@@ -611,16 +690,16 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.549,
-        1.006
+        0.475,
+        1.074
       ],
       "action_duration_ms": [
-        1.163
+        1.073
       ],
       "action_end_to_end_ms": [
-        2.003
+        0.0
       ],
-      "workflow_duration_ms": 12.033
+      "workflow_duration_ms": 14.228
     },
     {
       "id": "followup_negative",
@@ -630,6 +709,10 @@
       "confirmation_expected": true,
       "expected_task_outcome": "safe_rejection",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "create_followup"
+      ],
       "tool_invocations": 2,
       "read_successes": 1,
       "read_attempts": 1,
@@ -642,12 +725,12 @@
       "invalid_tool_requests": 0,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.436,
-        0.921
+        0.46,
+        0.884
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 9.517
+      "workflow_duration_ms": 11.804
     },
     {
       "id": "followup_oversize",
@@ -657,6 +740,10 @@
       "confirmation_expected": false,
       "expected_task_outcome": "safe_rejection",
       "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "create_followup"
+      ],
       "tool_invocations": 2,
       "read_successes": 1,
       "read_attempts": 1,
@@ -669,12 +756,12 @@
       "invalid_tool_requests": 1,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.496,
-        0.164
+        0.474,
+        0.236
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 8.423
+      "workflow_duration_ms": 11.461
     },
     {
       "id": "hallucinated_tool",
@@ -684,6 +771,9 @@
       "confirmation_expected": false,
       "expected_task_outcome": "safe_rejection",
       "task_completed": true,
+      "observed_tools": [
+        "imaginary_tool"
+      ],
       "tool_invocations": 1,
       "read_successes": 0,
       "read_attempts": 0,
@@ -698,7 +788,7 @@
       "tool_duration_ms": [],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 7.658
+      "workflow_duration_ms": 9.767
     },
     {
       "id": "invalid_date",
@@ -708,6 +798,9 @@
       "confirmation_expected": false,
       "expected_task_outcome": "safe_rejection",
       "task_completed": true,
+      "observed_tools": [
+        "check_demo_slots"
+      ],
       "tool_invocations": 1,
       "read_successes": 0,
       "read_attempts": 1,
@@ -720,11 +813,11 @@
       "invalid_tool_requests": 1,
       "duplicate_executions": 0,
       "tool_duration_ms": [
-        0.296
+        0.306
       ],
       "action_duration_ms": [],
       "action_end_to_end_ms": [],
-      "workflow_duration_ms": 7.775
+      "workflow_duration_ms": 11.321
     }
   ]
 }
