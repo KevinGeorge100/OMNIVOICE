@@ -61,6 +61,10 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("MAX_STT_INFLIGHT", "OMNI_MAX_STT_INFLIGHT"),
     )
     max_call_seconds: int = Field(1800, ge=30, le=14400)
+    agent_max_tool_steps: int = Field(3, ge=1, le=8)
+    tool_timeout_ms: int = Field(3000, ge=100, le=10000)
+    mcp_enabled: bool = False
+    mcp_allowed_tools: str = "get_current_demo_policy"
     endpoint_silence_ms: int = Field(200, ge=100, le=2000)
     continuation_interval_ms: int = Field(750, ge=100, le=2000)
     provider_max_retries: int = Field(

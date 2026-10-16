@@ -16,7 +16,8 @@ dependencies = [
 
 [project.optional-dependencies]
 semantic = ["fastembed>=0.6,<1"]
-dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.11,<1", "playwright>=1.50,<2"]
+mcp = ["mcp==2.3.0"]
+dev = ["pytest>=8,<10", "pytest-asyncio>=0.25,<2", "ruff>=0.11,<1", "playwright>=1.50,<2", "mcp==2.3.0"]
 
 [project.scripts]
 omnivoice = "omnivoice.cli:main"

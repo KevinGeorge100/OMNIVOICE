@@ -28,6 +28,7 @@ from .providers import Groq
 from .rag import Embedder, Knowledge
 from .session import CallSession
 from .store import Store, token_hash
+from .tools import ToolRegistry, register_business_profile
 from .transport import MediaTransport
 from .vad import SileroFactory
 
@@ -72,10 +73,24 @@ def create_app(settings=None):
             services.store, embedder, settings.cache_threshold, settings.cache_ttl_seconds
         )
         services.actions = ActionEngine(services.store, services.http)
+        mcp = None
+        if settings.mcp_enabled:
+            from .mcp_reference import server
+            from .mcp_tools import MCPToolProvider
+
+            allowed = {name.strip() for name in settings.mcp_allowed_tools.split(",") if name.strip()}
+            mcp = MCPToolProvider(server, allowed, settings.tool_timeout_ms)
+        services.tool_registry = ToolRegistry(
+            services.store, services.actions, timeout_ms=settings.tool_timeout_ms,
+            events=services.events, mcp=mcp,
+        )
+        register_business_profile(services.tool_registry)
         services.llm = Groq(settings, services.http, capacity=services.capacity)
         try:
             yield
         finally:
+            if mcp:
+                await mcp.close()
             if services.actions.tasks:
                 await asyncio.gather(*services.actions.tasks, return_exceptions=True)
             await services.http.aclose()
@@ -438,6 +453,8 @@ def create_app(settings=None):
     @app.post("/api/tenants/{tenant_id}/tools", dependencies=[Depends(admin)])
     async def add_tool(body: ToolInput, tenant=Depends(tenant_access)):
         config = body.model_dump()
+        if body.name in services.tool_registry.reserved_names():
+            raise HTTPException(422, "Tool name is reserved by the agent registry")
         try:
             validate_tool(config)
             await validate_public_url(body.url)

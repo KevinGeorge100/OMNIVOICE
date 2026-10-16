@@ -20,6 +20,8 @@
 | **OV-008** | Real Multilingual Telephone Turn Verification | Task | P1 | Planned |
 | **OV-009** | Provider Failure Recovery & Resilience | Feature | P1 | **Done** (Local Fault Injection) |
 | **OV-010** | LLM & STT Rate-Limit Handling & Graceful Backoff | Feature | P1 | **Done** (Local Overload Controls) |
+| **OV-011A** | Agent Tool + MCP Foundation | Feature | P1 | **Done** (Local integration) |
+| **OV-011B** | Sales tools and confirmed business workflow | Feature | P1 | Planned |
 | **OV-011** | Database Migration Framework (Alembic) | TechDebt | P2 | Planned |
 | **OV-012** | Relational Database Migration (SQLite to PostgreSQL) | Feature | P2 | Planned |
 | **OV-013** | Distributed Session Registry & State Hub (Redis) | Architecture | P2 | Planned |
@@ -42,6 +44,14 @@
 ---
 
 ## Detailed Backlog Items
+
+### [OV-011A] Agent Tool + MCP Foundation
+* **Status:** **Done** (local deterministic integration; physical PSTN tool use not yet verified)
+* **Scope:** Tenant-scoped typed tool registry, bounded Groq tool loop, `get_business_profile` read, official MCP 2.3.0 SDK reference read, and the existing ActionEngine write boundary. MCP is disabled by default. No calendar or CRM connector is implemented.
+
+### [OV-011B] Sales tools and confirmed business workflow
+* **Status:** Planned
+* **Scope:** Verified tenant-scoped lead lookup, availability, booking and follow-up adapters; external idempotency and reconciliation contracts; full telephone rehearsal. The current reference MCP server is not a sales backend.
 
 ### [OV-001] Establish OmniVoice Engineering Project Control
 * **Type:** Task

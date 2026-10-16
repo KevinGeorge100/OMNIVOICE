@@ -8,6 +8,8 @@
 
 ## 1. Current Working Architecture
 
+OV-011A inserts `ToolRegistry` between Groq function calls and `ActionEngine`. Its typed definitions include tenant-authorized metadata, strict JSON input and bounded output conventions. A read capability can invoke a local handler, the existing administrator-owned HTTPS read adapter, or an explicitly allowed MCP read. A write definition has no direct handler: the registry stages it through `ActionEngine`, whose persisted, playback-armed and caller-confirmed lifecycle remains the sole commit path. The official MCP 2.3.0 adapter currently connects only to a bundled in-process read-only reference server when opted in; it is a protocol integration proof, not an external business connector. The model/tool loop has a configurable limit and returns structured tool-role results. Tool events exclude arguments and result payloads.
+
 OmniVoice is currently implemented as a **stateful, single-worker asynchronous voice application** running on Python 3.11 with FastAPI and Uvicorn.
 
 ```text

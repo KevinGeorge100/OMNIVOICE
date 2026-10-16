@@ -3,7 +3,7 @@ WORKDIR /app
 COPY pyproject.toml ./
 COPY requirements.lock ./
 COPY omnivoice ./omnivoice
-RUN pip install --no-cache-dir -c requirements.lock '.[semantic]' && \
+RUN pip install --no-cache-dir -c requirements.lock '.[semantic,mcp]' && \
     python -m omnivoice.cli models && \
     useradd --create-home omni && \
     mkdir -p data && \

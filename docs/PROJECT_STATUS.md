@@ -2,11 +2,13 @@
 
 **Current Maturity Level:** **MINIMUM VIABLE PRODUCT (MVP) — Real PSTN Verified**
 **Document Status:** Living reality baseline
-**Last Updated:** 2026-10-08
+**Last Updated:** 2026-10-16
 
 ---
 
 ## 1. Executive Summary & Reality Statement
+
+> **OV-011A local foundation (2026-10-16):** A tenant-scoped `ToolRegistry` now exposes one real SQLite-backed business-profile read, existing administrator-registered HTTPS tools, and an opt-in official-SDK MCP reference read to the Groq function-call loop. Read results return to the model for a bounded follow-up. Writes still stage through `ActionEngine` and require playback arming and exact caller confirmation. This has deterministic local test and reference-MCP evidence; it has not yet been exercised on a physical PSTN call, and no sales/CRM/calendar connector exists.
 
 > [!IMPORTANT]
 > **Real PSTN end-to-end telephone validation successfully completed (OV-005).**

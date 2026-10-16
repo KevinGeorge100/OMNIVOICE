@@ -173,6 +173,7 @@ class ActionEngine:
         return await asyncio.shield(task)
 
     async def _commit(self, row):
+        started = time.perf_counter()
         try:
             tool = json.loads(row["tool_config"])
             result = await self.invoke(tool, json.loads(row["arguments"]), row["id"])
@@ -185,4 +186,7 @@ class ActionEngine:
         await self.store.execute(
             "UPDATE actions SET status=?,result=? WHERE id=?", (status, json.dumps(result), row["id"])
         )
-        return {"status": status, "result": result}
+        return {
+            "status": status, "result": result, "tool_name": row["tool"], "transport": "https",
+            "duration_ms": (time.perf_counter() - started) * 1000,
+        }

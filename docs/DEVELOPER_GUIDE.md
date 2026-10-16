@@ -10,7 +10,7 @@ For a manual setup from the repository root:
 
 ```powershell
 py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -c requirements.lock -e '.[dev,semantic]'
+.\.venv\Scripts\python.exe -m pip install -c requirements.lock -e '.[dev,semantic,mcp]'
 .\.venv\Scripts\python.exe -m omnivoice.cli init
 .\.venv\Scripts\python.exe -m omnivoice.cli models --semantic
 .\.venv\Scripts\python.exe -m omnivoice.cli serve
@@ -59,6 +59,14 @@ Both Sarvam TTS and Gnani Timbre TTS use an active WebSocket and warm standby so
 The Groq model defaults to `llama-3.1-8b-instant`, but availability is provider-account dependent. A sentence/clause segmenter and speech normalizer prepare streamed text for Sarvam TTS while preserving the raw agent response for call telemetry. The system does not guarantee a specific accent, language quality, or latency across all lines.
 
 ## Enterprise action contract
+
+The agent-facing `ToolRegistry` describes capabilities with name, JSON input schema, kind, transport, timeout and optional output schema. A tool is a capability; an `ActionEngine` action is a persisted proposed invocation. The registry merges its built-in tenant read `get_business_profile` with administrator-registered HTTPS tools for that tenant. The built-in returns only the stored tenant business name and configured language; it does not invent sales hours or booking policy. The Groq model sees only this authorized catalog. A tool result is bounded to 4 KiB and malformed inputs, unknown names, oversized results and internal exceptions yield safe error codes rather than raw failures.
+
+Read tools execute with a per-tool deadline (`OMNI_TOOL_TIMEOUT_MS`, default 3000, range 100–10000). Call interruption cancels in-flight reads. `OMNI_AGENT_MAX_TOOL_STEPS` defaults to 3 (range 1–8); after the last read the model gets one final pass without tools. Unexpected further calls receive a deterministic limitation response. The Groq tool result is returned as a tool-role message for the next reasoning pass. Tool events contain tenant/call, name, kind, transport, duration and status, without raw arguments or results.
+
+Write tools continue through the existing `ActionEngine` staged → playback-armed → exact caller-confirmed → atomically claimed → committed/unknown path. The registry only calls `ActionEngine.stage`; it never invokes a write handler itself. The external HTTPS service must honor `Idempotency-Key`. Timeouts after dispatch remain unknown and must be reconciled, not retried.
+
+The optional `mcp==2.3.0` extra provides an official SDK client adapter. Set `OMNI_MCP_ENABLED=true` to connect to the bundled in-process reference server and set `OMNI_MCP_ALLOWED_TOOLS` to a comma-separated explicit allowlist (default `get_current_demo_policy`). Discovery is not authorization: only allowlisted tools with an MCP read-only annotation are exposed. The reference server returns a deterministic integration policy, no tenant data and no writes. MCP calls and discovery are bounded and cancelled with the turn; startup and shutdown own the provider. External MCP servers and MCP writes are not configured in OV-011A. They need a trusted transport/endpoint policy and an `ActionEngine`-backed write adapter in OV-011B.
 
 Register business adapters through **Actions & tools** or the authenticated API. Tool URLs and schemas are administrator-owned; the model cannot supply an arbitrary destination or execute SQL from uploaded schemas. Calls use JSON POST against the registered schema. Read tools must truly be side-effect free.
 

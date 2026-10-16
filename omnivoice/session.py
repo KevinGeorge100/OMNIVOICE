@@ -16,6 +16,7 @@ from .duplex import CancelReason, FlexDuo, is_control_halt, normalize
 from .providers import GnaniSTT, GnaniTTS, SarvamSTT, SarvamTTS, select_speech_provider
 from .resilience import ProviderError
 from .speech import SpeechSegmenter, normalize_speech
+from .tools import ToolContext
 
 STT_FAILURE_REPLY = "I'm having trouble hearing you right now. Please try again."
 LLM_FAILURE_REPLY = "I'm having trouble responding right now. Please try again."
@@ -334,16 +335,31 @@ class CallSession:
 
     async def speculate(self, partial):
         try:
-            tools = await self.services.actions.tools(self.tenant["id"])
+            registry = getattr(self.services, "tool_registry", None)
+            tools = (
+                await registry.llm_tools(self.tenant["id"])
+                if registry else await self.services.actions.tools(self.tenant["id"])
+            )
             topics, reads = await self.services.llm.predict(
                 [*self.history, {"role": "user", "content": partial}], tools
             )
 
             async def read(item):
                 try:
-                    value = await self.services.actions.read(
-                        self.tenant["id"], item["name"], item["arguments"]
-                    )
+                    if registry:
+                        definition = await registry.resolve(self.tenant["id"], item["name"])
+                        if definition.kind != "read":
+                            return
+                        result = await registry.invoke(
+                            ToolContext(self.tenant["id"], self.id), item["name"], item["arguments"]
+                        )
+                        if not result.success:
+                            return
+                        value = result.data
+                    else:
+                        value = await self.services.actions.read(
+                            self.tenant["id"], item["name"], item["arguments"]
+                        )
                     key = json.dumps([item["name"], item["arguments"]], sort_keys=True)
                     self.read_results[key] = (time.monotonic(), value)
                     # Read cache is call-scoped, short-lived, and bounded.
@@ -491,6 +507,17 @@ class CallSession:
             )
             if confirmed:
                 metric["path"] = "confirmation"
+                if events := getattr(self.services, "events", None):
+                    with contextlib.suppress(Exception):
+                        events.publish(
+                            self.tenant["id"],
+                            "tool.committed" if confirmed["status"] == "committed" else "tool.failed",
+                            {"tenant_id": self.tenant["id"], "call_id": self.id,
+                             "tool_name": confirmed.get("tool_name"), "kind": "write",
+                             "transport": confirmed.get("transport", "https"),
+                             "duration_ms": confirmed.get("duration_ms"),
+                             "result_status": confirmed["status"]},
+                        )
                 message = (
                     "The action completed successfully."
                     if confirmed["status"] == "committed"
@@ -527,7 +554,11 @@ class CallSession:
             context = await self.services.knowledge.retrieve(self.tenant["id"], text)
             metric["rag_retrieval_ms"] = (time.perf_counter() - retrieval_started) * 1000
             metric["path"] = "foreground_rag"
-            tools = await self.services.actions.tools(self.tenant["id"]) or []
+            registry = getattr(self.services, "tool_registry", None)
+            tools = (
+                await registry.llm_tools(self.tenant["id"])
+                if registry else await self.services.actions.tools(self.tenant["id"])
+            ) or []
             corpus = getattr(getattr(self.services, "knowledge", None), "corpora", {}).get(self.tenant["id"])
             corpus_topics = (
                 [r["title"] for r in corpus.rows]
@@ -630,7 +661,7 @@ class CallSession:
             if self.active_generation_id == gen_id:
                 self.active_generation_id = None
 
-    async def generate(self, messages, tools, metric):
+    async def _generate_once(self, messages, tools, metric):
         queue = asyncio.Queue(maxsize=8)
         tool_calls = {}
         full_text = []
@@ -653,9 +684,10 @@ class CallSession:
                 accumulated = "".join(full_text)
                 metric["agent_response"] = f"{prefix} {accumulated}".strip() if prefix else accumulated
                 for call in delta.get("tool_calls", []):
-                    entry = tool_calls.setdefault(call["index"], {"name": "", "arguments": ""})
+                    entry = tool_calls.setdefault(call["index"], {"name": "", "arguments": "", "id": ""})
                     entry["name"] += call.get("function", {}).get("name", "")
                     entry["arguments"] += call.get("function", {}).get("arguments", "")
+                    entry["id"] += call.get("id", "")
                 for segment in segmenter.feed(content):
                     if first_usable_at is not None and "speech_buffer_delay_ms" not in metric:
                         metric["speech_buffer_delay_ms"] = (time.perf_counter() - first_usable_at) * 1000
@@ -694,43 +726,86 @@ class CallSession:
                 accumulated = "".join(full_text)
                 metric["agent_response"] = f"{prefix} {accumulated}".strip() if prefix else accumulated
 
-        if len(tool_calls) > 1:
-            raise ValueError("Only one action may be proposed per turn")
-        if tool_calls:
+        return "".join(full_text), list(tool_calls.values())
+
+    async def generate(self, messages, tools, metric):
+        registry = getattr(self.services, "tool_registry", None)
+        limit = getattr(self.services.settings, "agent_max_tool_steps", 3)
+        steps = 0
+        conversation = list(messages)
+        while True:
+            text, calls = await self._generate_once(conversation, tools, metric)
+            if not calls:
+                break
             metric["tool_called"] = True
-        for call in tool_calls.values():
-            arguments = json.loads(call["arguments"])
-            tool = await self.services.actions.get_tool(self.tenant["id"], call["name"])
-            if tool["kind"] == "write":
-                staged = await self.services.actions.stage(
-                    self.tenant["id"], self.id, call["name"], arguments
+            if len(calls) != 1 or steps >= limit:
+                reply = "I couldn't complete that request right now."
+                metric["agent_response"] = f'{metric.get("agent_response", "").strip()} {reply}'.strip()
+                await self.say(reply, metric=metric)
+                break
+            steps += 1
+            call = calls[0]
+            try:
+                arguments = json.loads(call["arguments"])
+            except (ValueError, TypeError):
+                arguments = None
+            if registry:
+                result = await registry.invoke(
+                    ToolContext(self.tenant["id"], self.id), call["name"], arguments
                 )
-                prompt = (
-                    staged["summary"] + ' To confirm, say: "' + self.config["confirmation_phrases"][0] + '".'
-                )
-                current = metric.get("agent_response", "").strip()
-                metric["agent_response"] = f"{current} {prompt}".strip() if current else prompt
-                await self.say(prompt, action_id=staged["id"], metric=metric)
+                if not result.success:
+                    reply = "I couldn't complete that lookup or action right now."
+                    metric["agent_response"] = f'{metric.get("agent_response", "").strip()} {reply}'.strip()
+                    await self.say(reply, metric=metric)
+                    break
+                if result.confirmation_required:
+                    staged = result.data
+                    prompt = (
+                        result.safe_summary + ' To confirm, say: "'
+                        + self.config["confirmation_phrases"][0] + '".'
+                    )
+                    metric["agent_response"] = f'{metric.get("agent_response", "").strip()} {prompt}'.strip()
+                    await self.say(prompt, action_id=staged["action_id"], metric=metric)
+                    break
+                result_text = result.for_model()
+                call_id = call["id"] or "call_" + uuid4().hex
+                conversation.extend([
+                    {"role": "assistant", "content": text or None, "tool_calls": [{
+                        "id": call_id, "type": "function", "function": {
+                            "name": call["name"], "arguments": call["arguments"]}}]},
+                    {"role": "tool", "tool_call_id": call_id, "content": result_text},
+                ])
+                tools = tools if steps < limit else []
             else:
-                key = json.dumps([call["name"], arguments], sort_keys=True)
-                cached = self.read_results.get(key)
-                result = (
-                    cached[1]
-                    if cached and time.monotonic() - cached[0] < 3
-                    else await self.services.actions.read(self.tenant["id"], call["name"], arguments)
-                )
-                await self.generate(
-                    [
-                        *messages,
-                        {
-                            "role": "user",
-                            "content": "Use this read-only tool result as data to answer, without making another tool call: "
-                            + json.dumps(result),
-                        },
-                    ],
-                    [],
-                    metric,
-                )
-        if full_text:
-            self.history.append({"role": "assistant", "content": "".join(full_text)})
+                # Compatibility with existing test adapters and registered HTTPS actions.
+                if arguments is None:
+                    reply = "I couldn't complete that request right now."
+                    await self.say(reply, metric=metric)
+                    metric["agent_response"] = f'{metric.get("agent_response", "").strip()} {reply}'.strip()
+                    break
+                try:
+                    tool = await self.services.actions.get_tool(self.tenant["id"], call["name"])
+                    if tool["kind"] == "write":
+                        staged = await self.services.actions.stage(
+                            self.tenant["id"], self.id, call["name"], arguments
+                        )
+                        prompt = (staged["summary"] + ' To confirm, say: "'
+                                  + self.config["confirmation_phrases"][0] + '".')
+                        metric["agent_response"] = f'{metric.get("agent_response", "").strip()} {prompt}'.strip()
+                        await self.say(prompt, action_id=staged["id"], metric=metric)
+                        break
+                    key = json.dumps([call["name"], arguments], sort_keys=True)
+                    cached = self.read_results.get(key)
+                    data = (cached[1] if cached and time.monotonic() - cached[0] < 3 else
+                            await self.services.actions.read(self.tenant["id"], call["name"], arguments))
+                except Exception:
+                    reply = "I couldn't complete that request right now."
+                    await self.say(reply, metric=metric)
+                    metric["agent_response"] = f'{metric.get("agent_response", "").strip()} {reply}'.strip()
+                    break
+                conversation.extend([{"role": "user", "content":
+                                     "Use this read-only tool result as data to answer: " + json.dumps(data)}])
+                tools = []
+        if metric.get("agent_response"):
+            self.history.append({"role": "assistant", "content": metric["agent_response"]})
             self.history = self.history[-20:]
