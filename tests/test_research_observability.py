@@ -1,6 +1,8 @@
 """Payload safety and opt-in Langfuse research export without a network account."""
 
+import asyncio
 import json
+import sqlite3
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 from urllib.parse import urlsplit
@@ -34,9 +36,10 @@ class FakeSpan:
 
 
 class FakeLangfuse:
-    def __init__(self):
+    def __init__(self, *, fail_live=False):
         self.records = []
         self.shutdowns = 0
+        self.fail_live = fail_live
 
     @contextmanager
     def start_as_current_observation(self, **data):
@@ -45,6 +48,8 @@ class FakeLangfuse:
         yield FakeSpan(record, self)
 
     def start_observation(self, **data):
+        if self.fail_live:
+            raise RuntimeError("PRIVATE CALLER +919876543210")
         record = dict(data)
         self.records.append(record)
         return FakeSpan(record, self)
@@ -94,7 +99,16 @@ async def test_offline_evaluation_exports_only_synthetic_labels_and_measured_sco
     client = FakeLangfuse()
     observer = ResearchObserver(client, enabled=True)
     result = await evaluate(observer)
+    baseline = await evaluate()
     assert result["scenario_count"] == len(CASES)
+    assert [row["task_completed"] for row in result["cases"]] == [
+        row["task_completed"] for row in baseline["cases"]
+    ]
+    for key in (
+        "tool_invocation_count", "task_completion_rate", "confirmation_compliance_rate",
+        "unsafe_commit_count", "committed_action_count", "duplicate_execution_count",
+    ):
+        assert result["metrics"][key] == baseline["metrics"][key]
     roots = [row for row in client.records if row["name"] == "omnivoice.scripted_sales_case"]
     tools = [row for row in client.records if row["name"] == "scripted_tool_invocation"]
     actions = [row for row in client.records if row["name"] == "scripted_action_confirmation"]
@@ -108,6 +122,82 @@ async def test_offline_evaluation_exports_only_synthetic_labels_and_measured_sco
         assert forbidden not in payload
     await observer.close()
     assert client.shutdowns == 1
+
+
+@pytest.mark.asyncio
+async def test_offline_sdk_outage_cannot_change_authoritative_results(caplog):
+    class BrokenClient:
+        def start_as_current_observation(self, **data):
+            raise RuntimeError("PRIVATE CUSTOMER RECORD")
+
+        def start_observation(self, **data):
+            raise RuntimeError("PRIVATE CUSTOMER RECORD")
+
+        def shutdown(self):
+            return None
+
+    baseline = await evaluate()
+    observer = ResearchObserver(BrokenClient(), enabled=True)
+    observed = await evaluate(observer)
+    assert [row["task_completed"] for row in observed["cases"]] == [
+        row["task_completed"] for row in baseline["cases"]
+    ]
+    for key in (
+        "tool_invocation_count", "task_completion_rate", "confirmation_compliance_rate",
+        "unsafe_commit_count", "committed_action_count", "duplicate_execution_count",
+    ):
+        assert observed["metrics"][key] == baseline["metrics"][key]
+    assert observed["scenario_count"] == 25
+    assert observed["metrics"]["committed_action_count"] == 4
+    assert observer.failures > 0
+    assert "PRIVATE CUSTOMER RECORD" not in caplog.text
+    await observer.close()
+
+
+@pytest.mark.asyncio
+async def test_offline_sdk_update_and_end_errors_are_fail_open(caplog):
+    class BrokenSpan:
+        def update(self, **data):
+            raise RuntimeError("PRIVATE CUSTOMER RECORD")
+
+        def score_trace(self, **data):
+            raise RuntimeError("PRIVATE CUSTOMER RECORD")
+
+        def end(self):
+            raise RuntimeError("PRIVATE CUSTOMER RECORD")
+
+    class BrokenClient:
+        @contextmanager
+        def start_as_current_observation(self, **data):
+            yield BrokenSpan()
+            raise RuntimeError("PRIVATE CUSTOMER RECORD")
+
+        def start_observation(self, **data):
+            return BrokenSpan()
+
+        def shutdown(self):
+            return None
+
+    observer = ResearchObserver(BrokenClient(), enabled=True)
+    result = await evaluate(observer)
+    assert result["scenario_count"] == 25
+    assert result["metrics"]["task_completion_rate"] == 1.0
+    assert result["metrics"]["committed_action_count"] == 4
+    assert result["metrics"]["unsafe_commit_count"] == 0
+    assert result["metrics"]["duplicate_execution_count"] == 0
+    assert observer.failures > 0
+    class ScoreBroken:
+        def update(self, **data):
+            return None
+
+        def score_trace(self, **data):
+            raise RuntimeError("PRIVATE CUSTOMER RECORD")
+
+    before = observer.failures
+    observer.finish_case(ScoreBroken(), {"task_completed": True, "unsafe_commits": 0})
+    assert observer.failures == before + 1
+    assert "PRIVATE CUSTOMER RECORD" not in caplog.text
+    await observer.close()
 
 
 @pytest.mark.asyncio
@@ -125,8 +215,30 @@ async def test_live_queue_is_bounded_and_export_is_payload_free():
     assert "SECRET" not in json.dumps(client.records)
 
 
-def test_live_websocket_teardown_queues_metrics_and_keeps_tenant_status_private(tmp_path):
-    client = FakeLangfuse()
+@pytest.mark.asyncio
+async def test_failed_live_export_has_no_retry_or_leaked_worker(caplog):
+    client = FakeLangfuse(fail_live=True)
+    observer = ResearchObserver(client, enabled=True)
+    observer.start_live()
+    observer.submit_live({"turns": [{"llm_ttft_ms": 12}]}, "exotel", "completed")
+    await observer.close()
+    assert observer.failures == 1
+    assert observer.exported == 0
+    assert observer.dropped == 0
+    assert observer.worker is None
+    assert client.shutdowns == 1
+    assert not any(
+        task.get_name() == "research-observability" and not task.done()
+        for task in asyncio.all_tasks()
+    )
+    assert "PRIVATE CALLER" not in caplog.text
+
+
+@pytest.mark.parametrize("fail_live", [False, True])
+def test_live_websocket_teardown_queues_metrics_and_keeps_tenant_status_private(
+    tmp_path, caplog, fail_live
+):
+    client = FakeLangfuse(fail_live=fail_live)
     model = tmp_path / "silero.onnx"
     model.write_bytes(b"isolated-test-model")
     settings = Settings(
@@ -165,8 +277,16 @@ def test_live_websocket_teardown_queues_metrics_and_keeps_tenant_status_private(
                 assert ws.receive()["type"] == "websocket.close"
 
     roots = [row for row in client.records if row["name"] == "omnivoice.completed_call_metrics"]
-    assert len(roots) == 1
-    assert roots[0]["metadata"]["turns_recorded"] == 1
+    assert len(roots) == (0 if fail_live else 1)
+    if roots:
+        assert roots[0]["metadata"]["turns_recorded"] == 1
+    with sqlite3.connect(settings.database) as database:
+        status, raw_metrics = database.execute("SELECT status,metrics FROM calls").fetchone()
+    assert status == "completed"
+    assert json.loads(raw_metrics)["turns"][0]["llm_ttft_ms"] == 18
+    assert app.state.services.research.failures == int(fail_live)
+    assert app.state.services.research.worker is None
     assert "PRIVATE" not in json.dumps(client.records)
     assert "+12025550191" not in json.dumps(client.records)
+    assert "PRIVATE CALLER" not in caplog.text
     assert client.shutdowns == 1

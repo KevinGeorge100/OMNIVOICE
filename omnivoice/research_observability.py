@@ -112,8 +112,12 @@ class ResearchObserver:
             raise RuntimeError("Install the research extra to enable Langfuse export") from None
         return cls(Langfuse(
             public_key=public, secret_key=secret, base_url=settings.langfuse_base_url,
-            should_export_span=_research_span_only,
+            timeout=2, should_export_span=_research_span_only,
         ), enabled=True)
+
+    def _sdk_failed(self, operation, error):
+        self.failures += 1
+        LOG.warning("research_export_failed operation=%s failure_type=%s", operation, type(error).__name__)
 
     def start_live(self):
         if self.client is not None and self.worker is None:
@@ -169,11 +173,23 @@ class ResearchObserver:
             with nullcontext(None) as span:
                 yield span
             return
-        with self.client.start_as_current_observation(
-            as_type="agent", name="omnivoice.scripted_sales_case",
-            metadata={"source": "offline_scripted", "case_id": case_id, "category": category},
-        ) as span:
+        try:
+            manager = self.client.start_as_current_observation(
+                as_type="agent", name="omnivoice.scripted_sales_case",
+                metadata={"source": "offline_scripted", "case_id": case_id, "category": category},
+            )
+            span = manager.__enter__()
+        except Exception as error:
+            self._sdk_failed("case_start", error)
+            yield None
+            return
+        try:
             yield span
+        finally:
+            try:
+                manager.__exit__(None, None, None)
+            except Exception as error:
+                self._sdk_failed("case_end", error)
 
     @contextmanager
     def tool(self, name: str):
@@ -184,13 +200,21 @@ class ResearchObserver:
         safe_name = name if name in {
             "lookup_lead", "check_demo_slots", "schedule_demo", "create_followup",
         } else "other_tool"
-        span = self.client.start_observation(
-            as_type="tool", name="scripted_tool_invocation", metadata={"tool": safe_name},
-        )
+        try:
+            span = self.client.start_observation(
+                as_type="tool", name="scripted_tool_invocation", metadata={"tool": safe_name},
+            )
+        except Exception as error:
+            self._sdk_failed("tool_start", error)
+            yield None
+            return
         try:
             yield span
         finally:
-            span.end()
+            try:
+                span.end()
+            except Exception as error:
+                self._sdk_failed("tool_end", error)
 
     @contextmanager
     def action(self, name: str):
@@ -199,47 +223,61 @@ class ResearchObserver:
                 yield span
             return
         safe_name = name if name in {"schedule_demo", "create_followup"} else "other_action"
-        span = self.client.start_observation(
-            as_type="span", name="scripted_action_confirmation", metadata={"action": safe_name},
-        )
+        try:
+            span = self.client.start_observation(
+                as_type="span", name="scripted_action_confirmation", metadata={"action": safe_name},
+            )
+        except Exception as error:
+            self._sdk_failed("action_start", error)
+            yield None
+            return
         try:
             yield span
         finally:
-            span.end()
+            try:
+                span.end()
+            except Exception as error:
+                self._sdk_failed("action_end", error)
 
-    @staticmethod
-    def finish_action(span, result):
+    def finish_action(self, span, result):
         if span is not None:
             status = result.get("status") if isinstance(result, dict) else None
-            span.update(output={
-                "status": status if status in {"committed", "failed", "unknown"} else "not_confirmed"
-            })
+            try:
+                span.update(output={
+                    "status": status if status in {"committed", "failed", "unknown"} else "not_confirmed"
+                })
+            except Exception as error:
+                self._sdk_failed("action_update", error)
 
-    @staticmethod
-    def finish_tool(span, result):
+    def finish_tool(self, span, result):
         if span is not None:
             code = result.error_code if result.error_code in TOOL_ERRORS else None
-            span.update(output={
-                "success": result.success, "error_code": code,
-                "confirmation_required": result.confirmation_required,
-                "duration_ms": _number(result.duration_ms),
-            })
+            try:
+                span.update(output={
+                    "success": result.success, "error_code": code,
+                    "confirmation_required": result.confirmation_required,
+                    "duration_ms": _number(result.duration_ms),
+                })
+            except Exception as error:
+                self._sdk_failed("tool_update", error)
 
-    @staticmethod
-    def finish_case(span, record):
+    def finish_case(self, span, record):
         if span is None:
             return
         complete = record["task_completed"] is True
-        span.update(output={
-            "task_completed": complete,
-            "tool_invocations": record.get("tool_invocations") if complete else None,
-            "unsafe_commits": record.get("unsafe_commits") if complete else None,
-        })
-        span.score_trace(name="scripted_task_completed", value=float(complete), data_type="NUMERIC")
-        if complete:
-            span.score_trace(
-                name="unsafe_commit_count", value=float(record["unsafe_commits"]), data_type="NUMERIC"
-            )
+        try:
+            span.update(output={
+                "task_completed": complete,
+                "tool_invocations": record.get("tool_invocations") if complete else None,
+                "unsafe_commits": record.get("unsafe_commits") if complete else None,
+            })
+            span.score_trace(name="scripted_task_completed", value=float(complete), data_type="NUMERIC")
+            if complete:
+                span.score_trace(
+                    name="unsafe_commit_count", value=float(record["unsafe_commits"]), data_type="NUMERIC"
+                )
+        except Exception as error:
+            self._sdk_failed("case_update", error)
 
     def snapshot(self):
         return {
