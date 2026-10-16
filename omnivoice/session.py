@@ -81,13 +81,16 @@ class CallSession:
         self.metrics = {"turns": [], "barge_in": [], "cache_hits": 0, "errors": 0}
         self.metrics["tool_summary"] = {
             "invocations": 0, "succeeded": 0, "failed": 0, "confirmation_required": 0,
-            "committed": 0, "unknown_outcome": 0, "cache_hits": 0, "cancelled": 0,
-            "duration_ms_total": 0.0,
+            "committed": 0, "failed_commits": 0, "unknown_outcome": 0,
+            "cache_hits": 0, "cancelled": 0,
+            "duration_ms_total": 0.0, "invalid_tool_requests": 0,
+            "action_end_to_end_ms_total": 0.0,
         }
         self.marks = {}
         self.last_prediction = 0.0
         self.last_voice = None
         self.read_results = {}
+        self.sales_state = {}
         self.generation_id = 0
         self.active_generation_id = None
         self.cancellation_reasons = {}
@@ -138,6 +141,7 @@ class CallSession:
                     task.cancel()
             await asyncio.gather(*(t for t in (self.response, self.slow) if t), return_exceptions=True)
             await self.services.actions.cancel(self.id)
+            self.sales_state.clear()
             await asyncio.gather(self.stt.close(), self.tts.close(), return_exceptions=True)
 
     async def receive(self):
@@ -355,7 +359,7 @@ class CallSession:
                 try:
                     if registry:
                         definition = await registry.resolve(self.tenant["id"], item["name"])
-                        if definition.kind != "read":
+                        if definition.kind != "read" or item["name"] in {"lookup_lead", "check_demo_slots"}:
                             return
                         started_tool = time.perf_counter()
                         try:
@@ -395,6 +399,9 @@ class CallSession:
         summary["succeeded" if result.success else "failed"] += 1
         summary["confirmation_required"] += int(result.confirmation_required)
         summary["duration_ms_total"] += result.duration_ms
+        summary["invalid_tool_requests"] += int(result.error_code in {
+            "unauthorized_tool", "invalid_arguments", "selection_required",
+        })
 
     def _record_tool_cancellation(self, started):
         summary = self.metrics["tool_summary"]
@@ -534,8 +541,13 @@ class CallSession:
             )
             if confirmed:
                 metric["path"] = "confirmation"
-                key = "committed" if confirmed["status"] == "committed" else "unknown_outcome"
+                key = {"committed": "committed", "failed": "failed_commits"}.get(
+                    confirmed["status"], "unknown_outcome",
+                )
                 self.metrics["tool_summary"][key] += 1
+                self.metrics["tool_summary"]["action_end_to_end_ms_total"] += confirmed.get(
+                    "action_end_to_end_ms", 0.0,
+                )
                 if events := getattr(self.services, "events", None):
                     with contextlib.suppress(Exception):
                         events.publish(
@@ -545,13 +557,22 @@ class CallSession:
                              "tool_name": confirmed.get("tool_name"), "kind": "write",
                              "transport": confirmed.get("transport", "https"),
                              "duration_ms": confirmed.get("duration_ms"),
+                             "action_end_to_end_ms": confirmed.get("action_end_to_end_ms"),
                              "result_status": confirmed["status"]},
                         )
-                message = (
-                    "The action completed successfully."
-                    if confirmed["status"] == "committed"
-                    else "I could not verify the outcome. Please ask the team to check before trying again."
-                )
+                if confirmed["status"] == "committed" and confirmed.get("tool_name") == "schedule_demo":
+                    message = "Done. Your demo is booked."
+                elif confirmed["status"] == "committed" and confirmed.get("tool_name") == "create_followup":
+                    message = "Done. I saved the follow-up."
+                elif confirmed["status"] == "committed":
+                    message = "The action completed successfully."
+                elif (isinstance(confirmed.get("result"), dict)
+                      and confirmed["result"].get("error_code") == "slot_unavailable"):
+                    message = "Sorry, that slot is no longer available. Please choose another time."
+                elif confirmed["status"] == "failed":
+                    message = "I couldn't complete that request. Please try another option."
+                else:
+                    message = "I could not verify the outcome. Please ask the team to check before trying again."
                 metric["agent_response"] = message
                 metric.update(
                     knowledge_status="grounded",
@@ -617,6 +638,7 @@ class CallSession:
                 corpus_topics=corpus_topics,
                 history=self.history,
                 caller_text=text,
+                sales_state=self.sales_state,
             )
             messages = [{"role": "system", "content": system}, *self.history]
             await self.generate(messages, tools, metric)
@@ -788,6 +810,7 @@ class CallSession:
                         definition = await registry.resolve(self.tenant["id"], call["name"])
                 cache_valid = (
                     fresh and definition and definition.kind == "read"
+                    and call["name"] not in {"lookup_lead", "check_demo_slots"}
                     and Draft202012Validator(definition.input_schema).is_valid(arguments)
                     and (
                         definition.output_schema is None
@@ -803,14 +826,21 @@ class CallSession:
                     started_tool = time.perf_counter()
                     try:
                         result = await registry.invoke(
-                            ToolContext(self.tenant["id"], self.id), call["name"], arguments
+                            ToolContext(self.tenant["id"], self.id, self.sales_state),
+                            call["name"], arguments
                         )
                     except asyncio.CancelledError:
                         self._record_tool_cancellation(started_tool)
                         raise
                     self._record_tool_result(result)
                 if not result.success:
-                    reply = "I couldn't complete that lookup or action right now."
+                    reply = (
+                        "Sorry, that demo time is no longer available. Please choose another time."
+                        if result.error_code == "slot_unavailable" else
+                        "Please choose a demo time I offered after we identify the lead."
+                        if result.error_code == "selection_required" else
+                        "I couldn't complete that lookup or action right now."
+                    )
                     metric["agent_response"] = f'{metric.get("agent_response", "").strip()} {reply}'.strip()
                     await self.say(reply, metric=metric)
                     break

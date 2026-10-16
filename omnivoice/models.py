@@ -1,6 +1,8 @@
+from datetime import datetime
 from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 LANGUAGES = {
     "en-IN",
@@ -20,6 +22,7 @@ LANGUAGES = {
 class TenantInput(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     language: str = "en-IN"
+    timezone: str = "Asia/Kolkata"
     greeting: str = Field(min_length=1, max_length=400)
     instructions: str = Field(default="", max_length=3000)
     confirmation_phrases: list[str] = Field(
@@ -34,6 +37,16 @@ class TenantInput(BaseModel):
             raise ValueError("Unsupported TTS language code")
         return value
 
+    @field_validator("timezone")
+    @classmethod
+    def valid_timezone(cls, value):
+        try:
+            ZoneInfo(value)
+        except (ZoneInfoNotFoundError, ValueError):
+            if value != "Asia/Kolkata":
+                raise ValueError("Use an IANA time zone") from None
+        return value
+
     @field_validator("confirmation_phrases", "backchannels")
     @classmethod
     def bounded_phrases(cls, value):
@@ -46,6 +59,27 @@ class FAQInput(BaseModel):
     question: str = Field(min_length=3, max_length=500)
     answer: str = Field(min_length=1, max_length=2000)
     approved: bool = False
+
+
+class SalesLeadInput(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    identifier: str = Field(min_length=1, max_length=80)
+    email: str | None = Field(default=None, max_length=254)
+    status: str = Field(default="new", min_length=1, max_length=40)
+    source: str = Field(default="operator", min_length=1, max_length=40)
+    notes: str = Field(default="", max_length=240)
+
+
+class DemoSlotInput(BaseModel):
+    start_at: datetime
+    end_at: datetime
+
+    @model_validator(mode="after")
+    def ordered_with_timezone(self):
+        if (self.start_at.tzinfo is None or self.end_at.tzinfo is None
+                or self.end_at <= self.start_at):
+            raise ValueError("Slots require ordered timezone-aware datetimes")
+        return self
 
 
 class LineInput(BaseModel):

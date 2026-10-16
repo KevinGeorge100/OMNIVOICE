@@ -2,7 +2,10 @@
 .env
 .env.*
 !.env.example
-data/
+data/*
+!data/research/
+data/research/*
+!data/research/agent_tool_eval.json
 models/
 __pycache__/
 *.egg-info/

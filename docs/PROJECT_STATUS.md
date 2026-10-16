@@ -8,7 +8,9 @@
 
 ## 1. Executive Summary & Reality Statement
 
-> **OV-011A local foundation (2026-10-16):** A tenant-scoped `ToolRegistry` now exposes one real SQLite-backed business-profile read, existing administrator-registered HTTPS tools, and an opt-in official-SDK MCP reference read to the Groq function-call loop. Read results return to the model for a bounded follow-up. Writes still stage through `ActionEngine` and require playback arming and exact caller confirmation. This has deterministic local test and reference-MCP evidence; it has not yet been exercised on a physical PSTN call, and no sales/CRM/calendar connector exists.
+> **OV-011A local foundation (2026-10-16):** A tenant-scoped `ToolRegistry` exposed one SQLite-backed business-profile read, administrator-registered HTTPS tools, and an opt-in official-SDK MCP reference read to the Groq function-call loop. Read results return to the model for a bounded follow-up. Writes stage through `ActionEngine` and require playback arming and exact caller confirmation. At that milestone there was no sales/CRM/calendar connector, and it had not been exercised on a physical PSTN call.
+
+> **OV-011B local sales workflow (2026-10-16):** Local tenant-scoped lead lookup, demo availability, booking and follow-up tools now use the existing `ToolRegistry` and `ActionEngine` confirmation boundary. SQLite conditional booking and a unique slot constraint prevent double booking. An offline scripted evaluation covers 25 labeled scenarios; it does not measure live Groq tool selection or PSTN performance. No external CRM/calendar connector or physical sales call has been verified.
 
 > [!IMPORTANT]
 > **Real PSTN end-to-end telephone validation successfully completed (OV-005).**
@@ -78,7 +80,7 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 
 * **Engine**: Local file-based SQLite database via `aiosqlite` (`data/omnivoice.db`).
 * **Configuration**: `PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;`.
-* **Tables**: `tenants`, `knowledge`, `lines`, `tools`, `calls`, `actions`.
+* **Tables**: `tenants`, `knowledge`, `lines`, `tools`, `calls`, `actions`, `leads`, `demo_slots`, `demo_bookings`, `followups`.
 * **In-Memory Volatility**: Active call sessions (`services.active`), conversation history (rolling 20 turns), and FAISS vector indices exist strictly in local process memory. A process restart terminates all active calls.
 
 ---

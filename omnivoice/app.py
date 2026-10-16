@@ -6,6 +6,7 @@ import io
 import json
 import logging
 import secrets
+import sqlite3
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -23,9 +24,10 @@ from .actions import ActionEngine, validate_public_url, validate_tool
 from .capacity import Capacity
 from .config import Settings
 from .events import TenantEvents
-from .models import DialInput, FAQInput, LineInput, TenantInput, ToolInput
+from .models import DemoSlotInput, DialInput, FAQInput, LineInput, SalesLeadInput, TenantInput, ToolInput
 from .providers import Groq
 from .rag import Embedder, Knowledge
+from .sales import SalesService, register_sales_tools
 from .session import CallSession
 from .store import Store, token_hash
 from .tools import ToolRegistry, register_business_profile
@@ -85,6 +87,8 @@ def create_app(settings=None):
             events=services.events, mcp=mcp,
         )
         register_business_profile(services.tool_registry)
+        services.sales = SalesService(services.store)
+        register_sales_tools(services.tool_registry, services.sales)
         services.llm = Groq(settings, services.http, capacity=services.capacity)
         try:
             yield
@@ -243,6 +247,23 @@ def create_app(settings=None):
         services.knowledge.invalidate(tenant["id"])
         await services.knowledge.refresh(tenant["id"])
         return {"id": item}
+
+    @app.post("/api/tenants/{tenant_id}/leads", status_code=201)
+    async def create_lead(body: SalesLeadInput, tenant=Depends(tenant_access)):
+        limit_api("sales_write", tenant["id"], 30)
+        try:
+            lead_id = await services.sales.add_lead(tenant["id"], **body.model_dump())
+        except sqlite3.IntegrityError:
+            raise HTTPException(409, "Lead identifier is already registered") from None
+        return {"id": lead_id}
+
+    @app.post("/api/tenants/{tenant_id}/demo-slots", status_code=201)
+    async def create_demo_slot(body: DemoSlotInput, tenant=Depends(tenant_access)):
+        limit_api("sales_write", tenant["id"], 30)
+        slot_id = await services.sales.add_slot(
+            tenant["id"], body.start_at.isoformat(), body.end_at.isoformat(),
+        )
+        return {"id": slot_id}
 
     @app.post("/api/tenants/{tenant_id}/documents", status_code=201)
     async def document(file: UploadFile = File(...), tenant=Depends(tenant_access)):
@@ -448,7 +469,12 @@ def create_app(settings=None):
 
     @app.get("/api/tenants/{tenant_id}/tools")
     async def tools(tenant=Depends(tenant_access)):
-        return await services.actions.tools(tenant["id"])
+        reserved = services.tool_registry.reserved_names()
+        remote = [item for item in await services.actions.tools(tenant["id"])
+                  if item["name"] not in reserved]
+        local = [{**item.llm_schema(), "transport": "local"}
+                 for item in services.tool_registry.local_definitions()]
+        return [*remote, *local]
 
     @app.post("/api/tenants/{tenant_id}/tools", dependencies=[Depends(admin)])
     async def add_tool(body: ToolInput, tenant=Depends(tenant_access)):

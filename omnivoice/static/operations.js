@@ -220,7 +220,7 @@ function renderActionsOperations() {
   if (toolTarget) toolTarget.innerHTML = tools.length ? opsTable(
     ["Tool", "Operation", "Confirmation", "Endpoint host"],
     tools.map(tool => {
-      let host = "Unavailable";
+      let host = tool.transport === "local" ? "Local SQLite" : "Unavailable";
       try { host = new URL(tool.url).hostname; } catch (_) { /* invalid legacy URL */ }
       return `<tr><td><b>${opsEsc(tool.name)}</b><small class="row-note">${opsEsc(tool.description)}</small></td><td>${opsPill(tool.kind)}</td><td>${opsEsc(tool.kind === "write" ? "Required before write" : "Read-only; no write")}</td><td class="mono">${opsEsc(host)}</td></tr>`;
     })

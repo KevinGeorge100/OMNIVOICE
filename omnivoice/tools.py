@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Literal
 
-from jsonschema import Draft202012Validator, ValidationError
+from jsonschema import Draft202012Validator, FormatChecker, ValidationError
 
 MAX_ARGUMENT_BYTES = 4096
 MAX_RESULT_BYTES = 4096
@@ -20,6 +20,7 @@ ReadHandler = Callable[["ToolContext", dict], Awaitable[object]]
 class ToolContext:
     tenant_id: str
     call_id: str
+    state: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -33,12 +34,15 @@ class ToolDefinition:
     handler: ReadHandler | None = None
     output_schema: dict | None = None
     confirmation_required: bool = False
+    stage_validator: ReadHandler | None = None
 
     def __post_init__(self):
         if not self.name or not self.description or self.timeout_ms < 1:
             raise ValueError("Invalid tool definition")
         if self.kind == "write" and (self.handler is not None or not self.confirmation_required):
             raise ValueError("Writes must use ActionEngine confirmation")
+        if self.kind == "write" and self.transport == "local" and self.stage_validator is None:
+            raise ValueError("Local writes require server-side selection validation")
         if self.kind == "read" and self.handler is None:
             raise ValueError("Read tool requires an explicit handler")
         Draft202012Validator.check_schema(self.input_schema)
@@ -94,12 +98,15 @@ class ToolRegistry:
     def reserved_names(self) -> set[str]:
         return set(self._local) | (set(self.mcp.allowed_tools) if self.mcp else set())
 
+    def local_definitions(self) -> list[ToolDefinition]:
+        return list(self._local.values())
+
     async def _definitions(self, tenant_id: str) -> dict[str, ToolDefinition]:
         definitions = dict(self._local)
         for item in await self.actions.tools(tenant_id):
             name = item["name"]
             if name in definitions:
-                raise ValueError("Duplicate tool name")
+                continue
 
             async def read(ctx, args, tool_name=name):
                 return await self.actions.read(ctx.tenant_id, tool_name, args)
@@ -147,14 +154,22 @@ class ToolRegistry:
         try:
             definition = await self.resolve(ctx.tenant_id, name)
         except (ValueError, KeyError):
+            self._event(ctx, name, "tool.failed", "unknown", "unknown",
+                        error_category="unauthorized_tool")
             return ToolResult(False, name, error_code="unauthorized_tool", safe_summary="That tool is unavailable.")
         self._event(ctx, name, "tool.requested", definition.kind, definition.transport)
         try:
             if not isinstance(arguments, dict) or len(json.dumps(arguments).encode()) > MAX_ARGUMENT_BYTES:
                 raise ValidationError("Arguments must be a bounded object")
-            Draft202012Validator(definition.input_schema).validate(arguments)
+            Draft202012Validator(definition.input_schema, format_checker=FormatChecker()).validate(arguments)
             if definition.kind == "write":
-                staged = await self.actions.stage(ctx.tenant_id, ctx.call_id, name, arguments)
+                if definition.transport == "local":
+                    summary = await definition.stage_validator(ctx, arguments)
+                    staged = await self.actions.stage_local(
+                        ctx.tenant_id, ctx.call_id, name, arguments, summary,
+                    )
+                else:
+                    staged = await self.actions.stage(ctx.tenant_id, ctx.call_id, name, arguments)
                 self._event(ctx, name, "tool.confirmation_required", definition.kind, definition.transport)
                 return ToolResult(
                     True, name, data={"action_id": staged["id"], "state": "staged"},
@@ -186,6 +201,8 @@ class ToolRegistry:
                 "invalid_arguments" if isinstance(error, ValidationError) else
                 "timeout" if isinstance(error, TimeoutError) else "tool_failed"
             )
+            if definition.transport == "local" and getattr(error, "code", None):
+                code = error.code
             result = ToolResult(
                 False, name, error_code=code, retryable=code == "timeout",
                 safe_summary="That tool could not be completed.", transport=definition.transport,

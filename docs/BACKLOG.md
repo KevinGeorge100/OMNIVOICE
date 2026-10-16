@@ -21,7 +21,7 @@
 | **OV-009** | Provider Failure Recovery & Resilience | Feature | P1 | **Done** (Local Fault Injection) |
 | **OV-010** | LLM & STT Rate-Limit Handling & Graceful Backoff | Feature | P1 | **Done** (Local Overload Controls) |
 | **OV-011A** | Agent Tool + MCP Foundation | Feature | P1 | **Done** (Local integration) |
-| **OV-011B** | Sales tools and confirmed business workflow | Feature | P1 | Planned |
+| **OV-011B** | Sales tools and confirmed business workflow | Feature | P1 | **Done** (Local offline validation) |
 | **OV-011** | Database Migration Framework (Alembic) | TechDebt | P2 | Planned |
 | **OV-012** | Relational Database Migration (SQLite to PostgreSQL) | Feature | P2 | Planned |
 | **OV-013** | Distributed Session Registry & State Hub (Redis) | Architecture | P2 | Planned |
@@ -50,8 +50,8 @@
 * **Scope:** Tenant-scoped typed tool registry, bounded Groq tool loop, `get_business_profile` read, official MCP 2.3.0 SDK reference read, and the existing ActionEngine write boundary. MCP is disabled by default. No calendar or CRM connector is implemented.
 
 ### [OV-011B] Sales tools and confirmed business workflow
-* **Status:** Planned
-* **Scope:** Verified tenant-scoped lead lookup, availability, booking and follow-up adapters; external idempotency and reconciliation contracts; full telephone rehearsal. The current reference MCP server is not a sales backend.
+* **Status:** **Done** (tenant-scoped local SQLite workflow and offline research harness; no physical PSTN rehearsal)
+* **Scope:** Exact lead lookup, date-filtered local slot search, confirmation-gated atomic booking and follow-up through the existing ActionEngine. The current MCP reference server is not a sales backend. External calendar/CRM contracts and physical telephone rehearsal remain future work.
 
 ### [OV-001] Establish OmniVoice Engineering Project Control
 * **Type:** Task

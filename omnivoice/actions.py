@@ -67,6 +67,25 @@ class ActionEngine:
         self.store, self.http = store, http
         self.tasks = set()
         self.secrets = {**dotenv_values(".env"), **os.environ}
+        self.local_writes = {}
+
+    def register_local_write(self, name, handler):
+        if name in self.local_writes:
+            raise ValueError("Duplicate local write")
+        self.local_writes[name] = handler
+
+    async def stage_local(self, tenant_id, call_id, name, arguments, summary):
+        if name not in self.local_writes or not isinstance(summary, str) or len(summary) > 500:
+            raise ValueError("Local write is not registered or summary is invalid")
+        await self.cancel(call_id)
+        action_id, now = uuid4().hex, time.time()
+        await self.store.execute(
+            "INSERT INTO actions VALUES (?,?,?,?,?,?,?,?,?,?,NULL)",
+            (action_id, tenant_id, call_id, name, json.dumps(arguments),
+             json.dumps({"transport": "local", "name": name}), summary,
+             "staged", now, now + 120),
+        )
+        return {"id": action_id, "summary": summary}
 
     async def tools(self, tenant_id):
         rows = await self.store.rows("SELECT config FROM tools WHERE tenant_id=?", (tenant_id,))
@@ -174,19 +193,32 @@ class ActionEngine:
 
     async def _commit(self, row):
         started = time.perf_counter()
+        transport = "https"
         try:
             tool = json.loads(row["tool_config"])
-            result = await self.invoke(tool, json.loads(row["arguments"]), row["id"])
-            status = "committed" if isinstance(result, dict) and result.get("ok") is True else "unknown"
+            transport = tool.get("transport", "https")
+            if transport == "local":
+                handler = self.local_writes.get(row["tool"])
+                if handler is None or tool.get("name") != row["tool"]:
+                    raise ValueError("Local write unavailable")
+                result = await handler(
+                    row["tenant_id"], row["call_id"], json.loads(row["arguments"]), row["id"],
+                )
+            else:
+                result = await self.invoke(tool, json.loads(row["arguments"]), row["id"])
+            status = ("committed" if isinstance(result, dict) and result.get("ok") is True else
+                      "failed" if transport == "local" and isinstance(result, dict)
+                      and result.get("ok") is False else "unknown")
         except Exception:
             result, status = (
-                {"message": "External outcome uncertain; manual reconciliation required. Do not retry."},
+                {"message": "Action outcome uncertain; manual reconciliation required. Do not retry."},
                 "unknown",
             )
         await self.store.execute(
             "UPDATE actions SET status=?,result=? WHERE id=?", (status, json.dumps(result), row["id"])
         )
         return {
-            "status": status, "result": result, "tool_name": row["tool"], "transport": "https",
+            "status": status, "result": result, "tool_name": row["tool"], "transport": transport,
             "duration_ms": (time.perf_counter() - started) * 1000,
+            "action_end_to_end_ms": max(0.0, (time.time() - row["created"]) * 1000),
         }

@@ -39,6 +39,31 @@ CREATE TABLE IF NOT EXISTS actions (
  id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id), call_id TEXT NOT NULL,
  tool TEXT NOT NULL, arguments TEXT NOT NULL, tool_config TEXT NOT NULL, summary TEXT NOT NULL,
  status TEXT NOT NULL, created REAL NOT NULL, expires REAL NOT NULL, result TEXT);
+CREATE TABLE IF NOT EXISTS leads (
+ id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id),
+ name TEXT NOT NULL, identifier TEXT NOT NULL, email TEXT,
+ status TEXT NOT NULL, source TEXT NOT NULL, notes TEXT NOT NULL DEFAULT '',
+ created_at REAL NOT NULL, updated_at REAL NOT NULL,
+ UNIQUE(tenant_id, identifier), UNIQUE(tenant_id, id));
+CREATE INDEX IF NOT EXISTS leads_tenant_name ON leads(tenant_id, name);
+CREATE TABLE IF NOT EXISTS demo_slots (
+ id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id),
+ start_at TEXT NOT NULL, end_at TEXT NOT NULL,
+ status TEXT NOT NULL CHECK(status IN ('available','booked')),
+ created_at REAL NOT NULL, UNIQUE(tenant_id, id));
+CREATE INDEX IF NOT EXISTS demo_slots_tenant_date ON demo_slots(tenant_id, start_at, status);
+CREATE TABLE IF NOT EXISTS demo_bookings (
+ id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id),
+ lead_id TEXT NOT NULL, slot_id TEXT NOT NULL UNIQUE, call_id TEXT NOT NULL,
+ status TEXT NOT NULL, created_at REAL NOT NULL,
+ FOREIGN KEY(tenant_id, lead_id) REFERENCES leads(tenant_id, id),
+ FOREIGN KEY(tenant_id, slot_id) REFERENCES demo_slots(tenant_id, id));
+CREATE TABLE IF NOT EXISTS followups (
+ id TEXT PRIMARY KEY, tenant_id TEXT NOT NULL REFERENCES tenants(id),
+ lead_id TEXT NOT NULL, call_id TEXT NOT NULL, note TEXT NOT NULL,
+ status TEXT NOT NULL, created_at REAL NOT NULL,
+ FOREIGN KEY(tenant_id, lead_id) REFERENCES leads(tenant_id, id));
+CREATE INDEX IF NOT EXISTS followups_tenant_lead ON followups(tenant_id, lead_id);
 """
 
 

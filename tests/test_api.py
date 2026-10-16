@@ -50,6 +50,29 @@ def test_tenant_keys_cannot_access_other_tenants_or_create_tenants(client):
     )
 
 
+def test_sales_fixture_entry_is_tenant_scoped_and_bounded(client):
+    a, b = create(client, "Sales A"), create(client, "Sales B")
+    auth = {"Authorization": "Bearer " + a["api_token"]}
+    prefix = f"/api/tenants/{a['id']}"
+    lead = {"name": "Arun", "identifier": "+910000000001"}
+    assert client.post(prefix + "/leads", headers=auth, json=lead).status_code == 201
+    assert client.post(prefix + "/leads", headers=auth, json=lead).status_code == 409
+    assert client.post(prefix + "/leads", headers=auth, json={
+        **lead, "notes": "x" * 241,
+    }).status_code == 422
+    assert client.post(f"/api/tenants/{b['id']}/leads", headers=auth, json=lead).status_code == 404
+    slot = {"start_at": "2030-03-08T16:00:00+05:30", "end_at": "2030-03-08T16:30:00+05:30"}
+    assert client.post(prefix + "/demo-slots", headers=auth, json=slot).status_code == 201
+    assert client.post(prefix + "/demo-slots", headers=auth, json={
+        **slot, "end_at": "2030-03-08T15:00:00+05:30",
+    }).status_code == 422
+    assert client.post(f"/api/tenants/{b['id']}/demo-slots", headers=auth, json=slot).status_code == 404
+    listed = client.get(prefix + "/tools", headers=auth).json()
+    assert {"lookup_lead", "check_demo_slots", "schedule_demo", "create_followup"} <= {
+        tool["name"] for tool in listed
+    }
+
+
 def test_document_ingestion_and_deletion(client):
     tenant = create(client, "Ingestion test")
     prefix = f"/api/tenants/{tenant['id']}"
