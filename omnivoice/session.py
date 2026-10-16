@@ -5,6 +5,8 @@ import logging
 import time
 from uuid import uuid4
 
+from jsonschema import Draft202012Validator
+
 from .audio import PCMFrameBuffer, Upsample8k
 from .dialogue import (
     build_system_prompt,
@@ -16,7 +18,7 @@ from .duplex import CancelReason, FlexDuo, is_control_halt, normalize
 from .providers import GnaniSTT, GnaniTTS, SarvamSTT, SarvamTTS, select_speech_provider
 from .resilience import ProviderError
 from .speech import SpeechSegmenter, normalize_speech
-from .tools import ToolContext
+from .tools import ToolContext, ToolResult
 
 STT_FAILURE_REPLY = "I'm having trouble hearing you right now. Please try again."
 LLM_FAILURE_REPLY = "I'm having trouble responding right now. Please try again."
@@ -77,6 +79,11 @@ class CallSession:
         self.slow = None
         self.history = []
         self.metrics = {"turns": [], "barge_in": [], "cache_hits": 0, "errors": 0}
+        self.metrics["tool_summary"] = {
+            "invocations": 0, "succeeded": 0, "failed": 0, "confirmation_required": 0,
+            "committed": 0, "unknown_outcome": 0, "cache_hits": 0, "cancelled": 0,
+            "duration_ms_total": 0.0,
+        }
         self.marks = {}
         self.last_prediction = 0.0
         self.last_voice = None
@@ -350,9 +357,15 @@ class CallSession:
                         definition = await registry.resolve(self.tenant["id"], item["name"])
                         if definition.kind != "read":
                             return
-                        result = await registry.invoke(
-                            ToolContext(self.tenant["id"], self.id), item["name"], item["arguments"]
-                        )
+                        started_tool = time.perf_counter()
+                        try:
+                            result = await registry.invoke(
+                                ToolContext(self.tenant["id"], self.id), item["name"], item["arguments"]
+                            )
+                        except asyncio.CancelledError:
+                            self._record_tool_cancellation(started_tool)
+                            raise
+                        self._record_tool_result(result)
                         if not result.success:
                             return
                         value = result.data
@@ -375,6 +388,20 @@ class CallSession:
         except Exception:
             # Speculation failure cannot prevent the foreground call from continuing.
             self.metrics["speculation_errors"] = self.metrics.get("speculation_errors", 0) + 1
+
+    def _record_tool_result(self, result):
+        summary = self.metrics["tool_summary"]
+        summary["invocations"] += 1
+        summary["succeeded" if result.success else "failed"] += 1
+        summary["confirmation_required"] += int(result.confirmation_required)
+        summary["duration_ms_total"] += result.duration_ms
+
+    def _record_tool_cancellation(self, started):
+        summary = self.metrics["tool_summary"]
+        summary["invocations"] += 1
+        summary["failed"] += 1
+        summary["cancelled"] += 1
+        summary["duration_ms_total"] += (time.perf_counter() - started) * 1000
 
     async def say(self, text, action_id=None, metric=None):
         async def one():
@@ -507,6 +534,8 @@ class CallSession:
             )
             if confirmed:
                 metric["path"] = "confirmation"
+                key = "committed" if confirmed["status"] == "committed" else "unknown_outcome"
+                self.metrics["tool_summary"][key] += 1
                 if events := getattr(self.services, "events", None):
                     with contextlib.suppress(Exception):
                         events.publish(
@@ -750,9 +779,36 @@ class CallSession:
             except (ValueError, TypeError):
                 arguments = None
             if registry:
-                result = await registry.invoke(
-                    ToolContext(self.tenant["id"], self.id), call["name"], arguments
+                key = json.dumps([call["name"], arguments], sort_keys=True)
+                cached = self.read_results.get(key)
+                fresh = cached and time.monotonic() - cached[0] < 3
+                definition = None
+                if fresh:
+                    with contextlib.suppress(ValueError):
+                        definition = await registry.resolve(self.tenant["id"], call["name"])
+                cache_valid = (
+                    fresh and definition and definition.kind == "read"
+                    and Draft202012Validator(definition.input_schema).is_valid(arguments)
+                    and (
+                        definition.output_schema is None
+                        or Draft202012Validator(definition.output_schema).is_valid(cached[1])
+                    )
                 )
+                if cache_valid:
+                    result = ToolResult(
+                        True, call["name"], data=cached[1], transport=definition.transport,
+                    )
+                    self.metrics["tool_summary"]["cache_hits"] += 1
+                else:
+                    started_tool = time.perf_counter()
+                    try:
+                        result = await registry.invoke(
+                            ToolContext(self.tenant["id"], self.id), call["name"], arguments
+                        )
+                    except asyncio.CancelledError:
+                        self._record_tool_cancellation(started_tool)
+                        raise
+                    self._record_tool_result(result)
                 if not result.success:
                     reply = "I couldn't complete that lookup or action right now."
                     metric["agent_response"] = f'{metric.get("agent_response", "").strip()} {reply}'.strip()

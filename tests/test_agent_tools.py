@@ -215,6 +215,12 @@ async def test_text_to_tool_to_final_voice_turn(setup, requested, arguments, exp
     await session.respond("What business is this?", time.perf_counter())
     assert expected in session.metrics["turns"][0]["agent_response"]
     assert session.metrics["turns"][0]["tool_called"] is True
+    summary = session.metrics["tool_summary"]
+    assert summary["invocations"] == 1
+    assert summary["succeeded"] == int(expected == "Kerala One")
+    assert summary["failed"] == int(expected != "Kerala One")
+    assert summary["duration_ms_total"] >= 0
+    assert "arguments" not in json.dumps(summary)
     assert len(seen) == (2 if requested == "get_business_profile" and arguments == "{}" else 1)
 
 
@@ -274,3 +280,140 @@ async def test_speculation_cannot_stage_write(setup):
     session = CallSession("call", tenant, None, services)
     await session.speculate("reserve a slot")
     assert await store.rows("SELECT id FROM actions WHERE tenant_id=?", (first,)) == []
+
+
+async def test_foreground_reuses_bounded_speculative_read(setup):
+    store, actions, registry, first, _ = setup
+    requested = 0
+
+    async def stream(messages, tools):
+        nonlocal requested
+        requested += 1
+        if requested == 1:
+            yield {"tool_calls": [{"index": 0, "id": "cached", "function": {
+                "name": "get_business_profile", "arguments": "{}",
+            }}]}
+        else:
+            assert messages[-1]["role"] == "tool"
+            yield {"content": "Kerala One."}
+
+    tenant = await store.tenant(first)
+    tenant["config"].update({"greeting": "Hi", "backchannels": [], "confirmation_phrases": ["yes"]})
+    services = SimpleNamespace(
+        settings=Settings(_env_file=None), actions=actions, tool_registry=registry,
+        llm=SimpleNamespace(stream=stream), vad=SimpleNamespace(session=lambda: None),
+    )
+    session = CallSession("call", tenant, None, services)
+    session.read_results[json.dumps(["get_business_profile", {}], sort_keys=True)] = (
+        time.monotonic(), {"business_name": "Kerala One", "language": "ml-IN"},
+    )
+
+    async def unexpected_invoke(*args):
+        raise AssertionError("A fresh cached read should not execute again")
+
+    registry.invoke = unexpected_invoke
+    session.say_stream = lambda *args, **kwargs: asyncio.sleep(0)
+    metric = {"started": time.perf_counter(), "agent_response": ""}
+    await session.generate([{"role": "user", "content": "Who?"}], await registry.llm_tools(first), metric)
+    assert requested == 2
+    assert session.metrics["tool_summary"]["cache_hits"] == 1
+    assert session.metrics["tool_summary"]["invocations"] == 0
+
+
+async def test_cancelled_read_is_counted_and_stopped(setup):
+    store, actions, registry, first, _ = setup
+    entered = asyncio.Event()
+    exited = asyncio.Event()
+
+    async def slow(ctx, args):
+        entered.set()
+        try:
+            await asyncio.sleep(10)
+        finally:
+            exited.set()
+
+    registry.register(ToolDefinition(
+        "slow_read", "Slow read", {"type": "object", "additionalProperties": False},
+        "read", "local", 5000, handler=slow,
+    ))
+
+    async def stream(messages, tools):
+        yield {"tool_calls": [{"index": 0, "function": {
+            "name": "slow_read", "arguments": "{}",
+        }}]}
+
+    tenant = await store.tenant(first)
+    tenant["config"].update({"greeting": "Hi", "backchannels": [], "confirmation_phrases": ["yes"]})
+    services = SimpleNamespace(
+        settings=Settings(_env_file=None), actions=actions, tool_registry=registry,
+        llm=SimpleNamespace(stream=stream), vad=SimpleNamespace(session=lambda: None),
+    )
+    session = CallSession("call", tenant, None, services)
+
+    async def drain(segments, **kwargs):
+        async for _ in segments:
+            pass
+
+    session.say_stream = drain
+    metric = {"started": time.perf_counter(), "agent_response": ""}
+    task = asyncio.create_task(session.generate(
+        [{"role": "user", "content": "Wait"}], await registry.llm_tools(first), metric,
+    ))
+    await entered.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert exited.is_set()
+    assert session.metrics["tool_summary"]["cancelled"] == 1
+    assert session.metrics["tool_summary"]["invocations"] == 1
+
+
+async def test_voice_write_metrics_follow_action_confirmation(setup):
+    store, actions, registry, first, _ = setup
+    tool = {
+        "name": "reserve", "description": "Reserve a slot", "kind": "write",
+        "parameters": {"type": "object", "properties": {"slot": {"type": "string"}},
+                       "required": ["slot"], "additionalProperties": False},
+        "confirmation_template": "Reserve {slot}.", "url": "https://example.com/reserve",
+    }
+    await store.execute("INSERT INTO tools VALUES (?,?,?)", (first, "reserve", json.dumps(tool)))
+    invoked = []
+
+    async def fake_invoke(config, arguments, action_id=None):
+        invoked.append(action_id)
+        return {"ok": True}
+
+    actions.invoke = fake_invoke
+
+    async def stream(messages, tools):
+        yield {"tool_calls": [{"index": 0, "function": {
+            "name": "reserve", "arguments": '{"slot":"A"}',
+        }}]}
+
+    tenant = await store.tenant(first)
+    tenant["config"].update({"greeting": "Hi", "backchannels": [], "confirmation_phrases": ["yes"]})
+    services = SimpleNamespace(
+        settings=Settings(_env_file=None), actions=actions, tool_registry=registry,
+        llm=SimpleNamespace(stream=stream), vad=SimpleNamespace(session=lambda: None),
+    )
+    session = CallSession("call", tenant, None, services)
+
+    async def drain(segments, **kwargs):
+        async for _ in segments:
+            pass
+
+    async def say(text, **kwargs):
+        pass
+
+    session.say_stream = drain
+    session.say = say
+    metric = {"started": time.perf_counter(), "agent_response": ""}
+    await session.generate([{"role": "user", "content": "Reserve A"}], await registry.llm_tools(first), metric)
+    summary = session.metrics["tool_summary"]
+    assert summary["invocations"] == 1 and summary["confirmation_required"] == 1
+    assert summary["committed"] == 0 and invoked == []
+    row = await store.one("SELECT id FROM actions WHERE tenant_id=? AND call_id=?", (first, "call"))
+    await actions.arm(row["id"], "call")
+    await session.respond("yes", time.perf_counter())
+    assert summary["committed"] == 1 and invoked == [row["id"]]
+    assert await actions.confirm(first, "call", "yes", True, ["yes"]) is None
