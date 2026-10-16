@@ -40,6 +40,7 @@
 | **OV-026** | Premium Real-Time Operations Console | Enhancement | P1 | COMPLETE |
 | **OV-027** | Persistent Cloud Backend & Operations Console Deployment | DevOps | P0 | In Progress |
 | **OV-028** | GitHub Repository Experience & Documentation Navigation | Documentation | P2 | **Done** |
+| **OV-029** | Langfuse Research Observability | Feature | P2 | **Done** (Opt-in local validation) |
 
 ---
 
@@ -52,6 +53,19 @@
 ### [OV-011B] Sales tools and confirmed business workflow
 * **Status:** **Done** (tenant-scoped local SQLite workflow and offline research harness; no physical PSTN rehearsal)
 * **Scope:** Exact lead lookup, date-filtered local slot search, confirmation-gated atomic booking and follow-up through the existing ActionEngine. The current MCP reference server is not a sales backend. External calendar/CRM contracts and physical telephone rehearsal remain future work.
+
+### [OV-029] Langfuse Research Observability
+* **Type:** Feature
+* **Priority:** P2
+* **Status:** **Done** (opt-in exporter and fake-client validation; remote Langfuse ingestion not yet verified)
+* **Dependencies:** OV-011B
+* **Description:** Export the scripted sales-tool evaluation as Langfuse case/tool/confirmation observations with measured completion and unsafe-commit scores. Optionally export post-call, allowlisted server timing and tool-count metrics through a bounded background queue. No transcript, audio, knowledge text, caller identifier, tenant identifier, or tool arguments leave OmniVoice. Research export is disabled by default and does not enter the real-time audio path.
+* **Acceptance Criteria:**
+  1. The 25-case offline evaluation remains unchanged without `--langfuse`; opt-in mode uses the optional Langfuse SDK and explicit credentials.
+  2. Completed live calls enqueue at most 20 recent turn projections, with a 64-item process-local queue and drop/failure counters; exporter failure never blocks or fails a call.
+  3. Numeric timing fields retain their server-observed/proxy definitions and are not presented as PSTN mouth-to-ear measurements. Scripted-case scores are not described as live model-selection accuracy.
+  4. `/api/status` exposes exporter health to administrators only; tenant status omits this global research state.
+  5. Payload-redaction, queue-bound, synthetic trace, WebSocket teardown, and existing release checks pass. Remote Langfuse delivery and physical PSTN sales-call tracing remain unverified until explicitly exercised.
 
 ### [OV-001] Establish OmniVoice Engineering Project Control
 * **Type:** Task

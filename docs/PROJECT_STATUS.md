@@ -12,6 +12,8 @@
 
 > **OV-011B local sales workflow (2026-10-16):** Local tenant-scoped lead lookup, demo availability, booking and follow-up tools now use the existing `ToolRegistry` and `ActionEngine` confirmation boundary. SQLite conditional booking and a unique slot constraint prevent double booking. An offline scripted evaluation covers 25 labeled scenarios; it does not measure live Groq tool selection or PSTN performance. No external CRM/calendar connector or physical sales call has been verified.
 
+> **OV-029 research observability (2026-10-16):** An opt-in Langfuse adapter adds synthetic case, tool, and confirmation observations to the offline sales evaluation and queues allowlisted numeric summaries after live calls. It is disabled by default, sends no transcript/audio/knowledge or caller/tenant identifiers, and does not wait on Langfuse during a call. Local fake-client tests verify the export shape and WebSocket teardown hook. No remote Langfuse ingestion or new physical PSTN call is claimed. OV-012 remains the planned PostgreSQL migration; OV-017 remains production OpenTelemetry tracing.
+
 > [!IMPORTANT]
 > **Real PSTN end-to-end telephone validation successfully completed (OV-005).**
 > Live telephone validation has been proven across 3 physical mobile telephone calls on the Exotel carrier network (`+914954269065`) via secure WebSocket tunnel. Inbound carrier lifecycle, greeting dispatch (~250 ms), STT -> RAG -> LLM -> TTS -> PSTN audio loop, true acoustic barge-in, backchannel suppression, and full SQLite telemetry persistence are operational and repeatable.

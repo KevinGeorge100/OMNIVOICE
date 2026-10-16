@@ -12,6 +12,8 @@ OV-011A inserts `ToolRegistry` between Groq function calls and `ActionEngine`. I
 
 OV-011B extends the baseline architecture with local SQLite sales handlers. `lookup_lead` and `check_demo_slots` are read tools; `schedule_demo` and `create_followup` are local writes routed through the same persisted ActionEngine lifecycle. A call-scoped, bounded selection state holds the resolved lead and last offered slots; the model cannot submit an arbitrary lead/slot pair for staging. Confirmation claims the action once; booking then conditionally changes an available tenant slot to booked and inserts a booking in one transaction. A stale or competing reservation returns a definite failure. The local evaluation is scripted orchestration, not measured LLM selection.
 
+OV-029 adds an opt-in research observation adapter. The offline sales evaluation can emit synthetic case, tool, and confirmation observations to Langfuse. Completed live calls enqueue an allowlisted numeric projection after persistence; a 64-item process-local background queue isolates export from real-time media. The adapter sends no transcripts, caller or tenant identifiers, audio, prompts, knowledge text, or tool arguments. It is not the production distributed tracing design tracked by OV-017, and its post-call observation durations do not reconstruct original turn durations.
+
 OmniVoice is currently implemented as a **stateful, single-worker asynchronous voice application** running on Python 3.11 with FastAPI and Uvicorn.
 
 ```text

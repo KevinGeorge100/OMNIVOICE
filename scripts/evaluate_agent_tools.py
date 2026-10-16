@@ -1,15 +1,19 @@
 """Offline OV-011B orchestration evaluation; no live model or PSTN calls."""
 
+import argparse
 import asyncio
 import json
 import statistics
 import tempfile
 import time
 from collections import Counter
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 
 from omnivoice.actions import ActionEngine
+from omnivoice.config import Settings
+from omnivoice.research_observability import ResearchObserver
 from omnivoice.sales import SalesService, register_sales_tools
 from omnivoice.store import Store
 from omnivoice.tools import ToolContext, ToolRegistry
@@ -44,7 +48,7 @@ CASES = [
 ]
 
 
-async def run_case(case, directory):
+async def run_case(case, directory, observer=None):
     case_id, category, expected_tool, effect, confirmation_expected = case
     store = Store(directory / f"{case_id}.db")
     await store.open()
@@ -69,9 +73,19 @@ async def run_case(case, directory):
         ctx = ToolContext(a, case_id, {})
 
         async def invoke(name, args, context=ctx):
-            result = await registry.invoke(context, name, args)
+            with observer.tool(name) if observer else nullcontext(None) as span:
+                result = await registry.invoke(context, name, args)
+                if observer:
+                    observer.finish_tool(span, result)
             tool_results.append(result)
             return result
+
+        async def confirm_action(call_id, phrase, tool_name):
+            with observer.action(tool_name) if observer else nullcontext(None) as span:
+                result = await actions.confirm(a, call_id, phrase, True, ["yes"])
+                if observer:
+                    observer.finish_action(span, result)
+                return result
 
         if category == "FAQ_ONLY":
             from omnivoice.rag import Knowledge
@@ -125,8 +139,8 @@ async def run_case(case, directory):
                     assert competing.success
                     await actions.arm(competing.data["action_id"], "racing-call")
                     outcomes = await asyncio.gather(
-                        actions.confirm(a, case_id, "yes", True, ["yes"]),
-                        actions.confirm(a, "racing-call", "yes", True, ["yes"]),
+                        confirm_action(case_id, "yes", name),
+                        confirm_action("racing-call", "yes", name),
                     )
                     assert sorted(item["status"] for item in outcomes) == ["committed", "failed"]
                     action_duration_ms.extend(item["duration_ms"] for item in outcomes)
@@ -135,7 +149,7 @@ async def run_case(case, directory):
                 else:
                     phrase = ("no" if case_id in {"booking_negative", "followup_negative"} else
                               "maybe" if case_id == "booking_ambiguous" else "yes")
-                    committed = await actions.confirm(a, case_id, phrase, True, ["yes"])
+                    committed = await confirm_action(case_id, phrase, name)
                     if committed:
                         action_duration_ms.append(committed["duration_ms"])
                         action_end_to_end_ms.append(committed["action_end_to_end_ms"])
@@ -148,7 +162,7 @@ async def run_case(case, directory):
                     else:
                         assert committed["status"] == expected_status
                 if case_id == "booking_duplicate":
-                    assert await actions.confirm(a, case_id, "yes", True, ["yes"]) is None
+                    assert await confirm_action(case_id, "yes", name) is None
             bookings = await store.rows("SELECT id FROM demo_bookings")
             followups = await store.rows("SELECT id FROM followups")
             assert len(bookings) == int(case_id in {"booking_positive", "booking_duplicate", "booking_race"})
@@ -195,18 +209,25 @@ async def run_case(case, directory):
         await store.close()
 
 
-async def evaluate():
+async def evaluate(observer=None):
+    observer = observer or ResearchObserver()
     with tempfile.TemporaryDirectory() as directory:
         records = []
         for case in CASES:
-            try:
-                records.append(await run_case(case, Path(directory)))
-            except Exception as error:
-                records.append({
-                    "id": case[0], "category": case[1], "expected_tool": case[2],
-                    "expected_side_effect": case[3], "confirmation_expected": case[4],
-                    "task_completed": False, "failure_type": type(error).__name__,
-                })
+            with observer.case(case[0], case[1]) as span:
+                try:
+                    if observer.client is None:
+                        record = await run_case(case, Path(directory))
+                    else:
+                        record = await run_case(case, Path(directory), observer)
+                except Exception as error:
+                    record = {
+                        "id": case[0], "category": case[1], "expected_tool": case[2],
+                        "expected_side_effect": case[3], "confirmation_expected": case[4],
+                        "task_completed": False, "failure_type": type(error).__name__,
+                    }
+                observer.finish_case(span, record)
+                records.append(record)
     complete = all(row["task_completed"] for row in records)
 
     def total(name):
@@ -292,7 +313,15 @@ def write_report(result, output, report):
 
 
 if __name__ == "__main__":
-    result = asyncio.run(evaluate())
+    parser = argparse.ArgumentParser(description="Run the scripted sales-tool research evaluation")
+    parser.add_argument("--langfuse", action="store_true", help="Opt in to payload-free Langfuse traces")
+    options = parser.parse_args()
+    observer = ResearchObserver.from_settings(Settings(), explicit=options.langfuse) if options.langfuse else None
+    try:
+        result = asyncio.run(evaluate(observer))
+    finally:
+        if observer is not None:
+            asyncio.run(observer.close())
     write_report(
         result, ROOT / "data/research/agent_tool_eval.json",
         ROOT / "docs/research/OV-011B_AGENT_EVALUATION.md",

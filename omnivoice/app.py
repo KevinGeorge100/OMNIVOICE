@@ -27,6 +27,7 @@ from .events import TenantEvents
 from .models import DemoSlotInput, DialInput, FAQInput, LineInput, SalesLeadInput, TenantInput, ToolInput
 from .providers import Groq
 from .rag import Embedder, Knowledge
+from .research_observability import ResearchObserver
 from .sales import SalesService, register_sales_tools
 from .session import CallSession
 from .store import Store, token_hash
@@ -35,7 +36,7 @@ from .transport import MediaTransport
 from .vad import SileroFactory
 
 
-def create_app(settings=None):
+def create_app(settings=None, *, research_client=None):
     settings = settings or Settings()
     services = SimpleNamespace(
         settings=settings, active={}, events=TenantEvents(), vad=None, model_error=None,
@@ -91,8 +92,19 @@ def create_app(settings=None):
         register_sales_tools(services.tool_registry, services.sales)
         services.llm = Groq(settings, services.http, capacity=services.capacity)
         try:
+            services.research = ResearchObserver.from_settings(
+                settings, client_override=research_client
+            )
+            services.research.start_live()
+        except Exception as error:
+            logging.getLogger("omnivoice.research").warning(
+                "research_observability_unavailable failure_type=%s", type(error).__name__
+            )
+            services.research = ResearchObserver(enabled=True, error="configuration_unavailable")
+        try:
             yield
         finally:
+            await services.research.close()
             if mcp:
                 await mcp.close()
             if services.actions.tasks:
@@ -203,6 +215,7 @@ def create_app(settings=None):
         state = readiness()
         if who == "admin":
             state["capacity"] = services.capacity.snapshot()
+            state["research_observability"] = services.research.snapshot()
         else:
             state["active_calls"] = services.capacity.tenant_calls(who)
             state["capacity"] = {
@@ -662,6 +675,12 @@ def create_app(settings=None):
                         "UPDATE calls SET status=?,ended=?,metrics=? WHERE id=?",
                         (final_status, ended, json.dumps(session.metrics), call_id),
                     )
+                    try:
+                        services.research.submit_live(session.metrics, provider, final_status)
+                    except Exception as error:
+                        logging.getLogger("omnivoice.research").warning(
+                            "research_projection_failed failure_type=%s", type(error).__name__
+                        )
                     try:
                         services.events.publish(
                             session.tenant["id"], "call.ended",

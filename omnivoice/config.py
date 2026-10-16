@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     tts_speaker: str = "shubh"
     silero_model: Path = Path("models/silero_vad.onnx")
     semantic_enabled: bool = False
+    research_observability_enabled: bool = False
+    langfuse_public_key: SecretStr = SecretStr("")
+    langfuse_secret_key: SecretStr = SecretStr("")
+    langfuse_base_url: str = "https://cloud.langfuse.com"
     embedding_model: str = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
     embedding_cache: str = "models/embeddings"
     cache_threshold: float = Field(0.93, ge=0.8, le=1)
