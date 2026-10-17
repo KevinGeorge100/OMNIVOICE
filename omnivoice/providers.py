@@ -790,113 +790,60 @@ class GnaniTTS:
     async def _stream_text_once(self, texts, cancel_event):
         """Stream text chunks to Gnani and yield progressive 8 kHz PCM chunks."""
         ws = await self._voice_socket(cancel_event)
-        sent_count = 0
-        completed_count = 0
-        current_req_completed = False
-
-        async def feed():
-            nonlocal sent_count
+        finished = False
+        try:
             async for text in texts:
                 chunk = text.strip() if isinstance(text, str) else ""
                 if not chunk:
                     continue
-                req = {
+                await ws.send(json.dumps({
                     "text": chunk,
                     "model": self.model,
                     "language": self.gnani_language,
                     "voice": self.voice,
-                    "sample_rate": self.sample_rate,
-                }
-                await ws.send(json.dumps(req))
-                sent_count += 1
+                    "audio_config": {
+                        "sample_rate": self.sample_rate,
+                        "num_channels": 1,
+                        "sample_width": 2,
+                        "encoding": "linear_pcm",
+                        "container": "raw",
+                    },
+                }))
+                current_started = False
+                while True:
+                    try:
+                        event = json.loads(await asyncio.wait_for(ws.recv(), timeout=15))
+                    except (ValueError, TypeError):
+                        raise ProviderProtocolError("gnani", "TTS", "returned malformed JSON") from None
+                    if not isinstance(event, dict):
+                        raise ProviderProtocolError("gnani", "TTS", "returned invalid event")
 
-        sender = asyncio.create_task(feed())
-        receiver = None
-        finished = False
-        try:
-            while True:
-                if sender and sender.done():
-                    await sender
-                    if sent_count == 0:
-                        finished = True
-                        return
-                    if completed_count >= sent_count:
-                        finished = True
-                        return
-
-                receiver = asyncio.create_task(ws.recv())
-                pending = {receiver, sender} if sender and not sender.done() else {receiver}
-                if sender and not sender.done():
-                    done, _ = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
-                else:
-                    done = set()
-
-                if sender and sender in done:
-                    await sender
-                    if sent_count == 0:
-                        finished = True
-                        return
-                    if completed_count >= sent_count:
-                        finished = True
-                        return
-
-                raw = (
-                    await receiver
-                    if (sender and not sender.done())
-                    else await asyncio.wait_for(receiver, timeout=15)
-                )
-                receiver = None
-                try:
-                    event = json.loads(raw)
-                except Exception:
-                    raise ProviderProtocolError("gnani", "TTS", "returned malformed JSON") from None
-
-                if not isinstance(event, dict):
-                    raise RuntimeError("TTS provider returned non-dict JSON")
-
-                event_type = event.get("type")
-                if event_type == "start":
-                    current_req_completed = False
-                elif event_type == "audio":
-                    data = event.get("data", {})
-                    if not isinstance(data, dict):
-                        raise RuntimeError("TTS provider returned invalid audio payload")
-                    content_type = data.get("content_type", "").lower()
-                    if any(codec in content_type for codec in ("mp3", "mpeg", "wav", "ogg", "flac")):
-                        raise ProviderProtocolError("gnani", "TTS", "did not return raw PCM")
-                    audio_b64 = data.get("audio", "")
-                    if audio_b64:
-                        pcm = base64.b64decode(audio_b64, validate=True)
-                        if len(pcm) % 2 or pcm.startswith(b"RIFF"):
-                            raise ProviderProtocolError("gnani", "TTS", "returned invalid raw PCM")
-                        yield pcm
-                elif event_type == "complete":
-                    data = event.get("data", {})
-                    if isinstance(data, dict):
+                    event_type = event.get("type")
+                    if event_type == "start":
+                        current_started = True
+                    elif event_type in {"audio", "complete"}:
+                        data = event.get("data", {})
+                        if not isinstance(data, dict):
+                            raise ProviderProtocolError("gnani", "TTS", "returned invalid audio payload")
+                        content_type = data.get("content_type", "").lower()
+                        if any(codec in content_type for codec in ("mp3", "mpeg", "wav", "ogg", "flac")):
+                            raise ProviderProtocolError("gnani", "TTS", "did not return raw PCM")
                         audio_b64 = data.get("audio", "")
                         if audio_b64:
                             pcm = base64.b64decode(audio_b64, validate=True)
                             if len(pcm) % 2 or pcm.startswith(b"RIFF"):
                                 raise ProviderProtocolError("gnani", "TTS", "returned invalid raw PCM")
+                            current_started = True
                             yield pcm
-                    is_final = isinstance(data, dict) and data.get("is_final") is True
-                    is_streaming_completed = event.get("message") == "Streaming completed"
-                    if is_final or is_streaming_completed:
-                        if not current_req_completed:
-                            current_req_completed = True
-                            completed_count += 1
-                        if (sender is None or sender.done()) and completed_count >= sent_count:
-                            if sender and sender.done():
-                                await sender
-                            finished = True
-                            return
-                elif event_type == "error":
-                    raise ProviderProtocolError("gnani", "TTS", "returned error event")
+                        if event_type == "complete" and (
+                            data.get("is_final") is True
+                            or (current_started and event.get("message") == "Streaming completed")
+                        ):
+                            break
+                    elif event_type == "error":
+                        raise ProviderProtocolError("gnani", "TTS", "returned error event")
+            finished = True
         finally:
-            for task in (sender, receiver):
-                if task and not task.done():
-                    task.cancel()
-            await asyncio.gather(*(t for t in (sender, receiver) if t), return_exceptions=True)
             if not finished and self.active is ws:
                 self.active = None
                 await ws.close()

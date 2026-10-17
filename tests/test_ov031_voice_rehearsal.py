@@ -5,6 +5,8 @@ from pathlib import Path
 
 import pytest
 
+from scripts.rehearse_live_voice_sales_agent import ATTEMPT_OUTPUT
+from scripts.rehearse_live_voice_sales_agent import OUTPUT as LIVE_AGGREGATE_OUTPUT
 from scripts.rehearse_voice_sales_agent import OUTPUT, SCENARIOS, run_scenario
 
 
@@ -48,12 +50,22 @@ def test_research_artifact_is_synthetic_and_stage_metrics_are_bounded():
 
 def test_live_artifact_uses_sanitized_metadata_only():
     path = OUTPUT.with_name("ov031_live_provider_rehearsal.json")
+    assert path == LIVE_AGGREGATE_OUTPUT
+    assert ATTEMPT_OUTPUT != path
     raw = path.read_text(encoding="utf-8")
     artifact = json.loads(raw)
+    assert artifact["schema_version"] == 2
     assert artifact["validation_level"] == "B_live_provider_non_pstn"
-    assert artifact["status"] in {"PASS", "FAIL", "BLOCKED_BY_CONFIGURATION"}
-    assert artifact["external_business_writes"] == 0
-    assert artifact.get("booking_count", 0) <= 1
+    assert artifact["summary"]["retained_attempts"] == len(artifact["attempts"]) == 6
+    assert artifact["summary"]["passed_attempts"] == 1
+    winner = artifact["attempts"][-1]["result"]
+    assert winner["status"] == "PASS"
+    assert len(winner["acceptance_checks"]) == 20
+    assert all(winner["acceptance_checks"].values())
+    for attempt in artifact["attempts"]:
+        result = attempt["result"]
+        assert result["external_business_writes"] == 0
+        assert result.get("booking_count", 0) <= 1
     for forbidden in (
         "user_transcript", "agent_response", "api_key", "authorization", "bearer",
         "tenant_id", "lead_id", "caller_phone", "DEMO-ALPHA-001", "Synthetic Lead",

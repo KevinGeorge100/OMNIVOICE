@@ -135,7 +135,14 @@ async def test_request_payload_and_progressive_audio():
     assert sent_req["model"] == "timbre-v2.5"
     assert sent_req["language"] == "en-IN"
     assert sent_req["voice"] == "Pranav"
-    assert sent_req["sample_rate"] == 8000
+    assert sent_req["audio_config"] == {
+        "sample_rate": 8000,
+        "num_channels": 1,
+        "sample_width": 2,
+        "encoding": "linear_pcm",
+        "container": "raw",
+    }
+    assert "sample_rate" not in sent_req
 
 
 @pytest.mark.asyncio
@@ -168,6 +175,45 @@ async def test_ordered_text_frames_and_completion():
     assert len(mock_ws.sent) == 2
     assert mock_ws.sent[0]["text"] == "Phrase one."
     assert mock_ws.sent[1]["text"] == "Phrase two."
+
+
+@pytest.mark.asyncio
+async def test_next_phrase_waits_for_prior_completion():
+    settings = make_test_settings()
+    tts = GnaniTTS(settings, language="en-IN")
+
+    class SerialSocket(MockWebSocket):
+        first_complete = False
+
+        async def send(self, message):
+            if self.sent and not self.first_complete:
+                raise AssertionError("Second request sent before first completion")
+            await super().send(message)
+
+        async def recv(self):
+            raw = await super().recv()
+            if json.loads(raw).get("type") == "complete":
+                self.first_complete = True
+            return raw
+
+    pcm = base64.b64encode(b"\x04\x00" * 80).decode("ascii")
+    socket = SerialSocket([
+        {"type": "start", "request_id": "one"},
+        {"type": "audio", "data": {"audio": pcm}},
+        {"type": "complete", "data": {"audio": "", "is_final": True}},
+        {"type": "start", "request_id": "two"},
+        {"type": "audio", "data": {"audio": pcm}},
+        {"type": "complete", "data": {"audio": "", "is_final": True}},
+    ])
+    tts.active = socket
+
+    async def phrases():
+        yield "First."
+        yield "Second."
+
+    received = [chunk async for chunk in tts.stream_text(phrases())]
+    assert len(received) == 2
+    assert [request["text"] for request in socket.sent] == ["First.", "Second."]
 
 
 @pytest.mark.asyncio

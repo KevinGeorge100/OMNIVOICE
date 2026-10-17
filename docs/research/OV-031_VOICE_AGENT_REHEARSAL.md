@@ -9,16 +9,18 @@ Validate the spoken sales-agent workflow through the production call session: ca
 | Level | Boundary | Result |
 |---|---|---|
 | A | Exotel-shaped local loopback, real session/business code, deterministic STT/LLM/TTS/VAD interfaces | **PASS: 12/12 scenarios** |
-| B | Local carrier loopback and SQLite, real Silero, Gnani Prisma STT, Groq `openai/gpt-oss-20b`, Gnani Timbre TTS | **FAIL: partial spoken path only** |
+| B | Local carrier loopback and SQLite, real Silero, Gnani Prisma STT, Groq `openai/gpt-oss-20b`, Gnani Timbre TTS | **PASS: one complete 20/20 attempt retained** |
 | C | Physical PSTN/SIP telephone call | **NOT RUN: carrier access/credits were not verified** |
 
-The task's acceptance rule requires a completed Level B rehearsal when live credentials are configured. They were configured; therefore **OV-031 has not passed overall**. The deterministic result must not be read as live-provider or PSTN success.
+The task's acceptance rule requires a completed Level B rehearsal when live credentials are configured. One retained attempt now meets all 20 checks. This is a live-provider, local-carrier-loopback result; it is not a PSTN or population-reliability result.
 
 ## 3. Environment, configuration, and production path
 
 The task branch started at `a35158b6bafcfb8dd4c5de88846eb06ee594344b`. Level A uses a temporary SQLite database, synthetic fixture knowledge, a synthetic lead and demo slot, and an in-memory Exotel-shaped carrier socket. It replaces only provider interfaces, including VAD; it does not call a real speech or model API. Level B uses the configured Gnani STT/TTS and Groq model with a locally generated, non-PII Windows SAPI caller WAV at 8 kHz/16-bit/mono, Silero VAD, and a temporary SQLite store. No external CRM/calendar write occurs.
 
 The production route in `omnivoice/app.py` authenticates `/ws/exotel/{line_id}/{token}`, creates `CallSession`, and persists call status/metrics after `session.run`. In `omnivoice/session.py`, `MediaTransport` receives carrier media, resamples input for streaming STT and Silero, and feeds final transcripts into the dialogue loop. `Groq.stream` chooses registered `ToolRegistry` tools. `SalesService` reads lead/slot data; `ActionEngine` stages writes until an explicit confirmation is spoken and the confirmation prompt has been acknowledged. TTS PCM is framed by the transport for the carrier. Barge-in cancels the active response/TTS and clears outbound carrier playback. The post-call `ResearchObserver` exports an allowlisted numeric projection if enabled. The rehearsal scripts use `CallSession.run` rather than calling a happy-path sales tool directly.
+
+The live continuation identified an implementation defect in `GnaniTTS`: its WebSocket request put `sample_rate` at the top level and sent multiple phrase requests before consuming completion. [Gnani's realtime protocol](https://docs.gnani.ai/api/TTS/tts-websocket) specifies `audio_config.sample_rate` and one request at a time. The adapter now requests 8 kHz mono 16-bit raw PCM in `audio_config` and awaits each phrase's completion before sending the next. This changed no booking, confirmation, carrier, or LLM logic. The earlier overlong PCM streams are consistent with the documented 48 kHz default being misframed as 8 kHz; the provider's actual output sample rate was not independently measured. A transport close after partial audio is still deliberately not replayed by the retry policy.
 
 ## 4. Happy path
 
@@ -50,7 +52,20 @@ Ordinary-response and confirmation-prompt interruptions each produced one record
 
 ## 11. Live provider rehearsal
 
-The retained Level B run sent locally synthesized caller speech through the Exotel-shaped media socket. The greeting emitted audio. Gnani STT produced a nonempty lead-request transcript without a forced flush; Groq requested `lookup_lead`; the real local tool resolved the synthetic lead. The second spoken turn did not complete within the bounded wait. The local trace recorded a transient Gnani TTS failure on a turn; the attempt ended with `TimeoutError`. The result file records `FAIL`, zero bookings, no action rows, and 243 observed outbound carrier media frames. A prior local attempt reached slot lookup, but no live attempt completed proposal, confirmation, and final spoken success. Those attempts are not counted as a passing Level B run. The live JSON retains only the last bounded attempt and sanitized metadata, not transcript text or raw audio.
+The schema-2 Level B JSON retains **six attempts**: one checkpoint failure and five controlled continuation attempts. The first two continuation attempts stopped during the second spoken turn; the next three completed their scripted turns. Failed attempts remain in the denominator.
+
+| Retained attempt | Observed result | Classification |
+|---|---|---|
+| 1 — checkpoint | Lead lookup resolved; second turn emitted audio, then Gnani TTS transient failure; old harness timed out waiting for playback after call closure | Provider failure plus harness diagnostic gap |
+| 2 | Lead and slot tools succeeded; Gnani TTS connection failed after partial audio; session closed and all tasks drained | Provider failure with pre-fix adapter |
+| 3 | Lead and slot tools succeeded; another partial-audio Gnani TTS transient failure | Provider failure with pre-fix adapter |
+| 4 | Corrected Gnani protocol; STT, slot lookup, and TTS worked, but Groq did not select lead lookup for vague fixture wording | Model selection miss; no write |
+| 5 | Explicit lead request resolved; Groq did not select slot lookup | Model selection miss; no write |
+| 6 | Lead lookup → slot lookup → booking proposal → live confirmation TTS → live “yes” STT → one ActionEngine commit → final Gnani TTS | **PASS: 20/20 checks** |
+
+In attempt 6, Gnani transcribed four locally synthesized utterances without forced flush. Groq selected `lookup_lead`, `check_demo_slots`, and `schedule_demo` in order; the local tool results were successful, and one slot was offered. The action status was `armed` after the confirmation prompt, while booking count was still zero. Gnani synthesized that prompt into 36 carrier frames. Gnani then recognized “yes”; the existing confirmation path committed exactly once. The final spoken response was “Done. Your demo is booked.” and produced 12 carrier frames. The full call emitted 130 valid outbound frames. No real customer data or external CRM/calendar system was used. The 20 Boolean checks and all attempt records are in the JSON artifact.
+
+A Groq protocol-category event was logged during attempt 6's slot stage, while the foreground tool and complete workflow still succeeded. The current event does not identify whether the failed request was the foreground response or background speculation; it is retained as a limitation. The live attempt's passing verdict is based on tool/action/audio/persistence evidence, not on absence of every supplemental provider warning.
 
 ## 12. Physical PSTN status
 
@@ -70,28 +85,37 @@ The Level A artifact records server-side synthetic loopback stage samples and pe
 | Final transcript to first carrier audio | 32 | 184.55 | 195.77 |
 | Last VAD-positive speech to first carrier audio | 31 | 185.48 | 196.05 |
 
-The STT stub timer is an internal harness observation, **not** a real speech-recognition latency. The Level B partial trace records a first completed lead-turn STT endpoint delay of 620.46 ms and LLM TTFT of 557.36 ms. The second recorded turn has 634.71 ms STT endpoint delay, 648.11 ms LLM TTFT, and 676.58 ms final-transcript-to-first-outbound-audio; it did not complete the required booking workflow. These are local server-side metrics, **not mouth-to-ear latency**. Sample count is too small for a Level B P50 or P95.
+The STT stub timer is an internal harness observation, **not** a real speech-recognition latency. The successful Level B attempt has these individual live-provider, server-side timings (ms):
+
+| Spoken turn | STT endpoint-to-final proxy | LLM TTFT | Tool/action duration | TTS first PCM | Final transcript to first carrier audio |
+|---|---:|---:|---:|---:|---:|
+| Lead lookup | 717.81 | 677.69 | lookup 21.61 | 213.56 | 1,954.98 |
+| Slot lookup | 762.28 | 594.61 | slots 5.56 | 231.17 | 1,619.99 |
+| Booking proposal | 1,021.35 | N/A | proposal duration not retained | 205.72 | 1,005.72 |
+| Exact confirmation | 690.49 | N/A | commit 13.78 | 175.19 | 220.93 |
+
+The STT field is the existing last-VAD-positive-to-final-transcript proxy, not network-only STT latency. No P95 is calculated from four turns. These are **not mouth-to-ear PSTN measurements**, and the sub-500 ms target is not established by this rehearsal.
 
 ## 14. Audio and framing
 
-Level A asserted all outbound media payloads decode to exactly 3,200 bytes, with no `RIFF` WAV header, for 8 kHz, 16-bit, mono PCM at 200 ms per frame. Every scenario produced at least one frame; the happy path produced 12. The carrier-shaped Level B run observed 243 outbound media frames, but its incomplete workflow is not a passed end-to-end audio validation. The live harness verifies the locally generated caller WAV format before input.
+Level A asserted all outbound media payloads decode to exactly 3,200 bytes, with no `RIFF` WAV header, for 8 kHz, 16-bit, mono PCM at 200 ms per frame. Every scenario produced at least one frame; the happy path produced 12. The successful Level B attempt requested 8 kHz raw PCM through Gnani's documented `audio_config` and verified all 130 outbound carrier frames were 3,200 bytes without a WAV header. The local caller WAV was also verified as 8 kHz/16-bit/mono before ingestion.
 
 ## 15. Persistence and action safety
 
-All business records were isolated in temporary SQLite databases. Level A recorded one booking only for the happy path and duplicate-confirmation scenarios; negative, ambiguous, stale-slot, failure, and interruption scenarios recorded zero. There was no unsafe early commit, duplicate booking, or action left executing. Call rows were updated with final status/metrics. Level B persisted the call row and turn metrics; it created zero bookings and zero actions. No external business write was attempted.
+All business records were isolated in temporary SQLite databases, reset for each live attempt. Level A recorded one booking only for the happy path and duplicate-confirmation scenarios; negative, ambiguous, stale-slot, failure, and interruption scenarios recorded zero. There was no unsafe early commit, duplicate booking, or action left executing. In the successful Level B attempt, the call row and four turn metrics persisted, zero bookings existed before verbal confirmation, the action transitioned through `armed` to `committed`, and exactly one booking row existed afterward. No external business write was attempted.
 
 ## 16. Qualitative turn behavior and telemetry
 
 The Level A JSON carries a per-scenario checklist for response relevance, fixture grounding, false capability claims, confirmation clarity, interruption handling, repetition/awkwardness, and task continuity. Values indicate scripted assertions or “not human rated”; no human-likeness score or acoustic naturalness claim is made. The live run showed a relevant lead lookup, but was not long enough to grade natural conversation quality.
 
-Local session/tool metrics include timing, tool names/outcomes, confirmation/commit counts, error categories, and interruption counts. Level B submitted one safe post-call projection to the optional Langfuse exporter (`langfuse_exported_locally=1`); this is **local SDK submission, not proof of remote receipt**. The authoritative evidence remains the local metrics and deterministic harness. The JSON exports omit transcript text, audio, caller identifiers, tenant identifiers, lead identifiers, tool arguments, and secrets.
+Local session/tool metrics include timing, tool names/outcomes, confirmation/commit counts, error categories, and interruption counts. Each continuation attempt submitted one safe post-call projection to the optional Langfuse exporter (`langfuse_exported_locally=1`); several shutdowns logged a sanitized exporter timeout. This is **local SDK submission, not proof of remote receipt**, and did not fail the call. The authoritative evidence remains the local metrics and deterministic harness. The Level B artifact retains recognized text from SAPI-generated synthetic utterances only, as requested for audit. Langfuse receives no transcript or audio; neither artifact contains a real caller identifier, tenant/lead ID, tool arguments, business record, or secret.
 
 ## 17. Limitations and next validation
 
-Level A substitutes model, speech, and VAD interfaces and uses an in-memory carrier, so its clean dialogue cannot establish recognition quality, naturalness, provider availability, or physical call latency. Level B remains incomplete due to a bounded second-turn timeout and observed transient TTS failure. A later controlled run must finish spoken slot lookup, proposal, prompt acknowledgement, exact confirmation, single booking commit, truthful spoken success, and carrier framing with the live providers. Record sanitized provider categories and numeric timing; retain no caller data. Verify carrier credits/account state before any Level C test.
+Level A substitutes model, speech, and VAD interfaces and uses an in-memory carrier, so its clean dialogue cannot establish recognition quality, naturalness, provider availability, or physical call latency. Level B passed once after two aborted provider attempts and two model-selection misses, so it is not a reliability estimate. The recorded Groq protocol-category event, Langfuse shutdown timeout, natural speech quality, carrier network transit, and actual Gnani sample-rate verification beyond the requested config remain open. Verify carrier credits/account state before any Level C test. Retain the full failed-attempt series when presenting the successful run.
 
 ## 18. Conclusion
 
-The real session/business path passed all 12 deterministic spoken-session scenarios and preserved confirmation safety, persistence, carrier framing, and barge-in cancellation. The live Gnani/Groq/Gnani full booking rehearsal failed, so the OV-031 acceptance gate is **not met**. Keep the evidence and harness for replay; **do not fast-forward merge this milestone as complete** until a passing Level B run is retained and reviewed.
+The real session/business path passed all 12 deterministic spoken-session scenarios and preserved confirmation safety, persistence, carrier framing, and barge-in cancellation. One complete live Gnani/Groq/Gnani sales call passed the 20-point Level B gate with a confirmation-gated local booking. Level C remains untested. This evidence is ready for independent review after final regression checks; it does not establish sub-500 ms PSTN latency or production reliability.
 
-Validation of the retained code and evidence: OV-031 targeted tests 14/14; focused voice/agent/sales/resilience/Gnani/streaming/OV-030 suites 191/191; OV-011B offline evaluation 25/25 with four confirmed commits, zero unsafe commits, and zero duplicates; full pytest 277/277; Ruff clean; browser E2E 20/20; `scripts/verify-dod.ps1` 6/6 gates; `git diff --check` clean. The release gate verifies engineering hygiene and regression tests; it does not convert the failed live rehearsal into an acceptance pass.
+Validation of the retained code and evidence: OV-031 targeted tests 14/14; focused voice/agent/sales/resilience/Gnani/streaming/OV-030 suites 192/192; OV-011B offline evaluation 25/25 with four confirmed commits, zero unsafe commits, and zero duplicates; full pytest 278/278; Ruff clean; browser E2E 20/20; `scripts/verify-dod.ps1` 6/6 gates; `git diff --check` clean. These checks support the single successful Level B rehearsal but do not establish provider reliability or PSTN latency.
