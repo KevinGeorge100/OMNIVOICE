@@ -6,7 +6,7 @@ Each source is scoped to the claim it can support. The [canonical metric registr
 |---|---|---|
 | External base paper | **Not present in repository.** [OV-030 comparative notes](OV-030_COMPARATIVE_EVALUATION.md) document only the project's conversational baseline description. | A direct paper-vs-OmniVoice numerical comparison or unreported paper architecture. |
 | [Architecture](../ARCHITECTURE.md) and [status](../PROJECT_STATUS.md) | Implemented path, provider defaults, historical OV-005 Exotel handset scope, known gaps. | Current agentic PSTN or cloud deployment. |
-| [OV-006 benchmark](../OV006_BENCHMARK_RESULTS.md) | 56-turn server-observed live gateway distributions and methods. | Physical mouth-to-ear, carrier transit, real STT endpoint latency. |
+| [OV-006 benchmark](../OV006_BENCHMARK_RESULTS.md) | Retained 56-turn server-observed gateway summary and method. | Physical mouth-to-ear, carrier transit, real STT endpoint latency, or independent recomputation from committed per-turn samples (those raw files are not tracked). |
 | [OV-011B scripted report](OV-011B_AGENT_EVALUATION.md) and [artifact](../../data/research/agent_tool_eval.json) | 25 expected outcomes, confirmation/write safety and local tool execution. | Live model routing, speech or PSTN accuracy. |
 | [OV-011B live smoke](OV-011B_LIVE_GROQ_SMOKE.md) | Three-case integration check. | Population accuracy estimate. |
 | [OV-029 observability](OV-029_LANGFUSE_OBSERVABILITY.md) | Optional bounded exporter design, privacy allowlist and fail-open local tests. A later synthetic remote smoke is reported in [status](../PROJECT_STATUS.md). | Per-case remote receipt, production distributed tracing or authoritative research scoring. |

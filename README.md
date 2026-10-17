@@ -4,7 +4,7 @@
 
 ### A voice agent infrastructure built for the phone line.
 
-OmniVoice connects live PSTN calls to streaming speech, grounded knowledge, and confirmation-gated enterprise actions through an asynchronous FastAPI media engine. It is a telephony platform with an operations console—not a browser chatbot.
+OmniVoice is a telephony-first FastAPI media engine for streaming speech, grounded knowledge, and confirmation-gated enterprise actions. Historical Exotel handset calls verified its basic voice path; the latest sales-action workflow is validated in local carrier loopback. It is a telephony platform with an operations console—not a browser chatbot.
 
 [Product site](https://omnivoice-self.vercel.app/) · [Quick start](#quick-start) · [Architecture](#architecture) · [Evaluation](#performance-and-evaluation) · [Developer guide](docs/DEVELOPER_GUIDE.md)
 

@@ -24,7 +24,7 @@ The benchmark exercises live, bidirectional conversational voice turns through t
 
 ## Environment
 - **Platform**: Windows 11 (AMD64), Python 3.11.9
-- **Storage / Database**: SQLite 3 (`data/omnivoice.db`), FAISS L2 Vector Index (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`)
+- **Storage / Database**: SQLite 3 (`data/omnivoice.db`), local FAISS vector index (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`)
 - **LLM Provider & Model**: Groq Cloud (`openai/gpt-oss-20b`), temperature 0.1, streaming JSON / SSE
 - **TTS Provider & Voice**: Sarvam AI Streaming WebSocket (`bulbul:v3`, speaker `shubh`, 8 kHz 16-bit linear PCM mono)
 - **VAD Provider**: Silero VAD v5 (ONNX Runtime, 512-sample frame window)
@@ -38,7 +38,7 @@ The benchmark exercises live, bidirectional conversational voice turns through t
 | :--- | :--- | :--- |
 | **LLM Generation** | **REAL PROVIDER** | Live streaming inference against Groq Cloud API (`openai/gpt-oss-20b`). |
 | **TTS Synthesis** | **REAL PROVIDER** | Live streaming synthesis over Sarvam AI WebSocket (`bulbul:v3`). |
-| **RAG Retrieval** | **LOCAL PROCESS** | Live in-memory FAISS L2 vector similarity search + SQLite exact match lookup. |
+| **RAG Retrieval** | **LOCAL PROCESS** | Live in-memory FAISS vector similarity search + SQLite exact match lookup. |
 | **Speech Segmenter** | **LOCAL PROCESS** | Live sentence/clause accumulation buffer (`SpeechSegmenter`, OV-023). |
 | **Carrier Media Transport** | **GATEWAY HARNESS** | Live `MediaTransport` frame buffer, pacing, and WebSocket dispatch. |
 | **VAD / STT Endpointing** | **HARNESS OFFSET** | 120 ms synthetic trailing silence offset representing speech finalization. |
@@ -137,11 +137,11 @@ For standard document-grounded dialogue (`foreground_rag`), latency is partition
 ```
 [User Utterance Finalized]
     │
-    ├─▶ RAG Retrieval (FAISS L2)        :   0.64 ms  (P50)   [  0.1% ]
-    ├─▶ LLM Time-To-First-Token (Groq)  : 616.00 ms  (P50)   [ 72.4% ]
-    ├─▶ Speech Buffering (OV-023)       :  17.86 ms  (P50)   [  2.1% ]
-    ├─▶ TTS Time-To-First-Audio (Sarvam): 215.40 ms  (P50)   [ 25.3% ]
-    └─▶ Carrier Media Framing / Socket  :   0.09 ms  (P50)   [ <0.1% ]
+    ├─▶ RAG Retrieval (FAISS)           :   0.64 ms  (P50)
+    ├─▶ LLM Time-To-First-Token (Groq)  : 616.00 ms  (P50)
+    ├─▶ Speech Buffering (OV-023)       :  17.86 ms  (P50)
+    ├─▶ TTS Time-To-First-Audio (Sarvam): 215.40 ms  (P50)
+    └─▶ Carrier Media Framing / Socket  :   0.09 ms  (P50)
     │
 [First 200ms PCM Frame Transmitted] — Total Server Turnaround: 850.21 ms (P50)
 ```
@@ -152,19 +152,19 @@ For standard document-grounded dialogue (`foreground_rag`), latency is partition
 
 1. **Session 2, Turn 7** (`8fca32b2...`, `foreground_rag`): Turnaround **2210.5 ms**
    - Stage breakdown: LLM TTFT = **1955.0 ms**, TTS TTFA = **213.5 ms**, RAG = **5.1 ms**, Framing = **0.36 ms**.
-   - Cause: Upstream Groq cloud provider queuing delay on multi-paragraph prompt. Local processing remained $<6$ ms.
+   - Observation: LLM TTFT dominated this turn; the report does not isolate provider queueing from network or inference time. Local retrieval remained below 6 ms.
 2. **Session 6, Turn 7** (`1084adc7...`, `fast_cache`): Turnaround **2104.5 ms**
    - Stage breakdown: Cache Retrieval = **0.03 ms**, TTS TTFA = **2103.3 ms**, Framing = **0.43 ms**.
-   - Cause: Upstream Sarvam TTS WebSocket initial connection establishment / chunk delay.
+   - Observation: TTS TTFA dominated this turn; the report does not isolate WebSocket establishment from provider synthesis or network delay.
 
 ---
 
 ## Interpretation
 
-1. **Upstream Inference Dominance**: Server latency is overwhelmingly dominated by upstream cloud neural inference (~72% LLM TTFT + ~25% TTS TTFA).
-2. **Fast Cache Acceleration**: Exact FAQ caching cuts median server turnaround from **850.21 ms** to **261.12 ms** (a **3.26x speedup** / $589$ ms reduction).
-3. **Local Pipeline Efficiency**: Local server operations (FAISS retrieval $\le 5.1$ ms, OV-023 speech segmentation $\le 46.7$ ms, carrier media framing $\le 0.48$ ms) contribute negligibly to total latency.
-4. **Tail Latency Driver**: Tail latency variance (P95 of 1466.88 ms) is governed by upstream cloud provider network jitter and inference queuing.
+1. **Observed Stage Sizes**: In the foreground-RAG subset, the separately computed LLM TTFT and TTS TTFA medians (616.00 ms and 215.40 ms) are large relative to the 850.21 ms turnaround median. Percentiles of distinct stage samples are not additive and do not assign exact causal shares.
+2. **Fast Cache Path Comparison**: The observed FAQ and foreground-RAG subset medians are **261.12 ms** and **850.21 ms** respectively (a descriptive **3.26x ratio**, about 589 ms apart). These are different turn subsets, not a matched causal speedup experiment; the FAQ P95 remained **2104.45 ms**.
+3. **Measured Local Stages**: In this sample, recorded FAISS retrieval was $\le 5.1$ ms, speech segmentation $\le 46.7$ ms, and carrier framing $\le 0.48$ ms. These values do not bound every local operation or establish a production latency guarantee.
+4. **Tail Latency Contributors**: The largest recorded outlier stages were LLM TTFT and TTS TTFA. Provider queueing, synthesis and network components were not separately instrumented, so their causal shares cannot be assigned.
 
 ---
 

@@ -35,10 +35,10 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 
 ## 2. Subsystem Status Matrix
 
-### Working Subsystems (Verified in Local Test Environment & Live PSTN)
+### Working Subsystems (Validation level stated per item)
 * **Real PSTN Inbound Telephony (`omnivoice/app.py`, `omnivoice/session.py`)**: Verified live over Exotel PSTN lines. Inbound audio ingress, causal transcoding, greeting synthesis (~250 ms), full-duplex session loop, and carrier hang-up handling validated across 3 physical mobile phone calls (OV-005).
 * **Capacity & Overload Controls (`omnivoice/capacity.py`, `omnivoice/session.py`)**: Process-level admission, tenant concurrency caps, provider semaphores with 50 ms timeout, audio backpressure with 32 KB ceiling and code 1013 close, Retry-After backoff, and API sliding-window rate limiters (OV-010).
-* **Neural VAD (`omnivoice/vad.py`)**: Local Silero VAD v4 ONNX model running on CPU via ONNX Runtime. Evaluates 32 ms PCM frames with isolated recurrent state per call.
+* **Neural VAD (`omnivoice/vad.py`)**: Local Silero ONNX model running on CPU via ONNX Runtime. Evaluates 32 ms PCM frames with isolated recurrent state per call; the model-version label is not used as a cross-milestone performance claim.
 * **Full-Duplex Interruption State Machine (`omnivoice/duplex.py`, `omnivoice/session.py`)**: `FlexDuo` acoustic candidate + transcript validation with backchannel suppression (e.g., *"yeah"*, *"mm hmm"*). Stabilized via ADR-001 with 750 ms bounded continuation coalescing and generation-stage control-intent suppression to prevent false interrupted turns and spurious carrier clears.
 * **Carrier Barge-in Clear Dispatch (`omnivoice/transport.py`)**: Transmits `{"event": "clear"}` envelopes to carrier WebSockets to purge pending audio buffers upon true acoustic interruption of active playback.
 * **Write Action Safety Gating (`omnivoice/actions.py`)**: Two-phase execution framework (`staged` $\rightarrow$ `armed` $\rightarrow$ `confirm` $\rightarrow$ `committed`). Requires exact match against tenant's configured confirmation phrases. Includes SSRF prevention against private IP addresses.
@@ -47,7 +47,7 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 
 ### Partial Subsystems
 * **Exotel & Twilio Integration**: Inbound Exotel WebSocket media stream is fully validated on physical PSTN lines (OV-005). Outbound dialing endpoint exists (`/api/tenants/{id}/dial`), but call progress analysis (answering machine detection, busy signals) remains unverified. Twilio live PSTN calls remain to be tested.
-* **Regional Multilingual Speech**: Supported at the model parameter level (11 Indian language codes accepted by Sarvam TTS and model validators). System prompts, error fallbacks, and write-confirmation prompts remain hardcoded in English (OV-008 planned).
+* **Regional Multilingual Speech**: The tenant validator accepts 11 locale codes, including `en-IN`, and provider adapters expose language mappings. That is interface support, not uniform speech-quality validation. System prompts, error fallbacks, and write-confirmation prompts remain English-centric (OV-008 planned).
 * **Enterprise Operations Console (`omnivoice/static/`)**: Dual-theme UI operational. Historical call details runtime error resolved (OV-002); carrier connection URLs aligned with real FastAPI endpoints (OV-003); call transcripts and turn metrics visible. Premium operations surface (workspace, live calls, paginated history, call inspector, analytics, authenticated tenant SSE, and defensive best-effort telemetry) complete in OV-026.
 * **Observability & Evaluation**: Structured JSON metrics logged upon call completion into SQLite (`data/omnivoice.db`). OV-006 server-observed per-stage latency instrumentation, benchmark collection tooling, and final baseline results are **COMPLETE** (56 valid turns / 6 sessions / 0 exclusions; `LIVE GATEWAY SERVER-LATENCY BENCHMARK`; see `docs/OV006_BENCHMARK_RESULTS.md`). Exotel live PSTN re-validation deferred due to credit/KYC constraints; physical acoustic mouth-to-ear latency and carrier transit not claimed. No live distributed tracing or OpenTelemetry instrumentation exists (OV-017 planned).
 

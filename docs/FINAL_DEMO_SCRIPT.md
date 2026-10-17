@@ -8,8 +8,8 @@
 | 0:20–0:40 | Narrate the fixture's approved FAQ: “What does OmniVoice do?” | Grounded `fast_cache` response; do not claim independent answer-quality scoring. |
 | 0:40–1:10 | Narrate the synthetic lead-reference utterance. | `lookup_lead` read succeeds and tenant-scoped lead resolves. |
 | 1:10–1:35 | Narrate the fixture's Friday-afternoon slot request. | `check_demo_slots` returns an offered slot; no write yet. |
-| 1:35–2:10 | Narrate “Book the 4 PM slot.” Point to the recorded confirmation-prompt event. | `schedule_demo` proposal staged; booking count **0** before playback acknowledgment; action becomes `armed` only after mark acknowledgment. |
-| 2:10–2:35 | Show the fixture's exact replayed **“Yes.”** | One `committed` action, one local SQLite booking, final spoken success and carrier-framed audio. |
+| 1:35–2:10 | Narrate “Book the 4 PM slot.” Point to the runner's pre-confirmation assertion. | `schedule_demo` proposal is armed after the automatic mark acknowledgment; booking count is **0** before caller confirmation. Separate delayed-mark staging evidence is in OV-031 attempt 7. |
+| 2:10–2:35 | Show the fixture's exact replayed **“Yes.”** | One `committed` action, one local SQLite booking, final success phrase recorded by the synthetic TTS stub and carrier-framed PCM. |
 | 2:35–3:00 | Show the separately labeled deterministic `duplicate_confirmation` case if challenged. | Booking remains exactly **1**; no second commit. Do not imply this case is part of the persisted happy-path call. |
 | 3:00–3:30 | Open the Operations Console on the **same disposable fixture database**, then inspect the saved local metric projection. | Synthetic call/action record visible; tool names/outcomes, confirmation and commit status. Optional Langfuse metadata is supplemental. |
 | 3:30–4:00 | State the evidence boundary. | OV-031: 12/12 deterministic scenarios, seven retained live-provider attempts with five failures/two passes, no Level C PSTN. Point to [metric registry](research/FINAL_METRICS_REGISTRY.md). |

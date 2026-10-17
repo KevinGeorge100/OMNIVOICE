@@ -6,6 +6,8 @@ This is the single index for **reported** results through OV-031. It records his
 
 **Environment/class:** Windows local gateway harness, live Groq `openai/gpt-oss-20b` and Sarvam TTS, local FAISS/FAQ, Exotel-shaped media transport; STT speech endpoint **synthetically offset by 120 ms**. Six sessions, 56 valid turns, zero exclusions. All figures below are milliseconds. [Method and complete distributions](../OV006_BENCHMARK_RESULTS.md). `Server turnaround` starts at **final transcript receipt** and ends at **first outbound carrier-frame send**. `Voice-to-audio` starts at last VAD-positive frame and is only a proxy in this harness; it includes the artificial endpoint offset. No acoustic output or carrier network transit was measured.
 
+**Provenance limit:** The committed OV-006 benchmark report retains the summarized distributions; its referenced per-turn CSV/JSON and source SQLite database are not tracked in this checkout. The values below can be checked against that report but cannot be independently recomputed from committed raw OV-006 samples here.
+
 | Metric | Value | n | Measurement definition | Valid claim | Misleading claim |
 |---|---:|---:|---|---|---|
 | Server processing turnaround P50 / P95 | 774.76 / 1466.88 ms | 56 | Final transcript → first outbound audio send | Gateway server distribution | PSTN mouth-to-ear or sub-500 ms achieved |

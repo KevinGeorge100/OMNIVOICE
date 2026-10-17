@@ -10,14 +10,14 @@ Use [the single demo script](FINAL_DEMO_SCRIPT.md). Check actual state before pr
 - [ ] `.env` is present locally and excluded from Git; verify only **presence**, never print keys. Sarvam is the default STT/TTS; Gnani/Groq must be explicitly configured for the Level B variant.
 - [ ] Synthetic lead/slot fixture is fresh, uses a future date, and has zero pre-existing bookings. Use temporary SQLite; do not touch customer records.
 - [ ] Verify Gnani and Groq reachability if Level B is chosen. If unavailable, select the deterministic Level A fallback and label it clearly.
-- [ ] Start the local FastAPI server; check `/health` or the repository's documented health endpoint. Load the Operations Console and sign in with local demo credentials.
+- [ ] Start the local FastAPI server; check `/healthz` and `/readyz`. Load the Operations Console at `http://127.0.0.1:8765/` for the disposable fixture and sign in with the local admin token.
 - [ ] Check the audio route used by the demo: loopback carrier framing, speaker/microphone if a live audible walkthrough is used, and no unexpected device muting.
 - [ ] Langfuse is optional. If enabled, confirm only anonymized metadata is exported; local JSON/SQLite remains authoritative. No trace dashboard is required for the demo to pass.
 - [ ] Keep [OV-031 retained results](research/OV-031_VOICE_AGENT_REHEARSAL.md) and [metric registry](research/FINAL_METRICS_REGISTRY.md) open as backup evidence.
 
 ### Prepare same-call console evidence (synthetic fixture)
 
-From the repository root in PowerShell, use a fresh disposable directory. This replays the **deterministic** `happy_path` once and leaves its SQLite file available for the console. It is not the live-provider or PSTN path.
+From the repository root in PowerShell, use a fresh disposable directory. The existing fixture seeds an approved OmniVoice FAQ, synthetic lead reference `DEMO-ALPHA-001`, and one slot next Friday at 16:00–16:30 Asia/Kolkata. This replays the **deterministic** `happy_path` once and leaves its SQLite file available for the console. It is not the live-provider or PSTN path.
 
 ```powershell
 $demoDir = Join-Path $env:TEMP ("omnivoice-final-demo-" + [guid]::NewGuid().ToString('N'))
@@ -28,27 +28,36 @@ import asyncio, os
 from pathlib import Path
 from scripts.rehearse_voice_sales_agent import run_scenario
 result = asyncio.run(run_scenario("happy_path", Path(os.environ["OMNI_OV033_DEMO_DIR"])))
-assert result["passed"] and result["booking_count"] == 1 and result["spoken_success"]
+assert result["passed"] and result["booking_count"] == 1
+assert result["action_statuses"] == ["committed"] and result["spoken_success"]
 print("synthetic happy path: PASS; one booking")
 '@ | .\.venv\Scripts\python.exe -
 $env:OMNI_DATABASE = Join-Path $demoDir 'sales-rehearsal.db'
+@'
+import os, sqlite3
+with sqlite3.connect(os.environ["OMNI_DATABASE"]) as db:
+    bookings = db.execute("SELECT COUNT(*) FROM demo_bookings").fetchone()[0]
+    committed = db.execute("SELECT COUNT(*) FROM actions WHERE status='committed'").fetchone()[0]
+assert (bookings, committed) == (1, 1)
+print("synthetic bookings=1; committed actions=1")
+'@ | .\.venv\Scripts\python.exe -
 .\.venv\Scripts\python.exe -m uvicorn omnivoice.app:create_app --factory --host 127.0.0.1 --port 8765
 ```
 
-Open `http://127.0.0.1:8765/` in the browser and authenticate with the local admin token. Check the one synthetic tenant/call and its committed action. Stop this temporary server after the demonstration. The default runner's `--output` mode uses an auto-removed temporary database, so **do not** expect that mode's call to appear in a separately running console.
+Open `http://127.0.0.1:8765/healthz` and `http://127.0.0.1:8765/readyz` to check health, then open `http://127.0.0.1:8765/` and authenticate with the local admin token. Check the one synthetic tenant/call and its committed action. Stop this temporary server after the demonstration. The default runner's `--output` mode uses an auto-removed temporary database, so **do not** expect that mode's call to appear in a separately running console.
 
 ## During the demo
 
 - [ ] State “local carrier-loopback” versus “physical PSTN” accurately.
 - [ ] Narrate the `happy_path` fixture's approved FAQ/product question, lead lookup, slot lookup, booking proposal, replayed exact confirmation and stubbed final audio.
-- [ ] Before confirmation: action is staged/armed only after prompt mark; booking count is **0**.
+- [ ] Before confirmation: the `happy_path` runner asserts booking count **0** while the action is armed. Delayed mark acknowledgment and pre-arm staging were verified separately in retained OV-031 attempt 7.
 - [ ] After exact “Yes”: action is `committed`, booking count is **1**, and spoken success matches persisted result.
 - [ ] Show the separate `duplicate_confirmation` scenario if repeat safety is requested: its booking count remains **1**, with no second commit.
 - [ ] Inspect local Operations Console call/turn/action evidence and server timing/tool metrics. Do not describe synthetic stub timings as live-provider or mouth-to-ear latency.
 
 ## Backup if a live stage fails
 
-1. Run the deterministic rehearsal with a **new temporary output path**: `.venv\Scripts\python.exe scripts/rehearse_voice_sales_agent.py --output <temporary-output.json>`. It must report 12/12 and the happy-path/duplicate safety assertions. The runner itself never calls a customer database or places a PSTN call.
+1. Run the deterministic rehearsal with a **new temporary output path**: `$backupOut = Join-Path $env:TEMP ("omnivoice-demo-backup-" + [guid]::NewGuid().ToString('N') + '.json'); .\.venv\Scripts\python.exe scripts/rehearse_voice_sales_agent.py --output $backupOut`. It must report 12/12 and the happy-path/duplicate safety assertions. The runner itself never calls a customer database or places a PSTN call.
 2. Show the retained [Level B report](research/OV-031_VOICE_AGENT_REHEARSAL.md) and its seven-attempt record, including five failures. Do not show only the passing attempts.
 3. Show the [OV-030 routing report](research/OV-030_AGENT_EVALUATION.md) and the [OV-011B safety report](research/OV-011B_AGENT_EVALUATION.md) as separate experiments.
 4. Use verified screenshots or a backup recording only if produced and reviewed later; none is asserted here.
