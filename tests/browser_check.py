@@ -1,6 +1,7 @@
 """Isolated browser workflow check. It never modifies the user's enterprise DB."""
 
 import json
+import socket
 import sqlite3
 import sys
 import tempfile
@@ -33,17 +34,21 @@ def main():
         )
         with (artifacts / "browser-server.log").open("w") as log:
             log.write("Browser workflow uses an isolated in-process ASGI server.\n")
+            listener = socket.socket()
+            listener.bind(("127.0.0.1", 0))
+            listener.listen(128)
+            port = listener.getsockname()[1]
             server = uvicorn.Server(
                 uvicorn.Config(
-                    create_app(settings), host="127.0.0.1", port=8001, access_log=False, log_level="warning"
+                    create_app(settings), host="127.0.0.1", port=port, access_log=False, log_level="warning"
                 )
             )
-            thread = threading.Thread(target=server.run, daemon=True)
+            thread = threading.Thread(target=server.run, kwargs={"sockets": [listener]}, daemon=True)
             thread.start()
             try:
                 for _ in range(60):
                     try:
-                        urllib.request.urlopen("http://127.0.0.1:8001/healthz", timeout=0.5)
+                        urllib.request.urlopen(f"http://127.0.0.1:{port}/healthz", timeout=0.5)
                         break
                     except OSError:
                         time.sleep(0.25)
@@ -52,7 +57,7 @@ def main():
                     page = browser.new_page(viewport={"width": 1440, "height": 1100})
                     errors = []
                     page.on("pageerror", lambda error: errors.append(str(error)))
-                    page.goto("http://127.0.0.1:8001")
+                    page.goto(f"http://127.0.0.1:{port}")
                     page.screenshot(path=str(artifacts / "console-desktop.png"), full_page=True)
                     page.get_by_role("button", name="Connect console").click()
                     page.get_by_label("API token", exact=True).fill("isolated-browser-test-token")
@@ -280,6 +285,7 @@ def main():
             finally:
                 server.should_exit = True
                 thread.join(timeout=10)
+                listener.close()
                 assert not thread.is_alive(), "Test server did not shut down"
 
 
