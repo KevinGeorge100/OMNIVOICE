@@ -1,7 +1,7 @@
 # OmniVoice — Engineering Backlog
 
 **Document Status:** Canonical backlog tracker  
-**Status Key:** `Planned` | `In Progress` | `Blocked` | `Done`  
+**Status Key:** `Planned` | `In Progress` | `Deferred` | `Blocked` | `Done`
 **Priority Key:** `P0` (Critical) | `P1` (High) | `P2` (Medium) | `P3` (Low)  
 
 ---
@@ -38,10 +38,13 @@
 | **OV-024** | Natural Dialogue & Graceful Limitation Handling | Enhancement | P1 | **Done** (Gateway Validated) |
 | **OV-025** | Unblock Windows Release Gate & Make Semantic Retrieval Loading Resilient | Bug | P0 | **Done** |
 | **OV-026** | Premium Real-Time Operations Console | Enhancement | P1 | COMPLETE |
-| **OV-027** | Persistent Cloud Backend & Operations Console Deployment | DevOps | P0 | In Progress |
+| **OV-027** | Persistent Cloud Backend & Operations Console Deployment | DevOps | P0 | Deferred (deployment pending OV-032) |
 | **OV-028** | GitHub Repository Experience & Documentation Navigation | Documentation | P2 | **Done** |
 | **OV-029** | Langfuse Research Observability | Feature | P2 | **Done** (Opt-in; synthetic remote smoke) |
 | **OV-030** | Agent Evaluation Expansion & Comparative Research Evidence | Research | P1 | **Done** (Synthetic research) |
+| **OV-031** | Full Voice Sales-Agent Rehearsal & End-to-End Validation | Research | P1 | **Done** (local loopback; Level C not run) |
+| **OV-032** | Cloud Deployment & Validation | DevOps | P1 | Deferred (checkpoint branch; no Railway deployment) |
+| **OV-033** | Final Research Consolidation + Demo Readiness | Research | P1 | **Done** on task branch (pending independent review) |
 
 ---
 
@@ -75,6 +78,19 @@
 * **Dependencies:** OV-011B, OV-029
 * **Scope:** Fixed synthetic routing dataset, actual configured Groq selection-only runs with a predetermined repeated subset, confusion/error analysis, eight scripted business workflows, unchanged 25-case safety baseline, privacy-limited optional Langfuse export, and a careful architectural comparison. This does not change the real-time product path or claim new PSTN validation.
 * **Acceptance:** Report full and answered-only routing outcomes with denominator and provider failures, tool argument/write proposal results, deterministic confirmation invariants, server-side latency boundaries, all failed case records, and the project's release gates.
+
+### [OV-031] Full Voice Sales-Agent Rehearsal & End-to-End Validation
+
+* **Status:** **Done** for Level A/B only. Twelve deterministic local-loopback scenarios passed. Seven real Gnani/Groq/Gnani local-loopback attempts were retained, with five failures and two complete passes; attempt 7 passed 20/20 checks. Exactly one local booking followed confirmation in each successful fixture; no failed attempt booked. **Level C physical PSTN was not run.** [Evidence](research/OV-031_VOICE_AGENT_REHEARSAL.md).
+
+### [OV-032] Cloud Deployment & Validation
+
+* **Status:** Deferred final cloud milestone. Preparation is checkpointed on `task/OV-032-cloud-deployment` (`9fe8240a28778218bca8e5287b6534889e8cd1d8`); it is not merged into main. Railway plan/account availability delayed service creation. No Railway service or live cloud call is claimed. Resume only after the account and deployment prerequisites are ready; keep validation and carrier cutover separate.
+
+### [OV-033] Final Research Consolidation + Demo Readiness
+
+* **Status:** **Done** on `task/OV-033-final-research-demo-readiness`, pending independent review and merge. Local smoke and release checks passed; this does not complete OV-032.
+* **Scope:** Canonical contribution matrix, metric registry, bounded research conclusion, evidence index and 2–4 minute local demo script/checklist. Correct stale status/architecture claims; no product feature, cloud deployment, merge or push. [Evidence index](research/FINAL_EVIDENCE_INDEX.md).
 
 ### [OV-001] Establish OmniVoice Engineering Project Control
 * **Type:** Task
@@ -489,11 +505,11 @@
 ### [OV-027] Persistent Cloud Backend & Operations Console Deployment
 * **Type:** DevOps
 * **Priority:** P0
-* **Status:** In Progress
+* **Status:** Deferred for remote validation with OV-032; local container and guide preparation exists, but no Railway service is deployed.
 * **Dependencies:** OV-025, OV-026
 * **Purpose:** Deploy OmniVoice backend and Operations Console to persistent public cloud infrastructure with stable HTTPS/WSS endpoints and durable volume storage.
 * **Scope:** Single-service container hardening, Silero model baking, persistent volume specification for SQLite, deployment guide documentation, health/readiness endpoints, and Exotel cutover procedure.
-* **Acceptance:** Container builds self-contained, `/healthz` and `/readyz` pass remotely, Operations Console loads securely, and deployment documentation is complete.
+* **Acceptance:** Container builds self-contained, `/healthz` and `/readyz` pass remotely, Operations Console loads securely, and deployment documentation is complete. Remote checks and Exotel cutover remain unverified.
 
 ---
 

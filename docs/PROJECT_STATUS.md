@@ -1,12 +1,15 @@
 # OmniVoice — Project Status
 
-**Current Maturity Level:** **MINIMUM VIABLE PRODUCT (MVP) — Real PSTN Verified**
+**Current Maturity Level:** **MINIMUM VIABLE PRODUCT (MVP) — historical Exotel voice path verified on PSTN; latest agentic sales path validated locally**
 **Document Status:** Living reality baseline
-**Last Updated:** 2026-10-16
+**Last Updated:** 2026-10-17
+**Latest canonical main SHA at OV-033 branch creation:** `3e37f66c542917c346d3f86cc9eeb37920c6e146` (OV-033 is not merged or pushed)
 
 ---
 
 ## 1. Executive Summary & Reality Statement
+
+> **OV-033 evidence consolidation:** The core voice pipeline, Sarvam-default/Gnani-optional speech integrations, FlexDuo interruption, tenant-local FAQ/FAISS retrieval, natural dialogue, bounded provider recovery/capacity, tenant-scoped tools, confirmation-gated SQLite sales workflow, opt-in Langfuse research export and Operations Console are implemented. OV-030's 76-case synthetic live-model proposal evaluation and OV-031's local voice-sales rehearsal are complete. OV-031 retained **seven** real-provider loopback attempts (**five failures, two passes**) and no physical PSTN attempt. The historical OV-005 handset calls verify the earlier voice path, not the latest sales path. Railway OV-032 is checkpointed on its own branch and **deferred, not deployed**. See the [canonical metric registry](research/FINAL_METRICS_REGISTRY.md), [evidence index](research/FINAL_EVIDENCE_INDEX.md) and [demo checklist](FINAL_DEMO_CHECKLIST.md).
 
 > **OV-011A local foundation (2026-10-16):** A tenant-scoped `ToolRegistry` exposed one SQLite-backed business-profile read, administrator-registered HTTPS tools, and an opt-in official-SDK MCP reference read to the Groq function-call loop. Read results return to the model for a bounded follow-up. Writes stage through `ActionEngine` and require playback arming and exact caller confirmation. At that milestone there was no sales/CRM/calendar connector, and it had not been exercised on a physical PSTN call.
 
@@ -93,6 +96,7 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 
 * **Unit & Streaming Tests**: Automated tests via `pytest tests/` cover API, streaming, semantic resilience, and tenant-scoped operations (call filters, analytics, SSE auth/isolation).
 * **Automated Release Gate**: `scripts/verify-dod.ps1` runs 6 deterministic gates (pytest, ruff, Next.js build, browser E2E, git hygiene, and whitespace check).
+* **OV-033 validation baseline**: 279/279 tests passed on this documentation branch; the incoming task brief's 280-test estimate did not match actual pytest collection. Browser E2E 20/20 and release gate 6/6 passed.
 * **Browser Test**: Playwright E2E script `tests/browser_check.py` validates console login, tenant creation, FAQ addition, line setup, operations navigation, call inspector/timeline, filters, pagination, analytics, and responsive layout.
 * **Model Check**: `tests/model_check.py` validates local Silero ONNX silence processing and FAISS retrieval.
 * **Real Telephony Testing**: 3 authentic physical mobile handset calls completed and verified on live PSTN (OV-005); live bidirectional telephony gateway validated for OV-023 and OV-024 (real PSTN re-validation deferred due to external Exotel billing/KYC constraint).
@@ -108,4 +112,16 @@ The primary MVP technical validation hurdle (real PSTN carriage and turn-taking)
 3. ~~**Voice Continuity & Natural TTS Pipelining (OV-023)**~~: *(Complete)* Live bidirectional telephony gateway validated; real PSTN re-validation deferred due to Exotel trial credit constraint.
 4. ~~**Natural Dialogue & Graceful Limitation Handling (OV-024)**~~: *(Complete)* Live bidirectional telephony gateway validated; real PSTN re-validation deferred due to Exotel trial credit constraint.
 5. ~~**Server Latency Instrumentation & Benchmark (OV-006)**~~: *(Complete)* Live Gateway Server-Latency Benchmark completed with 56 valid turns across 6 sessions (P50 turnaround 774.8 ms, fast-cache P50 261.1 ms, RAG P50 850.2 ms). Physical acoustic mouth-to-ear and PSTN network transit not claimed; Exotel live PSTN re-validation deferred.
-6. **Persistent Cloud Backend Deployment (OV-027)**: Operational container hardening and persistent single-worker deployment with durable volume storage and Exotel cutover procedure.
+6. **Persistent Cloud Backend Deployment (OV-027/OV-032)**: Container hardening and deployment instructions exist. The Railway validation milestone OV-032 is deferred on a checkpoint branch; no Railway service has been deployed or carrier cutover completed.
+
+---
+
+## 8. Final research and demo gate (OV-033)
+
+**Completed evidence:** OV-006 server-side gateway latency; OV-011B 25-case deterministic action evaluation; OV-029 optional research-safe observability; OV-030 76-case live-model first-proposal evaluation; OV-031 12/12 deterministic voice scenarios and seven retained live-provider local-loopback attempts. These are distinct evidence classes. The [final research conclusion](research/FINAL_RESEARCH_CONCLUSION.md) states the defensible claim and limitations.
+
+**MUST FIX before final local demo:** No current blocker was found in the 2026-10-17 local readiness smoke: server health/readiness/console HTTP 200, 12/12 deterministic scenarios, and one additional 20/20 live-provider local-loopback run with one confirmed booking and valid outbound frames. A failed actual pre-demo check on presentation day—unhealthy server/console, missing fixture, broken confirmation-to-single-booking path, or no deterministic fallback—would become a blocker. Do not present local loopback as physical PSTN. See the [smoke record and checklist](FINAL_DEMO_CHECKLIST.md).
+
+**SHOULD FIX:** Investigate the unresolved sanitized Groq `protocol`/`exhausted` slot-stage event; improve prospective adjudication of ambiguous follow-up labels; measure naturalness/multilingual speech and provider variability with more repetitions. These do not negate the controlled passing fixtures.
+
+**DEFER:** Latest physical agentic PSTN revalidation and acoustic mouth-to-ear latency; OV-032 Railway deployment until account/plan readiness; PostgreSQL/Alembic, Redis, external CRM/calendar, production billing/RBAC, distributed tracing and full multilingual validation. Historical OV-005 physical calls must remain labeled historical.

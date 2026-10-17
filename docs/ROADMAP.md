@@ -5,6 +5,12 @@
 
 ---
 
+## Current milestone sequence (2026-10-17)
+
+OV-005 historically demonstrated the Exotel handset conversation path. OV-006 measured **server-side gateway timing**, not the planned physical mouth-to-ear study. OV-009/010 provider and overload controls, OV-011A/B agent/sales tools, OV-029 observability, OV-030 expanded synthetic research and OV-031 local-loopback voice-sales rehearsal are complete within their stated evidence boundaries. OV-033 consolidates the final research/demo package on its task branch, pending independent review. OV-032 cloud deployment is checkpointed and **deferred until Railway account readiness**; no service has been deployed. Acoustic/multilingual/PSTN revalidation and production data architecture remain later work. [Backlog](BACKLOG.md) · [final metrics](research/FINAL_METRICS_REGISTRY.md).
+
+The phases below describe desired progression, not completion of every listed deliverable. In particular, historical phone calls do not establish the latest agentic workflow or a sub-500 ms PSTN latency distribution.
+
 ## Roadmap Overview
 
 ```text
@@ -68,7 +74,7 @@
   * Procure and configure a live Exotel virtual number or Twilio SIP line. *(Completed — Exotel virtual line +914954269065 operational)*
   * Execute end-to-end inbound telephone calls through public carrier gateways. *(Completed — OV-005 verified across 3 physical mobile PSTN calls)*
   * Stabilize full-duplex realtime turn taking and interruption. *(Completed — ADR-001 verified with 0 false interruptions in Call #3)*
-  * Instrument and record real-world mouth-to-ear latency across 50+ live turns. *(Tracked in OV-006)*
+  * Instrument and record physical mouth-to-ear latency across 50+ PSTN turns. *(Still planned; OV-006 instead completed a 56-turn server-side gateway benchmark.)*
   * Verify acoustic barge-in interruption against real cellular compression and background noise. *(Tracked in OV-007)*
   * Verify speech accuracy across primary regional languages (Hindi and English (India)). *(Tracked in OV-008)*
   * Eliminate voice synthesis sentence-boundary choppiness and markdown artifacts. *(Tracked in OV-023)*
@@ -76,6 +82,7 @@
 
 ### PHASE 2 — Reliability & Provider Resilience
 * **Goal**: Prevent dropped calls and broken dialogues caused by upstream network jitter, rate-limiting, and cloud provider timeouts.
+* **Current evidence:** OV-009 bounded recovery and OV-010 local admission/backpressure controls are implemented and deterministically tested; production provider availability is not yet characterized.
 * **Key Deliverables**:
   * Implement automated reconnect and recovery for Sarvam STT WebSocket dropouts.
   * Implement fallback logic for Groq rate-limiting (HTTP 429) or token latency spikes.

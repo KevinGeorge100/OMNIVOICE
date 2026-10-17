@@ -8,7 +8,7 @@ OmniVoice connects live PSTN calls to streaming speech, grounded knowledge, and 
 
 [Product site](https://omnivoice-self.vercel.app/) · [Quick start](#quick-start) · [Architecture](#architecture) · [Evaluation](#performance-and-evaluation) · [Developer guide](docs/DEVELOPER_GUIDE.md)
 
-`Python 3.11` &nbsp; `FastAPI + WebSockets` &nbsp; `Exotel / Twilio adapters` &nbsp; `Sarvam + Groq` &nbsp; `Silero + FAISS`
+`Python 3.11` &nbsp; `FastAPI + WebSockets` &nbsp; `Exotel / Twilio adapters` &nbsp; `Sarvam default / Gnani optional + Groq` &nbsp; `Silero + FAISS`
 
 > [!IMPORTANT]
 > **Engineering status, not a production SLA.** Live Exotel handset calls have validated the basic PSTN conversation path. The published 56-turn latency study used a live gateway harness with real Groq and Sarvam providers and a synthetic STT endpoint offset; it was **not** a physical PSTN mouth-to-ear test. Sub-500 ms voice turnaround and sub-50 ms interruption remain product targets. See [current status](docs/PROJECT_STATUS.md) and the [benchmark method](docs/OV006_BENCHMARK_RESULTS.md).
@@ -59,21 +59,23 @@ The [architecture reference](docs/ARCHITECTURE.md) covers codecs, queue ownershi
 flowchart TB
     Caller["PSTN caller"] --> Carrier["Exotel PCM16 / Twilio μ-law"]
     Carrier --> Transport["FastAPI carrier WebSocket + transport adapter"]
-    Transport --> Audio["Decode + causal 8→16 kHz audio"]
+    Transport --> Admission["Capacity admission + bounded buffering"]
+    Admission --> Audio["Decode + causal 8→16 kHz audio"]
     Audio --> VAD["Silero VAD · per-call state"]
-    Audio --> STT["Sarvam streaming STT"]
+    Audio --> STT["Sarvam default / Gnani optional STT"]
     VAD --> FSM["Speak / Listen / Idle · interruption"]
     STT --> FSM
     FSM --> Session["CallSession orchestration"]
     Session --> Fast["Approved FAQ + speculative cache"]
     Fast -->|miss| RAG["Tenant-scoped retrieval · FAISS when enabled"]
     RAG --> LLM["Groq streaming inference"]
-    Fast -->|hit| TTS["Sarvam streaming TTS"]
+    Fast -->|hit| TTS["SpeechSegmenter + Sarvam/Gnani TTS"]
     LLM --> TTS
     TTS --> Frames["Carrier framing + playback marks"]
     Frames --> Carrier
     Session --> Tools["Registered read tools / confirmation-gated writes"]
     Session --> Store["SQLite tenant data + call telemetry"]
+    Store -.-> Research["Optional bounded Langfuse research export"]
     FSM -.->|cancel + clear| Transport
 ```
 
@@ -84,9 +86,9 @@ sequenceDiagram
     participant Caller
     participant Carrier as Exotel / Twilio
     participant Engine as VAD + CallSession
-    participant STT as Sarvam STT
+    participant STT as Sarvam / Gnani STT
     participant Think as Cache / RAG / Groq
-    participant TTS as Sarvam TTS
+    participant TTS as Sarvam / Gnani TTS
     Caller->>Carrier: Speech on PSTN
     Carrier->>Engine: Streaming audio frames
     par Concurrent listening
@@ -115,9 +117,9 @@ The diagrams show control flow, not measured network timing. Exotel and Twilio u
 | Layer | Technology |
 | --- | --- |
 | Media/API | Python 3.11, FastAPI, asyncio, Uvicorn, WebSockets |
-| Speech and turn-taking | Sarvam STT/TTS, Silero ONNX VAD, FlexDuo state machine |
+| Speech and turn-taking | Sarvam STT/TTS default, Gnani Prisma/Timbre optional, Silero ONNX VAD, FlexDuo state machine |
 | Reasoning and knowledge | Groq streaming inference, local FAISS, optional FastEmbed multilingual embeddings |
-| Data and operations | SQLite WAL, tenant-scoped console, Server-Sent Events |
+| Data and operations | SQLite WAL, tenant-scoped console, Server-Sent Events, opt-in Langfuse research export |
 | Product site | Next.js 16, React 19, Tailwind CSS 4; deployed separately from the voice backend |
 
 ## Quick start
@@ -167,7 +169,9 @@ Set `OMNI_SEMANTIC_ENABLED=true` only after installing the embedding model. With
 | **Target** | Sub-500 ms voice turnaround and sub-50 ms interruption are design goals, not service guarantees. |
 | **Measured — live gateway harness** | 56 valid turns across 6 sessions; median server transcript-to-first-outbound-audio was **774.76 ms** overall and **261.12 ms** for the fast-cache subset. Groq and Sarvam calls were live; the STT endpoint used a 120 ms synthetic harness offset. [Method and distributions](docs/OV006_BENCHMARK_RESULTS.md). |
 | **Verified separately — PSTN path** | Historical Exotel handset calls demonstrated inbound conversation and barge-in. They did not establish a mouth-to-ear latency distribution. [Validation status](docs/PROJECT_STATUS.md). |
-| **Not yet validated** | Physical acoustic mouth-to-ear latency, carrier transit, Twilio PSTN behavior, and a multilingual/noise corpus baseline. |
+| **Research — agent routing** | OV-030: 60/76 exact synthetic case routing on the full live Groq first-proposal pass; seven provider failures retained. [Definitions](docs/research/FINAL_METRICS_REGISTRY.md). |
+| **Research — voice sales** | OV-031: 12/12 deterministic local-loopback scenarios; seven retained live Gnani/Groq/Gnani loopback attempts, five failures and two passes. No physical agentic PSTN call. [Rehearsal report](docs/research/OV-031_VOICE_AGENT_REHEARSAL.md). |
+| **Not yet validated** | Physical acoustic mouth-to-ear latency, latest agentic PSTN workflow, carrier transit, Twilio PSTN behavior, and a multilingual/noise corpus baseline. |
 
 The server records STT endpoint **proxy**, fast lookup, RAG retrieval, LLM TTFT, speech buffer delay, TTS first audio, carrier framing/send, and first outbound audio timings. Missing stages remain unavailable rather than zero. [Metric definitions and exclusions](docs/LATENCY_EVALUATION.md) · [Corpus/replay contract](docs/EVALUATION.md).
 
@@ -191,7 +195,7 @@ This is an MVP security architecture, not a compliance certification. A current 
 
 ## Status & roadmap
 
-**Implemented:** single-worker telephony MVP, Exotel handset validation, Twilio adapter, full-duplex cancellation, tenant knowledge, confirmation-gated tools, operations console, and server-side latency instrumentation. **Next:** acoustic/PSTN latency measurement, Twilio and multilingual call validation, provider recovery, cloud rollout verification, stronger access control, and distributed persistence. The [backlog](docs/BACKLOG.md) separates completed work from planned work; the [roadmap](docs/ROADMAP.md) describes longer-term phases.
+**Implemented:** single-worker telephony MVP, historical Exotel handset validation, Twilio adapter, full-duplex cancellation, tenant knowledge, provider recovery/capacity controls, confirmation-gated local sales tools, operations console, and server-side research instrumentation. **Research package:** OV-033 consolidates the [evidence index](docs/research/FINAL_EVIDENCE_INDEX.md) and [local demo](docs/FINAL_DEMO_SCRIPT.md). **Deferred:** OV-032 Railway deployment, physical validation of the latest sales path, acoustic PSTN latency, distributed persistence, external CRM/calendar, and full multilingual evaluation. The [backlog](docs/BACKLOG.md) and [roadmap](docs/ROADMAP.md) track scope.
 
 ## Documentation
 

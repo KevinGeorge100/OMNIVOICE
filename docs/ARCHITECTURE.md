@@ -1,12 +1,18 @@
 # OmniVoice — Architecture Specification
 
-**Document Version:** 1.0  
+**Document Version:** 1.1 (OV-033 evidence consolidation)
 **Status:** Canonical architectural reference  
 **Scope:** Contrasts Current Working Architecture vs. Target Production Architecture  
 
 ---
 
 ## 1. Current Working Architecture
+
+### Architecture version of record (2026-10-17)
+
+The **implemented single-worker local path** is: caller/carrier → Exotel or Twilio media WebSocket → capacity admission and bounded audio buffers → parallel Silero VAD and STT (Sarvam by default; Gnani optional) → FlexDuo Speak/Listen/Idle and backchannel/barge-in decision → pending-action confirmation check → approved FAQ fast answer or tenant-local lexical/FAISS retrieval → streamed Groq response and bounded ToolRegistry loop (optional read-only MCP reference) → ActionEngine staged/armed/explicit-confirmed local writes → SpeechSegmenter → streaming TTS (Sarvam default; Gnani optional) → carrier-specific PCM/μ-law frames and playback marks/clear → caller. Reads and speculative context may run concurrently; writes cannot bypass confirmation. SQLite stores tenants, knowledge, calls, tools and local sales records. The Operations Console reads local state/telemetry. Optional Langfuse research export runs in a bounded background queue after calls and is not authoritative or on the audio hot path. Provider retry/fallback and call/queue capacity controls bound overload.
+
+This is the code's current capability map, **not** a claim that all variants have physical PSTN validation. OV-005 historically verified Exotel handset conversations; OV-031 validated the newer sales path using local carrier loopback with real Gnani/Groq/Gnani providers, without a phone call. PostgreSQL, Redis, external CRM/calendar, production observability and final Railway deployment remain future or deferred. [Research evidence](research/FINAL_EVIDENCE_INDEX.md) · [metric boundaries](research/FINAL_METRICS_REGISTRY.md).
 
 OV-011A inserts `ToolRegistry` between Groq function calls and `ActionEngine`. Its typed definitions include tenant-authorized metadata, strict JSON input and bounded output conventions. A read capability can invoke a local handler, the existing administrator-owned HTTPS read adapter, or an explicitly allowed MCP read. A write definition has no direct handler: the registry stages it through `ActionEngine`, whose persisted, playback-armed and caller-confirmed lifecycle remains the sole commit path. The official MCP 2.3.0 adapter currently connects only to a bundled in-process read-only reference server when opted in; it is a protocol integration proof, not an external business connector. The model/tool loop has a configurable limit and returns structured tool-role results. Tool events exclude arguments and result payloads.
 
@@ -38,7 +44,7 @@ OmniVoice is currently implemented as a **stateful, single-worker asynchronous v
                                     (16kHz Audio)    │                   │ (16kHz Audio)
                                                      ▼                   ▼
                          ┌─────────────────────────────┐       ┌─────────────────────────────┐
-                         │    Silero VAD v4 (ONNX)     │       │     Sarvam STT Provider     │
+                         │    Silero VAD (ONNX)        │       │   Sarvam / Gnani STT       │
                          │    - 32ms Frame Inference   │       │   - Persistent WebSocket    │
                          │    - Recurrent Call State   │       │   - Partial & Final Events  │
                          └──────────────┬──────────────┘       └──────────────┬──────────────┘
@@ -69,7 +75,7 @@ OmniVoice is currently implemented as a **stateful, single-worker asynchronous v
                                         ▼                                     │
                          ┌─────────────────────────────┐                      │
                          │     Groq LLM Provider       │                      │
-                         │   - Llama-3.1-8b-instant    │                      │
+                         │   - Configured model       │                      │
                          │   - Sentence Punctuation    │                      │
                          └──────────────┬──────────────┘                      │
                                         │ (Streamed Sentences)                │
@@ -77,7 +83,7 @@ OmniVoice is currently implemented as a **stateful, single-worker asynchronous v
                                                        │
                                                        ▼
                                        ┌─────────────────────────────────────────┐
-                                       │          Sarvam TTS Provider            │
+                                       │       Sarvam / Gnani TTS Provider       │
                                        │   - Dual WSS (Active + Warm Standby)    │
                                        │   - 8kHz Linear PCM Stream              │
                                        └────────────────────┬────────────────────┘
@@ -96,13 +102,14 @@ OmniVoice is currently implemented as a **stateful, single-worker asynchronous v
    * Twilio 8 kHz $\mu$-law payloads are decoded to 16-bit linear PCM.
    * Exotel 8 kHz 16-bit PCM payloads are validated directly.
    * Audio is upsampled from 8 kHz to 16 kHz using `Upsample8k`, a causal linear interpolation algorithm carrying the preceding sample across packet boundaries.
-3. **Dual Concurrency Queues**: Decoded 16 kHz PCM is placed into two bounded queues: `vad_queue` (maxsize=100) and `audio_queue` (maxsize=100).
+3. **Dual Concurrency Queues**: Decoded 16 kHz PCM is placed into bounded VAD and provider-audio queues with the OV-010 32-packet / 32,000-byte backlog ceiling and overload teardown.
 4. **Silero Neural VAD (`omnivoice/vad.py`)**:
    * Runs local ONNX model `models/silero_vad.onnx` using CPUExecutionProvider.
    * Processes 1024-byte (512-sample / 32 ms) frames, tracking recurrent hidden states per call.
-5. **Sarvam STT Streaming (`omnivoice/providers.py`)**:
+5. **STT Providers (`omnivoice/providers.py`)**:
    * Bounded audio frames are streamed via WebSocket to Sarvam AI (`wss://api.sarvam.ai/speech-to-text-realtime/ws`).
    * Emits partial and final transcript events.
+   * Gnani Prisma is an optional utterance-buffered STT adapter; Sarvam remains the default.
 6. **Full-Duplex Decision Engine (`omnivoice/duplex.py`)**:
    * `FlexDuo` state machine evaluates acoustic probability and incoming transcripts.
    * Suppresses interruption for recognized backchannel words (*"yeah"*, *"mm hmm"*, *"ok"*).
@@ -111,13 +118,14 @@ OmniVoice is currently implemented as a **stateful, single-worker asynchronous v
    * Evaluates exact match against approved FAQs (response time $<10\text{ ms}$).
    * Searches in-memory `faiss.IndexFlatIP` across 1000-character document chunks.
 8. **Groq LLM Reasoning (`omnivoice/providers.py`)**:
-   * Sends conversation history and grounded context to `llama-3.1-8b-instant`.
+   * Sends conversation history and grounded context to the configured `groq_model` (default `llama-3.1-8b-instant`; OV-030/031 used `openai/gpt-oss-20b`).
    * Preserves the raw answer for transcripts while a deterministic speech normalizer removes visual Markdown and symbols before TTS.
    * Streams useful phrases with punctuation and minimum length thresholds; the first phrase can begin before the full answer exists.
-9. **Sarvam TTS Synthesis (`omnivoice/providers.py`)**:
+9. **TTS Providers (`omnivoice/providers.py`)**:
    * Sends adjacent phrases as text chunks on one Sarvam TTS WebSocket (`wss://api.sarvam.ai/text-to-speech/ws`) and flushes once at the end of the utterance.
    * The provider's configured minimum buffer can begin synthesis before the final flush; audio reception and text production run concurrently.
    * Operates an active socket and a warm standby socket to allow instantaneous turn cancellation without socket renegotiation.
+   * Gnani Timbre is an optional streaming TTS adapter with the same carrier-framing boundary; Sarvam remains the default.
 10. **Carrier Playback Egress (`omnivoice/transport.py`)**:
    * Accumulates 8 kHz linear PCM across provider chunks and phrases; Exotel sends 3200-byte PCM frames, while Twilio sends 320-byte PCM frames encoded as 160-byte G.711 mu-law payloads. Only the final incomplete utterance frame is padded.
    * Sends playback marks to synchronize write-action arming.
