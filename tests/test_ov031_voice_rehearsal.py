@@ -1,5 +1,6 @@
 """Session-level synthetic audio rehearsal; no provider network or PSTN."""
 
+import asyncio
 import json
 from pathlib import Path
 
@@ -7,7 +8,7 @@ import pytest
 
 from scripts.rehearse_live_voice_sales_agent import ATTEMPT_OUTPUT
 from scripts.rehearse_live_voice_sales_agent import OUTPUT as LIVE_AGGREGATE_OUTPUT
-from scripts.rehearse_voice_sales_agent import OUTPUT, SCENARIOS, run_scenario
+from scripts.rehearse_voice_sales_agent import OUTPUT, SCENARIOS, Rehearsal, run_scenario, until
 
 
 @pytest.mark.parametrize("scenario", SCENARIOS)
@@ -28,6 +29,53 @@ async def test_real_session_path_with_stubbed_providers(tmp_path, scenario):
         assert result["booking_count"] == 0 and not result["spoken_success"]
     if scenario in {"ordinary_barge_in", "confirmation_barge_in"}:
         assert result["barge_in_count"] == 1 and result["tts_cancel_count"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_booking_waits_for_prompt_mark_and_matches_fixture(tmp_path):
+    async with Rehearsal(tmp_path) as rehearsal:
+        await rehearsal.turn(
+            "Have I spoken with your team before? My reference is DEMO-ALPHA-001."
+        )
+        await rehearsal.turn("Do you have a demo Friday afternoon?")
+        rehearsal.carrier.auto_mark = False
+        marks_before = sum(p["event"] == "mark" for p in rehearsal.carrier.sent)
+        await rehearsal.carrier.caller_audio("Book the 4 PM slot.")
+        await until(
+            lambda: sum(p["event"] == "mark" for p in rehearsal.carrier.sent) > marks_before
+        )
+        action = await rehearsal.wait_staged()
+        assert action["status"] == "staged"
+        assert await rehearsal.store.rows("SELECT id FROM demo_bookings") == []
+        assert await rehearsal.actions.confirm(
+            rehearsal.tenant_id, rehearsal.session.id, "Yes", True, ["yes"]
+        ) is None
+        mark = next(
+            p["mark"]["name"] for p in reversed(rehearsal.carrier.sent) if p["event"] == "mark"
+        )
+        await rehearsal.carrier.incoming.put({"event": "mark", "mark": {"name": mark}})
+
+        async def armed():
+            return await rehearsal.store.one("SELECT status FROM actions WHERE id=?", (action["id"],))
+
+        async with asyncio.timeout(5):
+            while (await armed())["status"] != "armed":
+                await asyncio.sleep(0.01)
+        await until(lambda: not rehearsal.session.fsm.playing)
+        rehearsal.carrier.auto_mark = True
+        final = await rehearsal.turn("Yes")
+        assert final["agent_response"] == "Done. Your demo is booked."
+        bookings = await rehearsal.store.rows("SELECT * FROM demo_bookings")
+        assert len(bookings) == 1
+        assert bookings[0]["tenant_id"] == rehearsal.tenant_id
+        assert bookings[0]["lead_id"] == rehearsal.lead_id
+        assert bookings[0]["slot_id"] == rehearsal.slot_id
+        assert bookings[0]["call_id"] == rehearsal.session.id
+        slot = await rehearsal.store.one("SELECT status FROM demo_slots WHERE id=?", (rehearsal.slot_id,))
+        assert slot["status"] == "booked"
+        action = await rehearsal.store.one("SELECT status,result FROM actions WHERE id=?", (action["id"],))
+        assert action["status"] == "committed"
+        assert json.loads(action["result"])["booking_id"] == bookings[0]["id"]
 
 
 def test_research_artifact_is_synthetic_and_stage_metrics_are_bounded():
@@ -56,12 +104,23 @@ def test_live_artifact_uses_sanitized_metadata_only():
     artifact = json.loads(raw)
     assert artifact["schema_version"] == 2
     assert artifact["validation_level"] == "B_live_provider_non_pstn"
-    assert artifact["summary"]["retained_attempts"] == len(artifact["attempts"]) == 6
-    assert artifact["summary"]["passed_attempts"] == 1
+    assert artifact["summary"]["retained_attempts"] == len(artifact["attempts"]) == 7
+    assert artifact["summary"]["passed_attempts"] == 2
+    assert [row["result"]["status"] for row in artifact["attempts"]] == [
+        "FAIL", "FAIL", "FAIL", "FAIL", "FAIL", "PASS", "PASS",
+    ]
     winner = artifact["attempts"][-1]["result"]
     assert winner["status"] == "PASS"
     assert len(winner["acceptance_checks"]) == 20
     assert all(winner["acceptance_checks"].values())
+    assert winner["action_status_before_prompt_ack"] == ["staged"]
+    assert winner["prompt_mark_pending_before_ack"] is True
+    assert winner["booking_count_before_prompt_ack"] == 0
+    assert winner["action_status_before_confirmation"] == ["armed"]
+    assert winner["staged_selection_matches_fixture"] is True
+    assert winner["booking_selection_matches_fixture"] is True
+    assert winner["selected_slot_booked"] is True
+    assert winner["committed_result_matches_booking"] is True
     for attempt in artifact["attempts"]:
         result = attempt["result"]
         assert result["external_business_writes"] == 0

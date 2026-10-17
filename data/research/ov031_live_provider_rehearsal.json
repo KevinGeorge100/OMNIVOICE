@@ -1,16 +1,16 @@
 {
   "schema_version": 2,
-  "generated_at": "2026-10-17T04:57:34.058832+00:00",
+  "generated_at": "2026-10-17T13:18:42.893379+00:00",
   "validation_level": "B_live_provider_non_pstn",
   "synthetic_fixture_only": true,
   "summary": {
-    "retained_attempts": 6,
-    "new_attempts": 5,
-    "completed_scripted_turn_attempts": 3,
-    "passed_attempts": 1,
-    "passing_attempt_number": 6,
+    "retained_attempts": 7,
+    "new_attempts": 6,
+    "completed_scripted_turn_attempts": 4,
+    "passed_attempts": 2,
+    "passing_attempt_number": 7,
     "failed_attempts": 5,
-    "post_protocol_fix_attempts": 3,
+    "post_protocol_fix_attempts": 4,
     "level_b_status": "PASS",
     "level_c_status": "NOT_RUN"
   },
@@ -1248,6 +1248,336 @@
             "duration_ms_total": 67.2772999969311,
             "invalid_tool_requests": 0,
             "action_end_to_end_ms_total": 8950.18219947815
+          }
+        },
+        "call_row_persisted": true,
+        "turn_metrics_persisted": true,
+        "action_statuses": [
+          "committed"
+        ],
+        "langfuse_export_attempted": true,
+        "langfuse_exported_locally": 1,
+        "provider_retry_events": [
+          {
+            "provider": "groq",
+            "modality": "LLM",
+            "attempt": 1,
+            "category": "protocol",
+            "outcome": "exhausted",
+            "rehearsal_stage": "spoken_tool_turn_2_awaiting_transcript"
+          }
+        ],
+        "acceptance_checks": {
+          "01_lead_stt": true,
+          "02_lookup_selected": true,
+          "03_lead_resolved": true,
+          "04_slots_stt": true,
+          "05_slots_selected": true,
+          "06_valid_slots_returned": true,
+          "07_booking_stt": true,
+          "08_booking_proposed": true,
+          "09_no_early_write": true,
+          "10_live_confirmation_prompt": true,
+          "11_prompt_carrier_pcm": true,
+          "12_confirmation_stt": true,
+          "13_confirmation_accepted": true,
+          "14_action_committed_once": true,
+          "15_one_persisted_booking": true,
+          "16_truthful_final_response": true,
+          "17_final_carrier_pcm": true,
+          "18_no_unsafe_commit": true,
+          "19_no_duplicate_booking": true,
+          "20_no_stale_audio_or_tasks": true
+        }
+      }
+    },
+    {
+      "attempt_number": 7,
+      "sequence": "independent_review_evidence_recheck",
+      "result": {
+        "status": "PASS",
+        "validation_level": "B_live_provider_non_pstn",
+        "providers": {
+          "stt": "Gnani Prisma",
+          "llm": "openai/gpt-oss-20b",
+          "tts": "Gnani Timbre",
+          "caller_audio": "local_Windows_SAPI"
+        },
+        "turns": [
+          {
+            "stt_nonempty": true,
+            "recognized_synthetic_text": "look up my record using demo",
+            "stt_intent_flags": {
+              "lead": false,
+              "slot": false,
+              "booking": false,
+              "confirmation": false
+            },
+            "stt_forced_flush": false,
+            "caller_audio_bytes": 41824,
+            "outbound_frame_count": 43,
+            "response_audio_bytes": 137600,
+            "path": "foreground_rag",
+            "first_carrier_audio_ms": 1830.909399985103,
+            "tts_ttfa_ms": 368.82959998911247,
+            "stt_endpoint_delay_ms": 710.9246000181884,
+            "llm_ttft_ms": 607.0637000084389,
+            "tool_requests": [
+              "lookup_lead"
+            ],
+            "tool_outcomes": [
+              {
+                "tool": "lookup_lead",
+                "outcome": "ok",
+                "duration_ms": 8.011600002646446
+              }
+            ],
+            "lead_resolved": true,
+            "offered_slot_count": 0
+          },
+          {
+            "stt_nonempty": true,
+            "recognized_synthetic_text": "check open demo slots for friday october 23rd 20 26 afternoon",
+            "stt_intent_flags": {
+              "lead": false,
+              "slot": true,
+              "booking": false,
+              "confirmation": false
+            },
+            "stt_forced_flush": false,
+            "caller_audio_bytes": 98304,
+            "outbound_frame_count": 27,
+            "response_audio_bytes": 86400,
+            "path": "foreground_rag",
+            "first_carrier_audio_ms": 1421.3987000111956,
+            "tts_ttfa_ms": 230.46560000511818,
+            "stt_endpoint_delay_ms": 846.6698999982327,
+            "llm_ttft_ms": 482.77559998678043,
+            "tool_requests": [
+              "check_demo_slots"
+            ],
+            "tool_outcomes": [
+              {
+                "tool": "check_demo_slots",
+                "outcome": "ok",
+                "duration_ms": 12.921299989102408
+              }
+            ],
+            "lead_resolved": true,
+            "offered_slot_count": 1
+          },
+          {
+            "stt_nonempty": true,
+            "recognized_synthetic_text": "book the offered 4 pm demo slot for me",
+            "stt_intent_flags": {
+              "lead": false,
+              "slot": true,
+              "booking": true,
+              "confirmation": false
+            },
+            "stt_forced_flush": false,
+            "caller_audio_bytes": 55264,
+            "outbound_frame_count": 39,
+            "response_audio_bytes": 124800,
+            "path": "foreground_rag",
+            "first_carrier_audio_ms": 1044.4320999959018,
+            "tts_ttfa_ms": 299.31719999876805,
+            "stt_endpoint_delay_ms": 865.4777999909129,
+            "llm_ttft_ms": null,
+            "tool_requests": [
+              "schedule_demo"
+            ],
+            "tool_outcomes": [],
+            "lead_resolved": true,
+            "offered_slot_count": 1
+          },
+          {
+            "stt_nonempty": true,
+            "recognized_synthetic_text": "yes",
+            "stt_intent_flags": {
+              "lead": false,
+              "slot": false,
+              "booking": false,
+              "confirmation": true
+            },
+            "stt_forced_flush": false,
+            "caller_audio_bytes": 20384,
+            "outbound_frame_count": 12,
+            "response_audio_bytes": 38400,
+            "path": "confirmation",
+            "first_carrier_audio_ms": 318.6996000004001,
+            "tts_ttfa_ms": 280.0166000088211,
+            "stt_endpoint_delay_ms": 550.2698999771383,
+            "llm_ttft_ms": null,
+            "tool_requests": [],
+            "tool_outcomes": [
+              {
+                "tool": "schedule_demo",
+                "outcome": "committed",
+                "duration_ms": 4.841599991777912
+              }
+            ],
+            "lead_resolved": true,
+            "offered_slot_count": 1
+          }
+        ],
+        "tool_names": [
+          "lookup_lead",
+          "check_demo_slots",
+          "schedule_demo"
+        ],
+        "external_business_writes": 0,
+        "stage": "completed",
+        "caller_audio_bytes_generated": 20384,
+        "action_status_before_prompt_ack": [
+          "staged"
+        ],
+        "prompt_mark_pending_before_ack": true,
+        "booking_count_before_prompt_ack": 0,
+        "staged_selection_matches_fixture": true,
+        "write_before_confirmation": false,
+        "action_status_before_confirmation": [
+          "armed"
+        ],
+        "action_staged_or_armed": true,
+        "booking_count": 1,
+        "booking_selection_matches_fixture": true,
+        "selected_slot_booked": true,
+        "committed_result_matches_booking": true,
+        "confirmed_commits": 1,
+        "final_spoken_success": true,
+        "carrier_frame_count": 130,
+        "carrier_frames_valid": true,
+        "synthetic_lead_count": 1,
+        "frames_before_teardown": 130,
+        "observed_turns": [
+          {
+            "recognized_synthetic_text": "look up my record using demo",
+            "path": "foreground_rag",
+            "response_audio_bytes": 137600,
+            "speech_char_count": 49,
+            "tts_segment_count": 1,
+            "response_failed": false,
+            "provider_failure": null
+          },
+          {
+            "recognized_synthetic_text": "check open demo slots for friday october 23rd 20 26 afternoon",
+            "path": "foreground_rag",
+            "response_audio_bytes": 86400,
+            "speech_char_count": 69,
+            "tts_segment_count": 2,
+            "response_failed": false,
+            "provider_failure": null
+          },
+          {
+            "recognized_synthetic_text": "book the offered 4 pm demo slot for me",
+            "path": "foreground_rag",
+            "response_audio_bytes": 124800,
+            "speech_char_count": 104,
+            "tts_segment_count": 1,
+            "response_failed": false,
+            "provider_failure": null
+          },
+          {
+            "recognized_synthetic_text": "yes",
+            "path": "confirmation",
+            "response_audio_bytes": 38400,
+            "speech_char_count": 26,
+            "tts_segment_count": 1,
+            "response_failed": false,
+            "provider_failure": null
+          }
+        ],
+        "greeting_audio_sent": true,
+        "carrier_frames_observed": 130,
+        "end_reason": "carrier_stop",
+        "provider_failures": [],
+        "stt_speech_buffer_bytes": 0,
+        "stt_preroll_bytes": 9600,
+        "stt_pending_tasks": 0,
+        "remaining_carrier_marks": 0,
+        "response_task_done": true,
+        "slow_task_done": true,
+        "session_task_done": true,
+        "carrier_closed": false,
+        "turn_provider_failures": [],
+        "local_trace": {
+          "source": "completed_live_call",
+          "carrier": "exotel",
+          "status": "completed",
+          "turns_recorded": 4,
+          "turns_exported": 4,
+          "turns_truncated": false,
+          "turns": [
+            {
+              "stt_endpoint_delay_ms": 710.9246000181884,
+              "retrieval_ms": 0.0042000028770416975,
+              "rag_retrieval_ms": 0.7322999881580472,
+              "llm_ttft_ms": 607.0637000084389,
+              "first_tts_ttfa_ms": 368.82959998911247,
+              "carrier_framing_delay_ms": 1.5639000048395246,
+              "final_transcript_to_first_audio_sent_ms": 1830.909399985103,
+              "last_vad_speech_to_first_audio_sent_ms": 2541.8340000032913,
+              "response_segment_count": 1,
+              "tts_segment_count": 1,
+              "path": "foreground_rag",
+              "interrupted": false
+            },
+            {
+              "stt_endpoint_delay_ms": 846.6698999982327,
+              "retrieval_ms": 0.010500021744519472,
+              "rag_retrieval_ms": 0.621799990767613,
+              "llm_ttft_ms": 482.77559998678043,
+              "first_tts_ttfa_ms": 230.46560000511818,
+              "carrier_framing_delay_ms": 15.99990000249818,
+              "final_transcript_to_first_audio_sent_ms": 1421.3987000111956,
+              "last_vad_speech_to_first_audio_sent_ms": 2268.0686000094283,
+              "response_segment_count": 2,
+              "tts_segment_count": 2,
+              "path": "foreground_rag",
+              "interrupted": false
+            },
+            {
+              "stt_endpoint_delay_ms": 865.4777999909129,
+              "retrieval_ms": 0.0109999964479357,
+              "rag_retrieval_ms": 1.3747999910265207,
+              "first_tts_ttfa_ms": 299.31719999876805,
+              "carrier_framing_delay_ms": 15.237599989632145,
+              "final_transcript_to_first_audio_sent_ms": 1044.4320999959018,
+              "last_vad_speech_to_first_audio_sent_ms": 1909.9098999868147,
+              "response_segment_count": 1,
+              "tts_segment_count": 1,
+              "path": "foreground_rag",
+              "interrupted": false
+            },
+            {
+              "stt_endpoint_delay_ms": 550.2698999771383,
+              "first_tts_ttfa_ms": 280.0166000088211,
+              "carrier_framing_delay_ms": 15.490399993723258,
+              "final_transcript_to_first_audio_sent_ms": 318.6996000004001,
+              "last_vad_speech_to_first_audio_sent_ms": 868.9694999775384,
+              "response_segment_count": 1,
+              "tts_segment_count": 1,
+              "path": "confirmation",
+              "interrupted": false
+            }
+          ],
+          "errors": 0,
+          "cache_hits": 0,
+          "barge_in_count": 0,
+          "tool_summary": {
+            "invocations": 3,
+            "succeeded": 3,
+            "failed": 0,
+            "confirmation_required": 1,
+            "committed": 1,
+            "failed_commits": 0,
+            "unknown_outcome": 0,
+            "cache_hits": 0,
+            "cancelled": 0,
+            "duration_ms_total": 46.70489998534322,
+            "invalid_tool_requests": 0,
+            "action_end_to_end_ms_total": 9297.730445861816
           }
         },
         "call_row_persisted": true,

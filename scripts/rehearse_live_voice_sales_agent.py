@@ -1,8 +1,9 @@
 """Optional Level B voice rehearsal through CallSession with live Gnani/Groq APIs.
 
 The only business effects are isolated SQLite rows in a temporary directory.
-No carrier account or customer records are touched. Output is an allowlisted,
-non-PII research summary, never transcripts or raw audio.
+No carrier account or customer records are touched. The local research artifact
+retains only text transcribed from synthetic caller speech and safe summary
+fields; the optional Langfuse export receives numeric, allowlisted metrics.
 """
 
 import argparse
@@ -107,7 +108,7 @@ def synthesize_caller(text):
             return source.readframes(source.getnframes())
 
 
-async def send_spoken_turn(carrier, session, task, text, progress, label):
+async def send_spoken_turn(carrier, session, task, text, progress, label, *, wait_playback=True):
     before = len(session.metrics["turns"])
     prior_tools = len(session.services.events.tool_events)
     prior_frames = sum(p["event"] == "media" for p in carrier.sent)
@@ -140,8 +141,9 @@ async def send_spoken_turn(carrier, session, task, text, progress, label):
         await wait_for_live(lambda: len(session.metrics["turns"]) > before, task, carrier, 35)
     progress["stage"] = f"{label}_awaiting_response_completion"
     await wait_for_live(lambda: session.response is None or session.response.done(), task, carrier, 20)
-    progress["stage"] = f"{label}_awaiting_playback_end"
-    await wait_for_live(lambda: not session.fsm.playing, task, carrier, 20)
+    if wait_playback:
+        progress["stage"] = f"{label}_awaiting_playback_end"
+        await wait_for_live(lambda: not session.fsm.playing, task, carrier, 20)
     progress["stage"] = f"{label}_awaiting_stt_jobs"
     await wait_for_live(lambda: not session.stt._pending_tasks, task, carrier, 10)
     metric = session.metrics["turns"][-1]
@@ -217,8 +219,8 @@ async def run_live(*, export_langfuse=False):
                 lead_id = await sales.add_lead(tenant_id, "Synthetic Lead", "demo")
                 date = next_friday()
                 start = datetime(date.year, date.month, date.day, 16, tzinfo=ZONE)
-                await sales.add_slot(tenant_id, start.isoformat(),
-                                     (start + timedelta(minutes=30)).isoformat())
+                slot_id = await sales.add_slot(tenant_id, start.isoformat(),
+                                               (start + timedelta(minutes=30)).isoformat())
                 actions = ActionEngine(store, http)
                 events = TimedEvents()
                 registry = ToolRegistry(store, actions, events=events)
@@ -250,9 +252,43 @@ async def run_live(*, export_langfuse=False):
                 )
                 for index, prompt in enumerate(prompts, 1):
                     label = f"spoken_tool_turn_{index}"
+                    if index == 3:
+                        carrier.auto_mark = False
                     result["turns"].append(await send_spoken_turn(
                         carrier, session, task, prompt, result, label,
+                        wait_playback=index != 3,
                     ))
+                staged = await store.rows(
+                    "SELECT status,tenant_id,call_id,tool,arguments FROM actions WHERE call_id=?",
+                    (session.id,),
+                )
+                prompt_marks = [p["mark"]["name"] for p in carrier.sent if p["event"] == "mark"]
+                pending_mark = prompt_marks[-1] if prompt_marks else None
+                result["action_status_before_prompt_ack"] = [row["status"] for row in staged]
+                result["prompt_mark_pending_before_ack"] = bool(
+                    pending_mark and pending_mark in session.marks
+                )
+                result["booking_count_before_prompt_ack"] = len(await store.rows(
+                    "SELECT id FROM demo_bookings WHERE tenant_id=?", (tenant_id,)
+                ))
+                result["staged_selection_matches_fixture"] = len(staged) == 1 and all(
+                    row["tenant_id"] == tenant_id and row["call_id"] == session.id
+                    and row["tool"] == "schedule_demo"
+                    and json.loads(row["arguments"]) == {"lead_id": lead_id, "slot_id": slot_id}
+                    for row in staged
+                )
+                if pending_mark and result["prompt_mark_pending_before_ack"]:
+                    await carrier.incoming.put({"event": "mark", "mark": {"name": pending_mark}})
+                    async with asyncio.timeout(5):
+                        while True:
+                            acked = await store.one(
+                                "SELECT status FROM actions WHERE call_id=?", (session.id,)
+                            )
+                            if acked and acked["status"] == "armed":
+                                break
+                            await asyncio.sleep(0.01)
+                    await wait_for_live(lambda: not session.fsm.playing, task, carrier, 5)
+                carrier.auto_mark = True
                 staged = await store.rows("SELECT status FROM actions WHERE call_id=?", (session.id,))
                 result["write_before_confirmation"] = bool(await store.rows("SELECT id FROM demo_bookings"))
                 result["action_status_before_confirmation"] = [row["status"] for row in staged]
@@ -263,8 +299,30 @@ async def run_live(*, export_langfuse=False):
                     ))
                 result["tool_names"] = [event["tool"] for event in events.tool_events
                                         if event["event"] == "tool.requested"]
-                bookings = await store.rows("SELECT id FROM demo_bookings WHERE tenant_id=?", (tenant_id,))
+                bookings = await store.rows(
+                    "SELECT id,tenant_id,lead_id,slot_id,call_id,status FROM demo_bookings WHERE tenant_id=?",
+                    (tenant_id,),
+                )
                 result["booking_count"] = len(bookings)
+                result["booking_selection_matches_fixture"] = len(bookings) == 1 and all(
+                    row["tenant_id"] == tenant_id and row["lead_id"] == lead_id
+                    and row["slot_id"] == slot_id and row["call_id"] == session.id
+                    and row["status"] == "booked" for row in bookings
+                )
+                slot_row = await store.one(
+                    "SELECT status FROM demo_slots WHERE tenant_id=? AND id=?", (tenant_id, slot_id)
+                )
+                result["selected_slot_booked"] = bool(slot_row and slot_row["status"] == "booked")
+                action_row = await store.one(
+                    "SELECT status,result FROM actions WHERE call_id=?", (session.id,)
+                )
+                action_result = json.loads(action_row["result"]) if action_row and action_row["result"] else {}
+                result["committed_result_matches_booking"] = bool(
+                    len(bookings) == 1 and action_row and action_row["status"] == "committed"
+                    and action_result.get("ok") is True
+                    and action_result.get("booking_id") == bookings[0]["id"]
+                    and action_result.get("status") == bookings[0]["status"]
+                )
                 result["confirmed_commits"] = session.metrics["tool_summary"]["committed"]
                 result["final_spoken_success"] = (
                     bool(session.metrics["turns"])
@@ -372,7 +430,10 @@ async def run_live(*, export_langfuse=False):
         "08_booking_proposed": "schedule_demo" in proposal.get("tool_requests", []),
         "09_no_early_write": result.get("write_before_confirmation") is False,
         "10_live_confirmation_prompt": bool(
-            "armed" in result.get("action_status_before_confirmation", [])
+            result.get("action_status_before_prompt_ack") == ["staged"]
+            and result.get("prompt_mark_pending_before_ack")
+            and result.get("booking_count_before_prompt_ack") == 0
+            and "armed" in result.get("action_status_before_confirmation", [])
             and proposal.get("response_audio_bytes", 0) > 0
         ),
         "11_prompt_carrier_pcm": bool(proposal.get("outbound_frame_count", 0) > 0
@@ -381,8 +442,17 @@ async def run_live(*, export_langfuse=False):
         "13_confirmation_accepted": confirmation.get("path") == "confirmation",
         "14_action_committed_once": result.get("confirmed_commits") == 1
                                     and result.get("action_statuses") == ["committed"],
-        "15_one_persisted_booking": result.get("booking_count") == 1,
-        "16_truthful_final_response": bool(result.get("final_spoken_success")),
+        "15_one_persisted_booking": bool(
+            result.get("booking_count") == 1
+            and result.get("staged_selection_matches_fixture")
+            and result.get("booking_selection_matches_fixture")
+            and result.get("selected_slot_booked")
+            and result.get("committed_result_matches_booking")
+        ),
+        "16_truthful_final_response": bool(
+            result.get("final_spoken_success")
+            and result.get("committed_result_matches_booking")
+        ),
         "17_final_carrier_pcm": bool(confirmation.get("outbound_frame_count", 0) > 0
                                       and result.get("carrier_frames_valid")),
         "18_no_unsafe_commit": result.get("write_before_confirmation") is False
