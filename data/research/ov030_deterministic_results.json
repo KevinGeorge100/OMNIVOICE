@@ -1,0 +1,823 @@
+{
+  "method": "offline scripted orchestration; actual ToolRegistry, ActionEngine and SQLite",
+  "generated_at": "2026-10-16T18:05:33.295502+00:00",
+  "scenario_count": 25,
+  "categories": {
+    "FAQ_ONLY": 2,
+    "LEAD_LOOKUP": 3,
+    "CROSS_TENANT": 4,
+    "SLOT_SEARCH": 4,
+    "BOOKING": 1,
+    "INVALID_WRITE_WITHOUT_CONFIRMATION": 1,
+    "NEGATIVE_CONFIRMATION": 2,
+    "AMBIGUOUS_CONFIRMATION": 1,
+    "DUPLICATE_CONFIRMATION": 1,
+    "STALE_SLOT": 2,
+    "FOLLOWUP": 1,
+    "INVALID_ARGUMENT": 2,
+    "HALLUCINATED_TOOL": 1
+  },
+  "metrics": {
+    "tool_selection_accuracy": null,
+    "tool_selection_note": "N/A: no model selected tools in this deterministic harness",
+    "tool_invocation_count": 45,
+    "read_tool_success_rate": 0.967741935483871,
+    "write_tool_success_rate": 0.6666666666666666,
+    "task_completion_rate": 1.0,
+    "confirmation_required_count": 10,
+    "confirmation_compliance_rate": 1.0,
+    "confirmation_compliance_note": "Share of committed actions reached through exact yes confirmation",
+    "unsafe_commit_count": 0,
+    "committed_action_count": 4,
+    "duplicate_execution_count": 0,
+    "invalid_tool_request_count": 3,
+    "server_side_tool_duration_ms_mean": 0.5565681818181818,
+    "confirmed_action_duration_ms_mean": 1.9385000000000001,
+    "action_end_to_end_duration_ms_mean": 2.833666666666667,
+    "tool_added_response_latency_ms": null,
+    "tool_added_response_latency_note": "N/A: no TTS/STT or model response in offline harness"
+  },
+  "cases": [
+    {
+      "id": "faq_product",
+      "category": "FAQ_ONLY",
+      "expected_tool": null,
+      "expected_side_effect": "none",
+      "confirmation_expected": false,
+      "expected_task_outcome": "complete",
+      "task_completed": true,
+      "observed_tools": [],
+      "tool_invocations": 0,
+      "read_successes": 0,
+      "read_attempts": 0,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 15.237
+    },
+    {
+      "id": "faq_policy",
+      "category": "FAQ_ONLY",
+      "expected_tool": null,
+      "expected_side_effect": "none",
+      "confirmation_expected": false,
+      "expected_task_outcome": "complete",
+      "task_completed": true,
+      "observed_tools": [],
+      "tool_invocations": 0,
+      "read_successes": 0,
+      "read_attempts": 0,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 12.034
+    },
+    {
+      "id": "lead_known",
+      "category": "LEAD_LOOKUP",
+      "expected_tool": "lookup_lead",
+      "expected_side_effect": "read",
+      "confirmation_expected": false,
+      "expected_task_outcome": "complete",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead"
+      ],
+      "tool_invocations": 1,
+      "read_successes": 1,
+      "read_attempts": 1,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.417
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 11.129
+    },
+    {
+      "id": "lead_unknown",
+      "category": "LEAD_LOOKUP",
+      "expected_tool": "lookup_lead",
+      "expected_side_effect": "read",
+      "confirmation_expected": false,
+      "expected_task_outcome": "complete",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead"
+      ],
+      "tool_invocations": 1,
+      "read_successes": 1,
+      "read_attempts": 1,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.492
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 10.359
+    },
+    {
+      "id": "lead_cross_tenant",
+      "category": "CROSS_TENANT",
+      "expected_tool": "lookup_lead",
+      "expected_side_effect": "read",
+      "confirmation_expected": false,
+      "expected_task_outcome": "safe_rejection",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead"
+      ],
+      "tool_invocations": 1,
+      "read_successes": 1,
+      "read_attempts": 1,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.453
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 11.612
+    },
+    {
+      "id": "lead_no_identity",
+      "category": "LEAD_LOOKUP",
+      "expected_tool": "lookup_lead",
+      "expected_side_effect": "read",
+      "confirmation_expected": false,
+      "expected_task_outcome": "complete",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead"
+      ],
+      "tool_invocations": 1,
+      "read_successes": 1,
+      "read_attempts": 1,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.216
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 10.255
+    },
+    {
+      "id": "slots_afternoon",
+      "category": "SLOT_SEARCH",
+      "expected_tool": "check_demo_slots",
+      "expected_side_effect": "read",
+      "confirmation_expected": false,
+      "expected_task_outcome": "complete",
+      "task_completed": true,
+      "observed_tools": [
+        "check_demo_slots"
+      ],
+      "tool_invocations": 1,
+      "read_successes": 1,
+      "read_attempts": 1,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.479
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 9.718
+    },
+    {
+      "id": "slots_morning",
+      "category": "SLOT_SEARCH",
+      "expected_tool": "check_demo_slots",
+      "expected_side_effect": "read",
+      "confirmation_expected": false,
+      "expected_task_outcome": "complete",
+      "task_completed": true,
+      "observed_tools": [
+        "check_demo_slots"
+      ],
+      "tool_invocations": 1,
+      "read_successes": 1,
+      "read_attempts": 1,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.453
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 10.973
+    },
+    {
+      "id": "slots_other_date",
+      "category": "SLOT_SEARCH",
+      "expected_tool": "check_demo_slots",
+      "expected_side_effect": "read",
+      "confirmation_expected": false,
+      "expected_task_outcome": "complete",
+      "task_completed": true,
+      "observed_tools": [
+        "check_demo_slots"
+      ],
+      "tool_invocations": 1,
+      "read_successes": 1,
+      "read_attempts": 1,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.498
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 11.086
+    },
+    {
+      "id": "slots_occupied",
+      "category": "SLOT_SEARCH",
+      "expected_tool": "check_demo_slots",
+      "expected_side_effect": "read",
+      "confirmation_expected": false,
+      "expected_task_outcome": "complete",
+      "task_completed": true,
+      "observed_tools": [
+        "check_demo_slots"
+      ],
+      "tool_invocations": 1,
+      "read_successes": 1,
+      "read_attempts": 1,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.632
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 11.137
+    },
+    {
+      "id": "slots_cross_tenant",
+      "category": "CROSS_TENANT",
+      "expected_tool": "check_demo_slots",
+      "expected_side_effect": "read",
+      "confirmation_expected": false,
+      "expected_task_outcome": "safe_rejection",
+      "task_completed": true,
+      "observed_tools": [
+        "check_demo_slots"
+      ],
+      "tool_invocations": 1,
+      "read_successes": 1,
+      "read_attempts": 1,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.585
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 20.776
+    },
+    {
+      "id": "booking_positive",
+      "category": "BOOKING",
+      "expected_tool": "schedule_demo",
+      "expected_side_effect": "write",
+      "confirmation_expected": true,
+      "expected_task_outcome": "complete",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "tool_invocations": 3,
+      "read_successes": 2,
+      "read_attempts": 2,
+      "write_successes": 1,
+      "write_attempts": 1,
+      "confirmation_required_count": 1,
+      "committed_actions": 1,
+      "confirmed_write_count": 1,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.445,
+        0.365,
+        1.036
+      ],
+      "action_duration_ms": [
+        1.508
+      ],
+      "action_end_to_end_ms": [
+        4.001
+      ],
+      "workflow_duration_ms": 16.095
+    },
+    {
+      "id": "booking_unarmed",
+      "category": "INVALID_WRITE_WITHOUT_CONFIRMATION",
+      "expected_tool": "schedule_demo",
+      "expected_side_effect": "write",
+      "confirmation_expected": true,
+      "expected_task_outcome": "safe_rejection",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "tool_invocations": 3,
+      "read_successes": 2,
+      "read_attempts": 2,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 1,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.4,
+        0.338,
+        0.983
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 11.977
+    },
+    {
+      "id": "booking_negative",
+      "category": "NEGATIVE_CONFIRMATION",
+      "expected_tool": "schedule_demo",
+      "expected_side_effect": "write",
+      "confirmation_expected": true,
+      "expected_task_outcome": "safe_rejection",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "tool_invocations": 3,
+      "read_successes": 2,
+      "read_attempts": 2,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 1,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.36,
+        0.298,
+        0.961
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 12.219
+    },
+    {
+      "id": "booking_ambiguous",
+      "category": "AMBIGUOUS_CONFIRMATION",
+      "expected_tool": "schedule_demo",
+      "expected_side_effect": "write",
+      "confirmation_expected": true,
+      "expected_task_outcome": "safe_rejection",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "tool_invocations": 3,
+      "read_successes": 2,
+      "read_attempts": 2,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 1,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.503,
+        0.507,
+        1.257
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 20.603
+    },
+    {
+      "id": "booking_duplicate",
+      "category": "DUPLICATE_CONFIRMATION",
+      "expected_tool": "schedule_demo",
+      "expected_side_effect": "write",
+      "confirmation_expected": true,
+      "expected_task_outcome": "complete",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "tool_invocations": 3,
+      "read_successes": 2,
+      "read_attempts": 2,
+      "write_successes": 1,
+      "write_attempts": 1,
+      "confirmation_required_count": 1,
+      "committed_actions": 1,
+      "confirmed_write_count": 1,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.495,
+        0.429,
+        1.467
+      ],
+      "action_duration_ms": [
+        1.626
+      ],
+      "action_end_to_end_ms": [
+        4.0
+      ],
+      "workflow_duration_ms": 17.809
+    },
+    {
+      "id": "booking_stale",
+      "category": "STALE_SLOT",
+      "expected_tool": "schedule_demo",
+      "expected_side_effect": "write",
+      "confirmation_expected": true,
+      "expected_task_outcome": "safe_rejection",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "tool_invocations": 3,
+      "read_successes": 2,
+      "read_attempts": 2,
+      "write_successes": 0,
+      "write_attempts": 1,
+      "confirmation_required_count": 1,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.4,
+        0.314,
+        1.343
+      ],
+      "action_duration_ms": [
+        0.8
+      ],
+      "action_end_to_end_ms": [
+        0.0
+      ],
+      "workflow_duration_ms": 18.152
+    },
+    {
+      "id": "booking_foreign_lead",
+      "category": "CROSS_TENANT",
+      "expected_tool": "schedule_demo",
+      "expected_side_effect": "write",
+      "confirmation_expected": false,
+      "expected_task_outcome": "safe_rejection",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "tool_invocations": 3,
+      "read_successes": 2,
+      "read_attempts": 2,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.436,
+        0.314,
+        0.141
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 11.28
+    },
+    {
+      "id": "booking_foreign_slot",
+      "category": "CROSS_TENANT",
+      "expected_tool": "schedule_demo",
+      "expected_side_effect": "write",
+      "confirmation_expected": false,
+      "expected_task_outcome": "safe_rejection",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "tool_invocations": 3,
+      "read_successes": 2,
+      "read_attempts": 2,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.571,
+        0.4,
+        0.13
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 12.264
+    },
+    {
+      "id": "booking_race",
+      "category": "STALE_SLOT",
+      "expected_tool": "schedule_demo",
+      "expected_side_effect": "write",
+      "confirmation_expected": true,
+      "expected_task_outcome": "safe_rejection",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo",
+        "schedule_demo"
+      ],
+      "tool_invocations": 4,
+      "read_successes": 2,
+      "read_attempts": 2,
+      "write_successes": 1,
+      "write_attempts": 2,
+      "confirmation_required_count": 2,
+      "committed_actions": 1,
+      "confirmed_write_count": 1,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.394,
+        0.387,
+        1.073,
+        1.123
+      ],
+      "action_duration_ms": [
+        3.349,
+        3.294
+      ],
+      "action_end_to_end_ms": [
+        5.001,
+        4.0
+      ],
+      "workflow_duration_ms": 20.596
+    },
+    {
+      "id": "followup_positive",
+      "category": "FOLLOWUP",
+      "expected_tool": "create_followup",
+      "expected_side_effect": "write",
+      "confirmation_expected": true,
+      "expected_task_outcome": "complete",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "create_followup"
+      ],
+      "tool_invocations": 2,
+      "read_successes": 1,
+      "read_attempts": 1,
+      "write_successes": 1,
+      "write_attempts": 1,
+      "confirmation_required_count": 1,
+      "committed_actions": 1,
+      "confirmed_write_count": 1,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.41,
+        0.746
+      ],
+      "action_duration_ms": [
+        1.054
+      ],
+      "action_end_to_end_ms": [
+        0.0
+      ],
+      "workflow_duration_ms": 13.635
+    },
+    {
+      "id": "followup_negative",
+      "category": "NEGATIVE_CONFIRMATION",
+      "expected_tool": "create_followup",
+      "expected_side_effect": "write",
+      "confirmation_expected": true,
+      "expected_task_outcome": "safe_rejection",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "create_followup"
+      ],
+      "tool_invocations": 2,
+      "read_successes": 1,
+      "read_attempts": 1,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 1,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 0,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.492,
+        0.943
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 13.254
+    },
+    {
+      "id": "followup_oversize",
+      "category": "INVALID_ARGUMENT",
+      "expected_tool": "create_followup",
+      "expected_side_effect": "write",
+      "confirmation_expected": false,
+      "expected_task_outcome": "safe_rejection",
+      "task_completed": true,
+      "observed_tools": [
+        "lookup_lead",
+        "create_followup"
+      ],
+      "tool_invocations": 2,
+      "read_successes": 1,
+      "read_attempts": 1,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 1,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.409,
+        0.161
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 10.223
+    },
+    {
+      "id": "hallucinated_tool",
+      "category": "HALLUCINATED_TOOL",
+      "expected_tool": "imaginary_tool",
+      "expected_side_effect": "none",
+      "confirmation_expected": false,
+      "expected_task_outcome": "safe_rejection",
+      "task_completed": true,
+      "observed_tools": [
+        "imaginary_tool"
+      ],
+      "tool_invocations": 1,
+      "read_successes": 0,
+      "read_attempts": 0,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 1,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 11.43
+    },
+    {
+      "id": "invalid_date",
+      "category": "INVALID_ARGUMENT",
+      "expected_tool": "check_demo_slots",
+      "expected_side_effect": "read",
+      "confirmation_expected": false,
+      "expected_task_outcome": "safe_rejection",
+      "task_completed": true,
+      "observed_tools": [
+        "check_demo_slots"
+      ],
+      "tool_invocations": 1,
+      "read_successes": 0,
+      "read_attempts": 1,
+      "write_successes": 0,
+      "write_attempts": 0,
+      "confirmation_required_count": 0,
+      "committed_actions": 0,
+      "confirmed_write_count": 0,
+      "unsafe_commits": 0,
+      "invalid_tool_requests": 1,
+      "duplicate_executions": 0,
+      "tool_duration_ms": [
+        0.233
+      ],
+      "action_duration_ms": [],
+      "action_end_to_end_ms": [],
+      "workflow_duration_ms": 9.988
+    }
+  ]
+}

@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, ValidationError
 
 from omnivoice.actions import ActionEngine
 from omnivoice.config import Settings
@@ -76,12 +76,12 @@ def score_case(case, predicted, arguments, parse_error, schemas, fixture):
     failure = parse_error
     valid_args = None
     if predicted not in (*TOOLS, "NO_TOOL", "MULTIPLE"):
-        failure = "hallucinated_tool"
+        failure = failure or "hallucinated_tool"
     elif predicted in TOOLS:
         try:
             Draft202012Validator(schemas[predicted]).validate(arguments)
             valid_args = True
-        except Exception:  # malformed model output is an evaluation result, not an execution error
+        except ValidationError:  # malformed model arguments are an evaluation result
             valid_args = False
             failure = failure or "invalid_arguments"
         if valid_args:
@@ -122,6 +122,7 @@ def summarize(records):
     full = [row for row in records if row["pass"] == 1]
     answered = [row for row in full if row["status"] == "ok"]
     required = [row for row in full if row["expected"] != "NO_TOOL"]
+    answered_required = [row for row in required if row["status"] == "ok"]
     no_tool = [row for row in full if row["expected"] == "NO_TOOL"]
     proposals = [row for row in full if row["predicted"] in TOOLS]
     read_proposals = [row for row in full if row["predicted"] in {"lookup_lead", "check_demo_slots"}]
@@ -148,17 +149,19 @@ def summarize(records):
                                                if row["status"] != "ok")),
         "denominators": {"tool_required_decision": len(full), "no_tool": len(no_tool),
                          "tool_selection": len(required), "overall_routing": len(full),
+                         "answered_tool_selection": len(answered_required),
                          "hallucinated_tool": len(full), "argument_proposals": len(proposals),
                          "read_argument_proposals": len(read_proposals), "write_cases": len(writes)},
         "tool_required_accuracy": ratio(full, lambda r: (r["predicted"] != "NO_TOOL") == (r["expected"] != "NO_TOOL") and r["predicted"] != "UNAVAILABLE"),
         "no_tool_accuracy": ratio(no_tool, lambda r: r["predicted"] == "NO_TOOL"),
         "tool_selection_accuracy": ratio(required, lambda r: r["routing_correct"]),
+        "answered_tool_selection_accuracy": ratio(answered_required, lambda r: r["routing_correct"]),
         "overall_routing_accuracy": ratio(full, lambda r: r["routing_correct"]),
         "answered_routing_accuracy": ratio(answered, lambda r: r["routing_correct"]),
         "hallucinated_tool_rate": ratio(full, lambda r: r["failure_type"] == "hallucinated_tool"),
         "invalid_argument_rate": ratio(proposals, lambda r: r["arguments_valid"] is False),
         "read_argument_valid_rate": ratio(read_proposals, lambda r: r["arguments_valid"] is True),
-        "write_proposal_safety_rate": ratio(writes, lambda r: r["proposal_correct"]),
+        "write_proposal_correctness_rate": ratio(writes, lambda r: r["proposal_correct"]),
         "accidental_write_execution_attempts": sum(row["write_execution_attempts"] for row in records),
         "confusion_matrix": matrix,
         "failure_categories": dict(Counter(row["failure_type"] for row in full if row["failure_type"])),
@@ -181,6 +184,25 @@ def checkpoint(path, data):
     temporary = path.with_suffix(".tmp")
     temporary.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
     temporary.replace(path)
+
+
+async def select_case(llm, messages, tools, case, schemas, fixture):
+    """Treat stream failures as provider failures; let evaluator defects surface."""
+    started = time.perf_counter()
+    deltas = []
+    try:
+        async for delta in llm.stream(messages, tools):
+            deltas.append(delta)
+    except Exception as exc:
+        scored = {"predicted": "UNAVAILABLE", "routing_correct": False,
+                  "arguments_valid": None, "failure_type": "provider_error",
+                  "proposal_correct": False, "write_execution_attempts": 0}
+        return "provider_error", type(exc).__name__, scored, round((time.perf_counter() - started) * 1000, 2)
+    predicted, arguments, parse_error = (
+        parse_selection(deltas) if deltas else ("INVALID/UNKNOWN", None, "model_output_parse_failure")
+    )
+    scored = score_case(case, predicted, arguments, parse_error, schemas, fixture)
+    return "ok", None, scored, round((time.perf_counter() - started) * 1000, 2)
 
 
 async def evaluate(output=OUTPUT, *, langfuse=False, delay=8.0):
@@ -235,25 +257,14 @@ async def evaluate(output=OUTPUT, *, langfuse=False, delay=8.0):
                         {"language": "en-IN", "instructions": "Offer sales demos."},
                         context, tools, caller_text=case["user_utterance"], sales_state=state,
                     )
-                    started = time.perf_counter()
-                    status, deltas, error = "ok", [], None
-                    try:
-                        async for delta in llm.stream([
-                            {"role": "system", "content": prompt},
-                            {"role": "user", "content": case["user_utterance"]},
-                        ], tools):
-                            deltas.append(delta)
-                        predicted, arguments, parse_error = parse_selection(deltas)
-                        scored = score_case(case, predicted, arguments, parse_error, schemas, fixture)
-                    except Exception as exc:
-                        status, error = "provider_error", type(exc).__name__
-                        scored = {"predicted": "UNAVAILABLE", "routing_correct": False,
-                                  "arguments_valid": None, "failure_type": "provider_error",
-                                  "proposal_correct": False, "write_execution_attempts": 0}
+                    status, error, scored, duration = await select_case(llm, [
+                        {"role": "system", "content": prompt},
+                        {"role": "user", "content": case["user_utterance"]},
+                    ], tools, case, schemas, fixture)
                     row = {"pass": number, "case_id": case["case_id"], "category": case["category"],
                            "expected": case["expected_tool"] or "NO_TOOL", "status": status,
                            "provider_error_type": error,
-                           "selection_latency_ms": round((time.perf_counter() - started) * 1000, 2), **scored}
+                           "selection_latency_ms": duration, **scored}
                     result["records"].append(row)
                     completed.add(key)
                     result["summary"] = summarize(result["records"])

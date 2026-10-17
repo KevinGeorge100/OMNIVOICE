@@ -88,16 +88,17 @@ def render(live_path=DATA / "ov030_live_selection_results.json",
         "|---|---:|---:|",
         f"| Tool-required decision accuracy | {percent(model['tool_required_accuracy'])} | {denominators['tool_required_decision']} |",
         f"| NO_TOOL accuracy | {percent(model['no_tool_accuracy'])} | {denominators['no_tool']} |",
-        f"| Correct tool selection | {percent(model['tool_selection_accuracy'])} | {denominators['tool_selection']} |",
-        f"| Overall routing accuracy | {percent(model['overall_routing_accuracy'])} | {denominators['overall_routing']} |",
-        f"| Answered-only routing accuracy (diagnostic) | {percent(model['answered_routing_accuracy'])} | {model['full_pass_model_responses']} |",
+        f"| System-level correct tool selection | {percent(model['tool_selection_accuracy'])} | {denominators['tool_selection']} |",
+        f"| Conditional correct tool selection (completed required-tool responses) | {percent(model['answered_tool_selection_accuracy'])} | {denominators['answered_tool_selection']} |",
+        f"| System-level routing success | {percent(model['overall_routing_accuracy'])} | {denominators['overall_routing']} |",
+        f"| Conditional-on-response routing accuracy | {percent(model['answered_routing_accuracy'])} | {model['full_pass_model_responses']} |",
         f"| Hallucinated tool rate | {percent(model['hallucinated_tool_rate'])} | {denominators['hallucinated_tool']} |",
         f"| Invalid argument rate among known-tool proposals | {percent(model['invalid_argument_rate'])} | {denominators['argument_proposals']} |",
         f"| Valid read arguments among read proposals | {percent(model['read_argument_valid_rate'])} | {denominators['read_argument_proposals']} |",
-        f"| Correct write proposal, with no execution | {percent(model['write_proposal_safety_rate'])} | {denominators['write_cases']} |",
+        f"| Correct write proposal, with no execution | {percent(model['write_proposal_correctness_rate'])} | {denominators['write_cases']} |",
         f"| Accidental write execution attempts | {model['accidental_write_execution_attempts']} | all passes |",
         "",
-        "A model selection counts as correct only for the exact labeled tool (or NO_TOOL). Provider failures count as incorrect in full-pass accuracy and are also reported separately. "
+        "A model selection counts as correct only for the exact labeled tool (or NO_TOOL). System-level rates include provider failures as unsuccessful requests; conditional rates exclude requests with no completed model response. "
         "A known-tool argument is valid only if it passes the JSON schema and matches the relevant synthetic identifier/date/slot; free-text follow-up note quality is not graded. "
         "The write-proposal measure is **not** a completed or confirmation-safe live booking rate.",
         "",
@@ -131,6 +132,16 @@ def render(live_path=DATA / "ov030_live_selection_results.json",
         f"Repeat consistency (identical predicted tool across available observations): "
         f"{percent(model['repeat_consistency'])} over {model['repeat_case_count']} cases. "
         "This small stratified subset is a prompt-stability check, not a confidence interval for all industries or callers.",
+        "",
+        "### Post-hoc label audit",
+        "",
+        "The independent audit did not silently relabel any of the 76 frozen cases. "
+        "`schedule_demo_12` asks to *confirm the booking flow*, which could mean an explanation rather than a booking instruction. "
+        "`create_followup_02`, `_04`, `_06`, `_08`, and `_11` can imply actual human outreach, while the registered tool only saves a follow-up note; `_08` was a successful proposal, so the ambiguity is not selected solely from failures. "
+        "These cases need prospective adjudication before a new accuracy claim. "
+        "The missed explicit note requests (`create_followup_05`, `_09`, `_10`) show that the follow-up routing weakness is not only a labeling artifact. "
+        "The primary rates above retain the original labels and therefore are conditional on that labeling policy. "
+        "The evaluator checks tool proposals, not whether a NO_TOOL text response correctly refuses an adversarial request or avoids an unsupported promise.",
         "", "## Deterministic orchestration and multi-step workflows", "",
         f"The unchanged OV-011B scripted harness produced {det['scenario_count']}/{det['scenario_count']} expected outcomes, "
         f"{det['committed_action_count']} confirmed commits, {det['unsafe_commit_count']} unsafe commits, "
@@ -155,6 +166,11 @@ def render(live_path=DATA / "ov030_live_selection_results.json",
         f"Scripted confirmed action execution: P50 {number(det['confirmed_action_execution_latency_ms_p50'], ' ms')}, "
         f"P95 {number(det['confirmed_action_execution_latency_ms_p95'], ' ms')} "
         f"(n={det['confirmed_action_execution_samples']}; P95 requires at least 20 samples).",
+        "Percentiles use sorted samples and linear interpolation at index `(n-1) × p`. "
+        f"The exact local tool/action samples for this summary are retained in `{det['evidence_file']}`; "
+        "the historical OV-011B JSON was not reused for these audit-run timings. "
+        "The original OV-030 local latency figures lacked retained same-run samples, so this audit replaced them with a fresh scripted run and its saved raw samples. "
+        "Failed Groq requests are excluded from completed-selection latency percentiles and remain counted in system-level routing outcomes.",
         "Tool-assisted response latency and token/cost per case are **N/A**: this experiment did not measure a complete STT→tool→LLM→TTS response or capture comparable usage accounting. "
         "All values here are server-side; none measure carrier transit or acoustic mouth-to-ear delay.",
         "", "## Langfuse, limitations, and threats to validity", "",
@@ -163,9 +179,9 @@ def render(live_path=DATA / "ov030_live_selection_results.json",
         "It does not send raw utterances, prompts, audio, transcripts, caller/tenant IDs, business records, tool arguments or secret credentials. "
         "Local JSON records and the deterministic harness remain the authoritative evidence; Langfuse does not alter scores. "
         "Export errors are sanitized and fail open. A successful SDK call alone does not prove every trace was ingested remotely.",
-        "Synthetic prompts, correlated paraphrases within each category, and one primary LLM/model family limit generalization. The fixture uses local SQLite rather than an external CRM/calendar. "
+        "Synthetic prompts, correlated paraphrases within each category, one model and one provider limit generalization. The fixture uses local SQLite rather than an external CRM/calendar. "
         "Prompt phrasing, date and synthetic sales state can change model decisions; repeated observations show only a small subset. "
-        "The dataset does not represent every industry, language, accent, noisy line or real caller. Three historical PSTN calls validated earlier voice behavior, but no physical PSTN sales-tool call was part of this evaluation. "
+        "The dataset is not a statistically representative sample of real callers, industries, languages, accents or noisy lines. Three historical PSTN calls validated earlier voice behavior, but no physical PSTN sales-tool call was part of this evaluation. "
         "The live selector does not exercise STT, TTS, barge-in, carrier framing, confirmed writes or end-to-end user task completion. "
         "Provider rate limits and transient failures can lower observed completion. Server-side timing is not mouth-to-ear latency. "
         "No direct numerical comparison to a base paper is supported by matching fixtures or measurements.",
@@ -181,12 +197,12 @@ def render(live_path=DATA / "ov030_live_selection_results.json",
         ".venv\\Scripts\\python.exe scripts/build_ov030_cases.py",
         ".venv\\Scripts\\python.exe scripts/evaluate_agent_workflows.py",
         ".venv\\Scripts\\python.exe scripts/evaluate_live_agent_selection.py --output data/research/ov030_replicate.json --delay 8",
-        ".venv\\Scripts\\python.exe scripts/summarize_ov030.py --live data/research/ov030_replicate.json --output data/research/ov030_replicate_summary.json",
+        ".venv\\Scripts\\python.exe scripts/summarize_ov030.py --live data/research/ov030_replicate.json --output data/research/ov030_replicate_summary.json --deterministic-output data/research/ov030_replicate_deterministic.json",
         ".venv\\Scripts\\python.exe scripts/report_ov030.py --live data/research/ov030_replicate.json --summary data/research/ov030_replicate_summary.json --output docs/research/OV-030_REPLICATE.md",
         "```",
         "", "Machine-readable evidence: `data/research/agent_eval_cases.json`, "
         "`data/research/ov030_live_selection_results.json`, `data/research/ov030_workflow_results.json`, "
-        "and `data/research/ov030_summary.json`. Historical OV-011B files were not overwritten.",
+        "`data/research/ov030_deterministic_results.json`, and `data/research/ov030_summary.json`. Historical OV-011B files were not overwritten.",
     ]
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)

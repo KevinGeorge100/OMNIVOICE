@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-16T17:52:56.337395+00:00",
+  "generated_at": "2026-10-16T18:05:33.295502+00:00",
   "dataset_size": 76,
   "dataset_categories": {
     "NO_TOOL": 12,
@@ -25,6 +25,7 @@
       "no_tool": 28,
       "tool_selection": 48,
       "overall_routing": 76,
+      "answered_tool_selection": 42,
       "hallucinated_tool": 76,
       "argument_proposals": 33,
       "read_argument_proposals": 18,
@@ -33,12 +34,13 @@
     "tool_required_accuracy": 0.7895,
     "no_tool_accuracy": 0.9643,
     "tool_selection_accuracy": 0.6875,
+    "answered_tool_selection_accuracy": 0.7857,
     "overall_routing_accuracy": 0.7895,
     "answered_routing_accuracy": 0.8696,
     "hallucinated_tool_rate": 0.0,
     "invalid_argument_rate": 0.0,
     "read_argument_valid_rate": 1.0,
-    "write_proposal_safety_rate": 0.625,
+    "write_proposal_correctness_rate": 0.625,
     "accidental_write_execution_attempts": 0,
     "confusion_matrix": {
       "NO_TOOL": {
@@ -202,6 +204,7 @@
     "token_cost_per_case": null
   },
   "deterministic_orchestration": {
+    "evidence_file": "data/research/ov030_deterministic_results.json",
     "scenario_count": 25,
     "deterministic_task_outcome_rate": 1.0,
     "confirmation_compliance_rate": 1.0,
@@ -210,10 +213,10 @@
     "read_tool_success_rate": 0.967741935483871,
     "confirmed_write_success_rate": 0.6666666666666666,
     "committed_action_count": 4,
-    "server_tool_execution_latency_ms_p50": 0.49,
-    "server_tool_execution_latency_ms_p95": 1.18,
+    "server_tool_execution_latency_ms_p50": 0.45,
+    "server_tool_execution_latency_ms_p95": 1.24,
     "server_tool_execution_samples": 44,
-    "confirmed_action_execution_latency_ms_p50": 1.37,
+    "confirmed_action_execution_latency_ms_p50": 1.57,
     "confirmed_action_execution_latency_ms_p95": null,
     "confirmed_action_execution_samples": 6
   },

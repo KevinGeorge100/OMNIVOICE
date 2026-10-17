@@ -16,12 +16,24 @@ from scripts.evaluate_live_agent_selection import OUTPUT as LIVE_OUTPUT
 from scripts.evaluate_live_agent_selection import ROOT, percentile, summarize
 
 OUTPUT = ROOT / "data/research/ov030_summary.json"
+DETERMINISTIC_OUTPUT = ROOT / "data/research/ov030_deterministic_results.json"
 
 
-async def build_summary(live_path=LIVE_OUTPUT):
+async def build_summary(live_path=LIVE_OUTPUT, deterministic_output=None):
     live = json.loads(Path(live_path).read_text(encoding="utf-8"))
     workflows = json.loads(WORKFLOW_OUTPUT.read_text(encoding="utf-8"))
     prior = await evaluate_ov011b()
+    evidence_file = None
+    if deterministic_output is not None:
+        deterministic_output = Path(deterministic_output)
+        deterministic_output.parent.mkdir(parents=True, exist_ok=True)
+        deterministic_output.write_text(json.dumps(prior, indent=2) + "\n", encoding="utf-8")
+        prior = json.loads(deterministic_output.read_text(encoding="utf-8"))
+        resolved = deterministic_output.resolve()
+        try:
+            evidence_file = resolved.relative_to(ROOT).as_posix()
+        except ValueError:
+            evidence_file = str(resolved)
     metrics = prior["metrics"]
     if not (prior["scenario_count"] == 25 and metrics["task_completion_rate"] == 1
             and metrics["committed_action_count"] == 4
@@ -38,6 +50,7 @@ async def build_summary(live_path=LIVE_OUTPUT):
         "model": live["model"], "provider": live["provider"],
         "live_model": summarize(live["records"]),
         "deterministic_orchestration": {
+            "evidence_file": evidence_file,
             "scenario_count": prior["scenario_count"],
             "deterministic_task_outcome_rate": metrics["task_completion_rate"],
             "confirmation_compliance_rate": metrics["confirmation_compliance_rate"],
@@ -64,8 +77,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--live", type=Path, default=LIVE_OUTPUT)
     parser.add_argument("--output", type=Path, default=OUTPUT)
+    parser.add_argument("--deterministic-output", type=Path, default=DETERMINISTIC_OUTPUT)
     args = parser.parse_args()
-    result = asyncio.run(build_summary(args.live))
+    result = asyncio.run(build_summary(args.live, args.deterministic_output))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(result, indent=2))

@@ -1,6 +1,6 @@
 # OV-030 Agent Evaluation Expansion
 
-Generated: 2026-10-16T17:52:56.337395+00:00. This report uses the retained synthetic case records; failed cases are included.
+Generated: 2026-10-16T18:05:33.295502+00:00. This report uses the retained synthetic case records; failed cases are included.
 
 ## Objective and research questions
 
@@ -30,16 +30,17 @@ Pass 1 attempted 76 of 76 cases and received 69 completed model responses; 7 pro
 |---|---:|---:|
 | Tool-required decision accuracy | 78.95% | 76 |
 | NO_TOOL accuracy | 96.43% | 28 |
-| Correct tool selection | 68.75% | 48 |
-| Overall routing accuracy | 78.95% | 76 |
-| Answered-only routing accuracy (diagnostic) | 86.96% | 69 |
+| System-level correct tool selection | 68.75% | 48 |
+| Conditional correct tool selection (completed required-tool responses) | 78.57% | 42 |
+| System-level routing success | 78.95% | 76 |
+| Conditional-on-response routing accuracy | 86.96% | 69 |
 | Hallucinated tool rate | 0.00% | 76 |
 | Invalid argument rate among known-tool proposals | 0.00% | 33 |
 | Valid read arguments among read proposals | 100.00% | 18 |
 | Correct write proposal, with no execution | 62.50% | 24 |
 | Accidental write execution attempts | 0 | all passes |
 
-A model selection counts as correct only for the exact labeled tool (or NO_TOOL). Provider failures count as incorrect in full-pass accuracy and are also reported separately. A known-tool argument is valid only if it passes the JSON schema and matches the relevant synthetic identifier/date/slot; free-text follow-up note quality is not graded. The write-proposal measure is **not** a completed or confirmation-safe live booking rate.
+A model selection counts as correct only for the exact labeled tool (or NO_TOOL). System-level rates include provider failures as unsuccessful requests; conditional rates exclude requests with no completed model response. A known-tool argument is valid only if it passes the JSON schema and matches the relevant synthetic identifier/date/slot; free-text follow-up note quality is not graded. The write-proposal measure is **not** a completed or confirmation-safe live booking rate.
 
 ## Routing confusion matrix
 
@@ -79,6 +80,10 @@ Full-pass failure categories: provider_error 7, missed_tool 9.
 Per-pass routing accuracy: pass 1: 78.95% (76 cases), pass 2: 85.71% (7 cases), pass 3: 100.00% (7 cases).
 Repeat consistency (identical predicted tool across available observations): 71.43% over 7 cases. This small stratified subset is a prompt-stability check, not a confidence interval for all industries or callers.
 
+### Post-hoc label audit
+
+The independent audit did not silently relabel any of the 76 frozen cases. `schedule_demo_12` asks to *confirm the booking flow*, which could mean an explanation rather than a booking instruction. `create_followup_02`, `_04`, `_06`, `_08`, and `_11` can imply actual human outreach, while the registered tool only saves a follow-up note; `_08` was a successful proposal, so the ambiguity is not selected solely from failures. These cases need prospective adjudication before a new accuracy claim. The missed explicit note requests (`create_followup_05`, `_09`, `_10`) show that the follow-up routing weakness is not only a labeling artifact. The primary rates above retain the original labels and therefore are conditional on that labeling policy. The evaluator checks tool proposals, not whether a NO_TOOL text response correctly refuses an adversarial request or avoids an unsupported promise.
+
 ## Deterministic orchestration and multi-step workflows
 
 The unchanged OV-011B scripted harness produced 25/25 expected outcomes, 4 confirmed commits, 0 unsafe commits, and 0 duplicate bookings. Confirmation compliance was 100.00%. Read-tool success was 96.77%; confirmed write success was 66.67%. Expected stale/race failures remain safe outcomes, not successful business writes.
@@ -87,14 +92,15 @@ Eight scripted multi-step workflows completed 8/8 expected outcomes with 8/8 exp
 ## Latency and cost boundary
 
 Completed live model selections: P50 734.29 ms, P95 2996.69 ms (n=69; includes any successful provider retries).
-Scripted server-side tool execution: P50 0.49 ms, P95 1.18 ms (n=44).
-Scripted confirmed action execution: P50 1.37 ms, P95 N/A (n=6; P95 requires at least 20 samples).
+Scripted server-side tool execution: P50 0.45 ms, P95 1.24 ms (n=44).
+Scripted confirmed action execution: P50 1.57 ms, P95 N/A (n=6; P95 requires at least 20 samples).
+Percentiles use sorted samples and linear interpolation at index `(n-1) × p`. The exact local tool/action samples for this summary are retained in `data/research/ov030_deterministic_results.json`; the historical OV-011B JSON was not reused for these audit-run timings. The original OV-030 local latency figures lacked retained same-run samples, so this audit replaced them with a fresh scripted run and its saved raw samples. Failed Groq requests are excluded from completed-selection latency percentiles and remain counted in system-level routing outcomes.
 Tool-assisted response latency and token/cost per case are **N/A**: this experiment did not measure a complete STT→tool→LLM→TTS response or capture comparable usage accounting. All values here are server-side; none measure carrier transit or acoustic mouth-to-ear delay.
 
 ## Langfuse, limitations, and threats to validity
 
 OV-029 Langfuse export was opt-in and supplemental. This live run used `--langfuse`; no local exporter exception was observed, but remote receipt of each case was not independently queried. The selection exporter sends only allowlisted synthetic case ID/category, expected/predicted tool, correctness, fixed failure category, model/provider and measured latency. It does not send raw utterances, prompts, audio, transcripts, caller/tenant IDs, business records, tool arguments or secret credentials. Local JSON records and the deterministic harness remain the authoritative evidence; Langfuse does not alter scores. Export errors are sanitized and fail open. A successful SDK call alone does not prove every trace was ingested remotely.
-Synthetic prompts, correlated paraphrases within each category, and one primary LLM/model family limit generalization. The fixture uses local SQLite rather than an external CRM/calendar. Prompt phrasing, date and synthetic sales state can change model decisions; repeated observations show only a small subset. The dataset does not represent every industry, language, accent, noisy line or real caller. Three historical PSTN calls validated earlier voice behavior, but no physical PSTN sales-tool call was part of this evaluation. The live selector does not exercise STT, TTS, barge-in, carrier framing, confirmed writes or end-to-end user task completion. Provider rate limits and transient failures can lower observed completion. Server-side timing is not mouth-to-ear latency. No direct numerical comparison to a base paper is supported by matching fixtures or measurements.
+Synthetic prompts, correlated paraphrases within each category, one model and one provider limit generalization. The fixture uses local SQLite rather than an external CRM/calendar. Prompt phrasing, date and synthetic sales state can change model decisions; repeated observations show only a small subset. The dataset is not a statistically representative sample of real callers, industries, languages, accents or noisy lines. Three historical PSTN calls validated earlier voice behavior, but no physical PSTN sales-tool call was part of this evaluation. The live selector does not exercise STT, TTS, barge-in, carrier framing, confirmed writes or end-to-end user task completion. Provider rate limits and transient failures can lower observed completion. Server-side timing is not mouth-to-ear latency. No direct numerical comparison to a base paper is supported by matching fixtures or measurements.
 
 ## Defensible conclusion
 
@@ -108,8 +114,8 @@ From the repository root, use the pinned environment and private local Groq cred
 .venv\Scripts\python.exe scripts/build_ov030_cases.py
 .venv\Scripts\python.exe scripts/evaluate_agent_workflows.py
 .venv\Scripts\python.exe scripts/evaluate_live_agent_selection.py --output data/research/ov030_replicate.json --delay 8
-.venv\Scripts\python.exe scripts/summarize_ov030.py --live data/research/ov030_replicate.json --output data/research/ov030_replicate_summary.json
+.venv\Scripts\python.exe scripts/summarize_ov030.py --live data/research/ov030_replicate.json --output data/research/ov030_replicate_summary.json --deterministic-output data/research/ov030_replicate_deterministic.json
 .venv\Scripts\python.exe scripts/report_ov030.py --live data/research/ov030_replicate.json --summary data/research/ov030_replicate_summary.json --output docs/research/OV-030_REPLICATE.md
 ```
 
-Machine-readable evidence: `data/research/agent_eval_cases.json`, `data/research/ov030_live_selection_results.json`, `data/research/ov030_workflow_results.json`, and `data/research/ov030_summary.json`. Historical OV-011B files were not overwritten.
+Machine-readable evidence: `data/research/agent_eval_cases.json`, `data/research/ov030_live_selection_results.json`, `data/research/ov030_workflow_results.json`, `data/research/ov030_deterministic_results.json`, and `data/research/ov030_summary.json`. Historical OV-011B files were not overwritten.

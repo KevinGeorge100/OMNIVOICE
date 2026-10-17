@@ -10,6 +10,7 @@ data/research/*
 !data/research/ov030_live_selection_results.json
 !data/research/ov030_workflow_results.json
 !data/research/ov030_summary.json
+!data/research/ov030_deterministic_results.json
 models/
 __pycache__/
 *.egg-info/

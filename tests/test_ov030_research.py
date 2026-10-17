@@ -1,5 +1,7 @@
 """Deterministic scoring/privacy checks for the synthetic OV-030 research suite."""
 
+import json
+import math
 import re
 from types import SimpleNamespace
 
@@ -14,6 +16,7 @@ from scripts.evaluate_agent_workflows import evaluate as evaluate_workflows
 from scripts.evaluate_agent_workflows import score_workflows
 from scripts.evaluate_live_agent_selection import (
     REPEAT_IDS,
+    ROOT,
     load_cases,
     parse_selection,
     score_case,
@@ -33,6 +36,8 @@ def test_dataset_schema_uniqueness_and_synthetic_content():
     assert cases == build_cases()
     assert len(cases) == 76
     assert len({row["case_id"] for row in cases}) == len(cases)
+    normalized = [" ".join(re.findall(r"[a-z0-9]+", row["user_utterance"].lower())) for row in cases]
+    assert len(set(normalized)) == len(cases)
     assert {row["category"] for row in cases} == {
         "NO_TOOL", "LOOKUP_LEAD", "CHECK_DEMO_SLOTS", "SCHEDULE_DEMO",
         "CREATE_FOLLOWUP", "AMBIGUOUS", "ADVERSARIAL",
@@ -89,6 +94,7 @@ def test_metric_denominators_confusion_repeats_and_failures():
     summary = summarize(rows)
     assert summary["overall_routing_accuracy"] == 0.5
     assert summary["tool_selection_accuracy"] == 0
+    assert summary["answered_tool_selection_accuracy"] is None
     assert summary["no_tool_accuracy"] == 1
     assert summary["provider_failures"] == 1
     assert summary["confusion_matrix"]["lookup_lead"] == {"UNAVAILABLE": 1}
@@ -96,6 +102,84 @@ def test_metric_denominators_confusion_repeats_and_failures():
     assert summary["repeat_consistency"] == 1
     assert summary["llm_selection_latency_ms_p95"] is None
     assert summary["tool_assisted_response_latency_ms"] is None
+
+
+def test_persisted_research_counts_and_same_run_latency_evidence():
+    research = ROOT / "data/research"
+    live = json.loads((research / "ov030_live_selection_results.json").read_text(encoding="utf-8"))
+    summary = json.loads((research / "ov030_summary.json").read_text(encoding="utf-8"))
+    deterministic = json.loads((research / "ov030_deterministic_results.json").read_text(encoding="utf-8"))
+    rows = [row for row in live["records"] if row["pass"] == 1]
+    responded = [row for row in rows if row["status"] == "ok"]
+    required = [row for row in rows if row["expected"] != "NO_TOOL"]
+    responded_required = [row for row in required if row["status"] == "ok"]
+    writes = [row for row in rows if row["expected"] in {"schedule_demo", "create_followup"}]
+    assert len(rows) == 76 and len(responded) == 69 and len(live["records"]) == 90
+    assert sum(row["routing_correct"] for row in rows) == 60
+    assert sum(row["routing_correct"] for row in responded) == 60
+    assert len(required) == 48 and len(responded_required) == 42
+    assert sum(row["routing_correct"] for row in responded_required) == 33
+    assert sum(row["proposal_correct"] for row in writes) == 15 and len(writes) == 24
+    metrics = summary["live_model"]
+    assert metrics["overall_routing_accuracy"] == round(60 / 76, 4)
+    assert metrics["answered_routing_accuracy"] == round(60 / 69, 4)
+    assert metrics["answered_tool_selection_accuracy"] == round(33 / 42, 4)
+    assert metrics["write_proposal_correctness_rate"] == round(15 / 24, 4)
+    assert "write_proposal_safety_rate" not in metrics
+
+    def independent_percentile(values, quantile):
+        values = sorted(values)
+        position = (len(values) - 1) * quantile
+        low, high = math.floor(position), math.ceil(position)
+        return round(values[low] + (values[high] - values[low]) * (position - low), 2)
+
+    case_rows = deterministic["cases"]
+    tool_times = [value for row in case_rows for value in row["tool_duration_ms"]]
+    action_times = [value for row in case_rows for value in row["action_duration_ms"]]
+    local = summary["deterministic_orchestration"]
+    assert local["evidence_file"] == "data/research/ov030_deterministic_results.json"
+    assert len(case_rows) == 25 and len(tool_times) == local["server_tool_execution_samples"]
+    assert len(action_times) == local["confirmed_action_execution_samples"]
+    assert independent_percentile(tool_times, 0.5) == local["server_tool_execution_latency_ms_p50"]
+    assert independent_percentile(tool_times, 0.95) == local["server_tool_execution_latency_ms_p95"]
+    assert independent_percentile(action_times, 0.5) == local["confirmed_action_execution_latency_ms_p50"]
+    assert local["confirmed_action_execution_latency_ms_p95"] is None
+
+
+@pytest.mark.asyncio
+async def test_stream_failure_is_counted_but_evaluator_failure_surfaces(fixture_data):
+    schemas, fixture = fixture_data
+    case = {"expected_tool": "lookup_lead"}
+
+    class FailedStream:
+        async def stream(self, messages, tools):
+            yield {"content": "partial"}
+            raise RuntimeError("synthetic provider failure")
+
+    status, error, scored, _ = await live_eval.select_case(
+        FailedStream(), [], [], case, schemas, fixture,
+    )
+    assert (status, error, scored["predicted"]) == ("provider_error", "RuntimeError", "UNAVAILABLE")
+
+    class CompletedStream:
+        async def stream(self, messages, tools):
+            yield {"tool_calls": [{"index": 0, "function": {
+                "name": "lookup_lead", "arguments": '{"identifier":"DEMO-ALPHA-001"}',
+            }}]}
+
+    with pytest.raises(KeyError):
+        await live_eval.select_case(CompletedStream(), [], [], case, {}, fixture)
+
+    class EmptyStream:
+        async def stream(self, messages, tools):
+            if False:
+                yield None
+
+    status, error, scored, _ = await live_eval.select_case(
+        EmptyStream(), [], [], {"expected_tool": None}, schemas, fixture,
+    )
+    assert (status, error, scored["failure_type"]) == ("ok", None, "model_output_parse_failure")
+    assert not scored["routing_correct"]
 
 
 def test_workflow_score_keeps_safe_failures_and_missing_recovery():
