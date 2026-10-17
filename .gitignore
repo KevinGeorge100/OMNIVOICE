@@ -11,6 +11,8 @@ data/research/*
 !data/research/ov030_workflow_results.json
 !data/research/ov030_summary.json
 !data/research/ov030_deterministic_results.json
+!data/research/ov031_voice_rehearsal.json
+!data/research/ov031_live_provider_rehearsal.json
 models/
 __pycache__/
 *.egg-info/

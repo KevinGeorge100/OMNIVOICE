@@ -1,0 +1,1688 @@
+{
+  "schema_version": 1,
+  "validation_level": "A_deterministic_synthetic_voice_path",
+  "carrier": "exotel_shaped_loopback_not_pstn",
+  "providers": "deterministic_interface_stubs",
+  "frame_format": {
+    "sample_rate_hz": 8000,
+    "sample_width_bits": 16,
+    "channels": 1,
+    "bytes_per_frame": 3200,
+    "ms_per_frame": 200
+  },
+  "scenarios": [
+    {
+      "scenario": "happy_path",
+      "passed": true,
+      "turn_count": 5,
+      "frame_count": 12,
+      "frame_bytes": 3200,
+      "input_pcm16k_bytes": 32000,
+      "booking_count": 1,
+      "action_statuses": [
+        "committed"
+      ],
+      "tool_choices": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "barge_in_count": 0,
+      "tts_cancel_count": 0,
+      "spoken_success": true,
+      "stt_stub_completion_ms": [
+        2.98,
+        1.62,
+        0.66,
+        0.56,
+        0.45
+      ],
+      "tool_events": [
+        {
+          "event": "tool.requested",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": 2.2954999876674265,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.requested",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": 2.759199996944517,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.requested",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.confirmation_required",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.committed",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": 6.6426999983377755,
+          "outcome": "committed",
+          "action_end_to_end_ms": 388.8506889343262
+        }
+      ],
+      "local_trace": {
+        "source": "completed_live_call",
+        "carrier": "exotel",
+        "status": "completed",
+        "turns_recorded": 5,
+        "turns_exported": 5,
+        "turns_truncated": false,
+        "turns": [
+          {
+            "stt_endpoint_delay_ms": 0.10149998706765473,
+            "retrieval_ms": 0.011199997970834374,
+            "first_tts_ttfa_ms": 0.04050001734867692,
+            "carrier_framing_delay_ms": 189.76340000517666,
+            "final_transcript_to_first_audio_sent_ms": 191.0797000164166,
+            "last_vad_speech_to_first_audio_sent_ms": 191.18120000348426,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "fast_cache",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.2052999916486442,
+            "retrieval_ms": 0.029399991035461426,
+            "rag_retrieval_ms": 0.7214000215753913,
+            "llm_ttft_ms": 0.026999972760677338,
+            "first_tts_ttfa_ms": 0.051700015319511294,
+            "carrier_framing_delay_ms": 177.65890000737272,
+            "final_transcript_to_first_audio_sent_ms": 186.63340000784956,
+            "last_vad_speech_to_first_audio_sent_ms": 186.8386999994982,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.13569998554885387,
+            "retrieval_ms": 0.02920001861639321,
+            "rag_retrieval_ms": 0.830300006782636,
+            "llm_ttft_ms": 0.03429999924264848,
+            "first_tts_ttfa_ms": 0.1787999935913831,
+            "carrier_framing_delay_ms": 191.60120000015013,
+            "final_transcript_to_first_audio_sent_ms": 200.31210000161082,
+            "last_vad_speech_to_first_audio_sent_ms": 200.44779998715967,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.12439998681657016,
+            "retrieval_ms": 0.02370000584051013,
+            "rag_retrieval_ms": 0.8546999888494611,
+            "first_tts_ttfa_ms": 0.06680001388303936,
+            "carrier_framing_delay_ms": 165.36089999135584,
+            "final_transcript_to_first_audio_sent_ms": 178.3294000197202,
+            "last_vad_speech_to_first_audio_sent_ms": 178.45380000653677,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.14930000179447234,
+            "first_tts_ttfa_ms": 0.06900000153109431,
+            "carrier_framing_delay_ms": 180.9687000059057,
+            "final_transcript_to_first_audio_sent_ms": 191.73799999407493,
+            "last_vad_speech_to_first_audio_sent_ms": 191.8872999958694,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "confirmation",
+            "interrupted": false
+          }
+        ],
+        "errors": 0,
+        "cache_hits": 1,
+        "barge_in_count": 0,
+        "tool_summary": {
+          "invocations": 3,
+          "succeeded": 3,
+          "failed": 0,
+          "confirmation_required": 1,
+          "committed": 1,
+          "failed_commits": 0,
+          "unknown_outcome": 0,
+          "cache_hits": 0,
+          "cancelled": 0,
+          "duration_ms_total": 11.249599978327751,
+          "invalid_tool_requests": 0,
+          "action_end_to_end_ms_total": 388.8506889343262
+        }
+      },
+      "qualitative": {
+        "response_relevance": "scripted_assertion_passed",
+        "groundedness": "synthetic_fixture_only",
+        "fake_capability_claim": "not_observed_in_scripted_output",
+        "confirmation_clarity": "asserted",
+        "interruption_handling": "not_applicable",
+        "repetition_or_awkwardness": "not_human_rated",
+        "task_continuity": "scripted_assertion_passed"
+      }
+    },
+    {
+      "scenario": "negative_confirmation",
+      "passed": true,
+      "turn_count": 4,
+      "frame_count": 10,
+      "frame_bytes": 3200,
+      "input_pcm16k_bytes": 25600,
+      "booking_count": 0,
+      "action_statuses": [
+        "cancelled"
+      ],
+      "tool_choices": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "barge_in_count": 0,
+      "tts_cancel_count": 0,
+      "spoken_success": false,
+      "stt_stub_completion_ms": [
+        0.67,
+        0.94,
+        0.85,
+        0.36
+      ],
+      "tool_events": [
+        {
+          "event": "tool.requested",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": 2.484800003003329,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.requested",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": 2.8080999909434468,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.requested",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.confirmation_required",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        }
+      ],
+      "local_trace": {
+        "source": "completed_live_call",
+        "carrier": "exotel",
+        "status": "completed",
+        "turns_recorded": 4,
+        "turns_exported": 4,
+        "turns_truncated": false,
+        "turns": [
+          {
+            "stt_endpoint_delay_ms": 0.1720000000204891,
+            "retrieval_ms": 0.032800016924738884,
+            "rag_retrieval_ms": 1.3497000036295503,
+            "llm_ttft_ms": 0.033499993151053786,
+            "first_tts_ttfa_ms": 0.05530001362785697,
+            "carrier_framing_delay_ms": 164.42059999099,
+            "final_transcript_to_first_audio_sent_ms": 174.0085000055842,
+            "last_vad_speech_to_first_audio_sent_ms": 174.1805000056047,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.2429000160191208,
+            "retrieval_ms": 0.049700000090524554,
+            "rag_retrieval_ms": 0.9310000168625265,
+            "llm_ttft_ms": 0.04069998976774514,
+            "first_tts_ttfa_ms": 0.054100004490464926,
+            "carrier_framing_delay_ms": 171.7250000219792,
+            "final_transcript_to_first_audio_sent_ms": 182.50049999915063,
+            "last_vad_speech_to_first_audio_sent_ms": 182.74340001516975,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.14280001050792634,
+            "retrieval_ms": 0.033199990866705775,
+            "rag_retrieval_ms": 0.7839000027161092,
+            "first_tts_ttfa_ms": 0.0740000104997307,
+            "carrier_framing_delay_ms": 180.13739999150857,
+            "final_transcript_to_first_audio_sent_ms": 191.86419999459758,
+            "last_vad_speech_to_first_audio_sent_ms": 192.0070000051055,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.09859999408945441,
+            "retrieval_ms": 0.019500002963468432,
+            "rag_retrieval_ms": 0.5776000034529716,
+            "llm_ttft_ms": 0.019800005247816443,
+            "first_tts_ttfa_ms": 0.05040000542066991,
+            "carrier_framing_delay_ms": 168.8094999990426,
+            "final_transcript_to_first_audio_sent_ms": 173.44189999857917,
+            "last_vad_speech_to_first_audio_sent_ms": 173.54049999266863,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          }
+        ],
+        "errors": 0,
+        "cache_hits": 0,
+        "barge_in_count": 0,
+        "tool_summary": {
+          "invocations": 3,
+          "succeeded": 3,
+          "failed": 0,
+          "confirmation_required": 1,
+          "committed": 0,
+          "failed_commits": 0,
+          "unknown_outcome": 0,
+          "cache_hits": 0,
+          "cancelled": 0,
+          "duration_ms_total": 10.859200003324077,
+          "invalid_tool_requests": 0,
+          "action_end_to_end_ms_total": 0.0
+        }
+      },
+      "qualitative": {
+        "response_relevance": "scripted_assertion_passed",
+        "groundedness": "synthetic_fixture_only",
+        "fake_capability_claim": "not_observed_in_scripted_output",
+        "confirmation_clarity": "asserted",
+        "interruption_handling": "not_applicable",
+        "repetition_or_awkwardness": "not_human_rated",
+        "task_continuity": "scripted_assertion_passed"
+      }
+    },
+    {
+      "scenario": "ambiguous_confirmation",
+      "passed": true,
+      "turn_count": 4,
+      "frame_count": 10,
+      "frame_bytes": 3200,
+      "input_pcm16k_bytes": 25600,
+      "booking_count": 0,
+      "action_statuses": [
+        "cancelled"
+      ],
+      "tool_choices": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "barge_in_count": 0,
+      "tts_cancel_count": 0,
+      "spoken_success": false,
+      "stt_stub_completion_ms": [
+        0.72,
+        0.67,
+        0.76,
+        0.52
+      ],
+      "tool_events": [
+        {
+          "event": "tool.requested",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": 1.4826999977231026,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.requested",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": 3.455400001257658,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.requested",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.confirmation_required",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        }
+      ],
+      "local_trace": {
+        "source": "completed_live_call",
+        "carrier": "exotel",
+        "status": "completed",
+        "turns_recorded": 4,
+        "turns_exported": 4,
+        "turns_truncated": false,
+        "turns": [
+          {
+            "stt_endpoint_delay_ms": 0.15960002201609313,
+            "retrieval_ms": 0.02370000584051013,
+            "rag_retrieval_ms": 1.8111999961547554,
+            "llm_ttft_ms": 0.021400017431005836,
+            "first_tts_ttfa_ms": 0.043899985030293465,
+            "carrier_framing_delay_ms": 177.61859999154694,
+            "final_transcript_to_first_audio_sent_ms": 186.1017999763135,
+            "last_vad_speech_to_first_audio_sent_ms": 186.26139999832958,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.19389999215491116,
+            "retrieval_ms": 0.02300000051036477,
+            "rag_retrieval_ms": 0.5818999779876322,
+            "llm_ttft_ms": 0.031899980967864394,
+            "first_tts_ttfa_ms": 0.06189997657202184,
+            "carrier_framing_delay_ms": 173.90720002003945,
+            "final_transcript_to_first_audio_sent_ms": 182.62590002268553,
+            "last_vad_speech_to_first_audio_sent_ms": 182.81980001484044,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.18820000695995986,
+            "retrieval_ms": 0.030199997127056122,
+            "rag_retrieval_ms": 0.7714999956078827,
+            "first_tts_ttfa_ms": 0.05729999975301325,
+            "carrier_framing_delay_ms": 170.3136000141967,
+            "final_transcript_to_first_audio_sent_ms": 183.78590000793338,
+            "last_vad_speech_to_first_audio_sent_ms": 183.97410001489334,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.13639999087899923,
+            "retrieval_ms": 0.023500004317611456,
+            "rag_retrieval_ms": 0.8449000015389174,
+            "llm_ttft_ms": 0.017999991541728377,
+            "first_tts_ttfa_ms": 0.04780001472681761,
+            "carrier_framing_delay_ms": 171.9814999960363,
+            "final_transcript_to_first_audio_sent_ms": 177.300200011814,
+            "last_vad_speech_to_first_audio_sent_ms": 177.436600002693,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          }
+        ],
+        "errors": 0,
+        "cache_hits": 0,
+        "barge_in_count": 0,
+        "tool_summary": {
+          "invocations": 3,
+          "succeeded": 3,
+          "failed": 0,
+          "confirmation_required": 1,
+          "committed": 0,
+          "failed_commits": 0,
+          "unknown_outcome": 0,
+          "cache_hits": 0,
+          "cancelled": 0,
+          "duration_ms_total": 11.032400012481958,
+          "invalid_tool_requests": 0,
+          "action_end_to_end_ms_total": 0.0
+        }
+      },
+      "qualitative": {
+        "response_relevance": "scripted_assertion_passed",
+        "groundedness": "synthetic_fixture_only",
+        "fake_capability_claim": "not_observed_in_scripted_output",
+        "confirmation_clarity": "asserted",
+        "interruption_handling": "not_applicable",
+        "repetition_or_awkwardness": "not_human_rated",
+        "task_continuity": "scripted_assertion_passed"
+      }
+    },
+    {
+      "scenario": "duplicate_confirmation",
+      "passed": true,
+      "turn_count": 5,
+      "frame_count": 12,
+      "frame_bytes": 3200,
+      "input_pcm16k_bytes": 32000,
+      "booking_count": 1,
+      "action_statuses": [
+        "committed"
+      ],
+      "tool_choices": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "barge_in_count": 0,
+      "tts_cancel_count": 0,
+      "spoken_success": true,
+      "stt_stub_completion_ms": [
+        1.0,
+        0.51,
+        0.62,
+        0.61,
+        0.58
+      ],
+      "tool_events": [
+        {
+          "event": "tool.requested",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": 1.440399995772168,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.requested",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": 1.6573000175412744,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.requested",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.confirmation_required",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.committed",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": 3.896500013070181,
+          "outcome": "committed",
+          "action_end_to_end_ms": 367.13123321533203
+        }
+      ],
+      "local_trace": {
+        "source": "completed_live_call",
+        "carrier": "exotel",
+        "status": "completed",
+        "turns_recorded": 5,
+        "turns_exported": 5,
+        "turns_truncated": false,
+        "turns": [
+          {
+            "stt_endpoint_delay_ms": 0.24970000959001482,
+            "retrieval_ms": 0.04789998638443649,
+            "rag_retrieval_ms": 2.355200005695224,
+            "llm_ttft_ms": 0.021000014385208488,
+            "first_tts_ttfa_ms": 0.05060000694356859,
+            "carrier_framing_delay_ms": 177.95050001586787,
+            "final_transcript_to_first_audio_sent_ms": 187.41230000159703,
+            "last_vad_speech_to_first_audio_sent_ms": 187.66200001118705,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.12079998850822449,
+            "retrieval_ms": 0.019500002963468432,
+            "rag_retrieval_ms": 0.8465999853797257,
+            "llm_ttft_ms": 0.028000009479001164,
+            "first_tts_ttfa_ms": 0.05569998756982386,
+            "carrier_framing_delay_ms": 174.29100000299513,
+            "final_transcript_to_first_audio_sent_ms": 182.47259999043308,
+            "last_vad_speech_to_first_audio_sent_ms": 182.5933999789413,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.14260000898502767,
+            "retrieval_ms": 0.0261999957729131,
+            "rag_retrieval_ms": 0.6349000032059848,
+            "first_tts_ttfa_ms": 0.0644999963697046,
+            "carrier_framing_delay_ms": 169.62179998517968,
+            "final_transcript_to_first_audio_sent_ms": 180.548699980136,
+            "last_vad_speech_to_first_audio_sent_ms": 180.69129998912103,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.15809998149052262,
+            "first_tts_ttfa_ms": 0.06590000702999532,
+            "carrier_framing_delay_ms": 167.54100000252947,
+            "final_transcript_to_first_audio_sent_ms": 174.30810001678765,
+            "last_vad_speech_to_first_audio_sent_ms": 174.46619999827817,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "confirmation",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.1680999994277954,
+            "retrieval_ms": 0.025200017262250185,
+            "rag_retrieval_ms": 1.2020000140182674,
+            "llm_ttft_ms": 0.02379997749812901,
+            "first_tts_ttfa_ms": 0.535300001502037,
+            "carrier_framing_delay_ms": 176.76740000024438,
+            "final_transcript_to_first_audio_sent_ms": 185.9905000019353,
+            "last_vad_speech_to_first_audio_sent_ms": 186.15860000136308,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          }
+        ],
+        "errors": 0,
+        "cache_hits": 0,
+        "barge_in_count": 0,
+        "tool_summary": {
+          "invocations": 3,
+          "succeeded": 3,
+          "failed": 0,
+          "confirmation_required": 1,
+          "committed": 1,
+          "failed_commits": 0,
+          "unknown_outcome": 0,
+          "cache_hits": 0,
+          "cancelled": 0,
+          "duration_ms_total": 7.667500030947849,
+          "invalid_tool_requests": 0,
+          "action_end_to_end_ms_total": 367.13123321533203
+        }
+      },
+      "qualitative": {
+        "response_relevance": "scripted_assertion_passed",
+        "groundedness": "synthetic_fixture_only",
+        "fake_capability_claim": "not_observed_in_scripted_output",
+        "confirmation_clarity": "asserted",
+        "interruption_handling": "not_applicable",
+        "repetition_or_awkwardness": "not_human_rated",
+        "task_continuity": "scripted_assertion_passed"
+      }
+    },
+    {
+      "scenario": "stale_slot",
+      "passed": true,
+      "turn_count": 4,
+      "frame_count": 10,
+      "frame_bytes": 3200,
+      "input_pcm16k_bytes": 25600,
+      "booking_count": 0,
+      "action_statuses": [
+        "failed"
+      ],
+      "tool_choices": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "barge_in_count": 0,
+      "tts_cancel_count": 0,
+      "spoken_success": false,
+      "stt_stub_completion_ms": [
+        0.68,
+        0.82,
+        0.54,
+        0.7
+      ],
+      "tool_events": [
+        {
+          "event": "tool.requested",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": 1.6182000108528882,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.requested",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": 1.902499992866069,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.requested",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.confirmation_required",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.failed",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": 2.5560999929439276,
+          "outcome": "failed",
+          "action_end_to_end_ms": 380.51581382751465
+        }
+      ],
+      "local_trace": {
+        "source": "completed_live_call",
+        "carrier": "exotel",
+        "status": "completed",
+        "turns_recorded": 4,
+        "turns_exported": 4,
+        "turns_truncated": false,
+        "turns": [
+          {
+            "stt_endpoint_delay_ms": 0.15720000374130905,
+            "retrieval_ms": 0.03740002284757793,
+            "rag_retrieval_ms": 2.0981999987270683,
+            "llm_ttft_ms": 0.023900007363408804,
+            "first_tts_ttfa_ms": 0.0619000056758523,
+            "carrier_framing_delay_ms": 186.3438000145834,
+            "final_transcript_to_first_audio_sent_ms": 195.47969999257475,
+            "last_vad_speech_to_first_audio_sent_ms": 195.63689999631606,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.17449998995289207,
+            "retrieval_ms": 0.027300004148855805,
+            "rag_retrieval_ms": 0.9149000106845051,
+            "llm_ttft_ms": 0.0281000102404505,
+            "first_tts_ttfa_ms": 0.052000017603859305,
+            "carrier_framing_delay_ms": 173.91759998281486,
+            "final_transcript_to_first_audio_sent_ms": 182.54169999272563,
+            "last_vad_speech_to_first_audio_sent_ms": 182.71619998267852,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.357400014763698,
+            "retrieval_ms": 0.027300004148855805,
+            "rag_retrieval_ms": 0.7749999931547791,
+            "first_tts_ttfa_ms": 0.07740000728517771,
+            "carrier_framing_delay_ms": 184.91350000840612,
+            "final_transcript_to_first_audio_sent_ms": 196.11520000034943,
+            "last_vad_speech_to_first_audio_sent_ms": 196.47260001511313,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.15239999629557133,
+            "first_tts_ttfa_ms": 0.06760001997463405,
+            "carrier_framing_delay_ms": 173.07099999743514,
+            "final_transcript_to_first_audio_sent_ms": 178.2029000169132,
+            "last_vad_speech_to_first_audio_sent_ms": 178.35530001320876,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "confirmation",
+            "interrupted": false
+          }
+        ],
+        "errors": 0,
+        "cache_hits": 0,
+        "barge_in_count": 0,
+        "tool_summary": {
+          "invocations": 3,
+          "succeeded": 3,
+          "failed": 0,
+          "confirmation_required": 1,
+          "committed": 0,
+          "failed_commits": 1,
+          "unknown_outcome": 0,
+          "cache_hits": 0,
+          "cancelled": 0,
+          "duration_ms_total": 8.75029998132959,
+          "invalid_tool_requests": 0,
+          "action_end_to_end_ms_total": 380.51581382751465
+        }
+      },
+      "qualitative": {
+        "response_relevance": "scripted_assertion_passed",
+        "groundedness": "synthetic_fixture_only",
+        "fake_capability_claim": "not_observed_in_scripted_output",
+        "confirmation_clarity": "asserted",
+        "interruption_handling": "not_applicable",
+        "repetition_or_awkwardness": "not_human_rated",
+        "task_continuity": "scripted_assertion_passed"
+      }
+    },
+    {
+      "scenario": "lead_not_found",
+      "passed": true,
+      "turn_count": 2,
+      "frame_count": 6,
+      "frame_bytes": 3200,
+      "input_pcm16k_bytes": 12800,
+      "booking_count": 0,
+      "action_statuses": [],
+      "tool_choices": [
+        "lookup_lead",
+        "check_demo_slots"
+      ],
+      "barge_in_count": 0,
+      "tts_cancel_count": 0,
+      "spoken_success": false,
+      "stt_stub_completion_ms": [
+        0.45,
+        0.64
+      ],
+      "tool_events": [
+        {
+          "event": "tool.requested",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": 0.5439000087790191,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.requested",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": 1.9675999938044697,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        }
+      ],
+      "local_trace": {
+        "source": "completed_live_call",
+        "carrier": "exotel",
+        "status": "completed",
+        "turns_recorded": 2,
+        "turns_exported": 2,
+        "turns_truncated": false,
+        "turns": [
+          {
+            "stt_endpoint_delay_ms": 0.13539998326450586,
+            "retrieval_ms": 0.021299987565726042,
+            "rag_retrieval_ms": 1.2377999955788255,
+            "llm_ttft_ms": 0.00869997893460095,
+            "first_tts_ttfa_ms": 0.02139998832717538,
+            "carrier_framing_delay_ms": 180.58410001685843,
+            "final_transcript_to_first_audio_sent_ms": 186.06480001471937,
+            "last_vad_speech_to_first_audio_sent_ms": 186.20019999798387,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.11990001075901091,
+            "retrieval_ms": 0.032899988582357764,
+            "rag_retrieval_ms": 0.7554000185336918,
+            "llm_ttft_ms": 0.024300010409206152,
+            "first_tts_ttfa_ms": 0.0509000092279166,
+            "carrier_framing_delay_ms": 176.6666999901645,
+            "final_transcript_to_first_audio_sent_ms": 185.35670000710525,
+            "last_vad_speech_to_first_audio_sent_ms": 185.47660001786426,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          }
+        ],
+        "errors": 0,
+        "cache_hits": 0,
+        "barge_in_count": 0,
+        "tool_summary": {
+          "invocations": 2,
+          "succeeded": 2,
+          "failed": 0,
+          "confirmation_required": 0,
+          "committed": 0,
+          "failed_commits": 0,
+          "unknown_outcome": 0,
+          "cache_hits": 0,
+          "cancelled": 0,
+          "duration_ms_total": 2.511500002583489,
+          "invalid_tool_requests": 0,
+          "action_end_to_end_ms_total": 0.0
+        }
+      },
+      "qualitative": {
+        "response_relevance": "scripted_assertion_passed",
+        "groundedness": "synthetic_fixture_only",
+        "fake_capability_claim": "not_observed_in_scripted_output",
+        "confirmation_clarity": "not_applicable",
+        "interruption_handling": "not_applicable",
+        "repetition_or_awkwardness": "not_human_rated",
+        "task_continuity": "scripted_assertion_passed"
+      }
+    },
+    {
+      "scenario": "tool_failure",
+      "passed": true,
+      "turn_count": 1,
+      "frame_count": 4,
+      "frame_bytes": 3200,
+      "input_pcm16k_bytes": 6400,
+      "booking_count": 0,
+      "action_statuses": [],
+      "tool_choices": [
+        "lookup_lead"
+      ],
+      "barge_in_count": 0,
+      "tts_cancel_count": 0,
+      "spoken_success": false,
+      "stt_stub_completion_ms": [
+        0.71
+      ],
+      "tool_events": [
+        {
+          "event": "tool.requested",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.failed",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": 1.2070999946445227,
+          "outcome": "timeout",
+          "action_end_to_end_ms": null
+        }
+      ],
+      "local_trace": {
+        "source": "completed_live_call",
+        "carrier": "exotel",
+        "status": "completed",
+        "turns_recorded": 1,
+        "turns_exported": 1,
+        "turns_truncated": false,
+        "turns": [
+          {
+            "stt_endpoint_delay_ms": 0.20920002134516835,
+            "retrieval_ms": 0.02859998494386673,
+            "rag_retrieval_ms": 3.321900003356859,
+            "first_tts_ttfa_ms": 0.07280000136233866,
+            "carrier_framing_delay_ms": 175.31160000362433,
+            "final_transcript_to_first_audio_sent_ms": 185.30499999178573,
+            "last_vad_speech_to_first_audio_sent_ms": 185.5142000131309,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          }
+        ],
+        "errors": 0,
+        "cache_hits": 0,
+        "barge_in_count": 0,
+        "tool_summary": {
+          "invocations": 1,
+          "succeeded": 0,
+          "failed": 1,
+          "confirmation_required": 0,
+          "committed": 0,
+          "failed_commits": 0,
+          "unknown_outcome": 0,
+          "cache_hits": 0,
+          "cancelled": 0,
+          "duration_ms_total": 1.2070999946445227,
+          "invalid_tool_requests": 0,
+          "action_end_to_end_ms_total": 0.0
+        }
+      },
+      "qualitative": {
+        "response_relevance": "scripted_assertion_passed",
+        "groundedness": "synthetic_fixture_only",
+        "fake_capability_claim": "not_observed_in_scripted_output",
+        "confirmation_clarity": "not_applicable",
+        "interruption_handling": "not_applicable",
+        "repetition_or_awkwardness": "not_human_rated",
+        "task_continuity": "scripted_assertion_passed"
+      }
+    },
+    {
+      "scenario": "llm_failure",
+      "passed": true,
+      "turn_count": 1,
+      "frame_count": 4,
+      "frame_bytes": 3200,
+      "input_pcm16k_bytes": 6400,
+      "booking_count": 0,
+      "action_statuses": [],
+      "tool_choices": [],
+      "barge_in_count": 0,
+      "tts_cancel_count": 1,
+      "spoken_success": false,
+      "stt_stub_completion_ms": [
+        0.55
+      ],
+      "tool_events": [],
+      "local_trace": {
+        "source": "completed_live_call",
+        "carrier": "exotel",
+        "status": "failed",
+        "turns_recorded": 1,
+        "turns_exported": 1,
+        "turns_truncated": false,
+        "turns": [
+          {
+            "stt_endpoint_delay_ms": 0.14590000500902534,
+            "retrieval_ms": 0.027300004148855805,
+            "rag_retrieval_ms": 3.3292000007349998,
+            "first_tts_ttfa_ms": 0.046600005589425564,
+            "carrier_framing_delay_ms": 0.21189998369663954,
+            "final_transcript_to_first_audio_sent_ms": 10.147199995117262,
+            "last_vad_speech_to_first_audio_sent_ms": 10.293100000126287,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          }
+        ],
+        "errors": 1,
+        "cache_hits": 0,
+        "barge_in_count": 0,
+        "tool_summary": {
+          "invocations": 0,
+          "succeeded": 0,
+          "failed": 0,
+          "confirmation_required": 0,
+          "committed": 0,
+          "failed_commits": 0,
+          "unknown_outcome": 0,
+          "cache_hits": 0,
+          "cancelled": 0,
+          "duration_ms_total": 0.0,
+          "invalid_tool_requests": 0,
+          "action_end_to_end_ms_total": 0.0
+        }
+      },
+      "qualitative": {
+        "response_relevance": "scripted_assertion_passed",
+        "groundedness": "synthetic_fixture_only",
+        "fake_capability_claim": "not_observed_in_scripted_output",
+        "confirmation_clarity": "not_applicable",
+        "interruption_handling": "not_applicable",
+        "repetition_or_awkwardness": "not_human_rated",
+        "task_continuity": "scripted_assertion_passed"
+      }
+    },
+    {
+      "scenario": "stt_failure",
+      "passed": true,
+      "turn_count": 0,
+      "frame_count": 4,
+      "frame_bytes": 3200,
+      "input_pcm16k_bytes": 6400,
+      "booking_count": 0,
+      "action_statuses": [],
+      "tool_choices": [],
+      "barge_in_count": 0,
+      "tts_cancel_count": 1,
+      "spoken_success": false,
+      "stt_stub_completion_ms": [],
+      "tool_events": [],
+      "local_trace": {
+        "source": "completed_live_call",
+        "carrier": "exotel",
+        "status": "completed",
+        "turns_recorded": 0,
+        "turns_exported": 0,
+        "turns_truncated": false,
+        "turns": [],
+        "errors": 0,
+        "cache_hits": 0,
+        "barge_in_count": 0,
+        "tool_summary": {
+          "invocations": 0,
+          "succeeded": 0,
+          "failed": 0,
+          "confirmation_required": 0,
+          "committed": 0,
+          "failed_commits": 0,
+          "unknown_outcome": 0,
+          "cache_hits": 0,
+          "cancelled": 0,
+          "duration_ms_total": 0.0,
+          "invalid_tool_requests": 0,
+          "action_end_to_end_ms_total": 0.0
+        }
+      },
+      "qualitative": {
+        "response_relevance": "scripted_assertion_passed",
+        "groundedness": "synthetic_fixture_only",
+        "fake_capability_claim": "not_observed_in_scripted_output",
+        "confirmation_clarity": "not_applicable",
+        "interruption_handling": "not_applicable",
+        "repetition_or_awkwardness": "not_human_rated",
+        "task_continuity": "provider_failure_terminates_turn"
+      }
+    },
+    {
+      "scenario": "tts_failure",
+      "passed": true,
+      "turn_count": 1,
+      "frame_count": 2,
+      "frame_bytes": 3200,
+      "input_pcm16k_bytes": 6400,
+      "booking_count": 0,
+      "action_statuses": [],
+      "tool_choices": [],
+      "barge_in_count": 0,
+      "tts_cancel_count": 1,
+      "spoken_success": false,
+      "stt_stub_completion_ms": [
+        0.87
+      ],
+      "tool_events": [],
+      "local_trace": {
+        "source": "completed_live_call",
+        "carrier": "exotel",
+        "status": "failed",
+        "turns_recorded": 1,
+        "turns_exported": 1,
+        "turns_truncated": false,
+        "turns": [
+          {
+            "stt_endpoint_delay_ms": 0.18540001474320889,
+            "retrieval_ms": 0.03320001997053623,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "fast_cache",
+            "interrupted": false
+          }
+        ],
+        "errors": 1,
+        "cache_hits": 1,
+        "barge_in_count": 0,
+        "tool_summary": {
+          "invocations": 0,
+          "succeeded": 0,
+          "failed": 0,
+          "confirmation_required": 0,
+          "committed": 0,
+          "failed_commits": 0,
+          "unknown_outcome": 0,
+          "cache_hits": 0,
+          "cancelled": 0,
+          "duration_ms_total": 0.0,
+          "invalid_tool_requests": 0,
+          "action_end_to_end_ms_total": 0.0
+        }
+      },
+      "qualitative": {
+        "response_relevance": "scripted_assertion_passed",
+        "groundedness": "synthetic_fixture_only",
+        "fake_capability_claim": "not_observed_in_scripted_output",
+        "confirmation_clarity": "not_applicable",
+        "interruption_handling": "not_applicable",
+        "repetition_or_awkwardness": "not_human_rated",
+        "task_continuity": "provider_failure_terminates_turn"
+      }
+    },
+    {
+      "scenario": "ordinary_barge_in",
+      "passed": true,
+      "turn_count": 2,
+      "frame_count": 5,
+      "frame_bytes": 3200,
+      "input_pcm16k_bytes": 12800,
+      "booking_count": 0,
+      "action_statuses": [],
+      "tool_choices": [],
+      "barge_in_count": 1,
+      "tts_cancel_count": 1,
+      "spoken_success": false,
+      "stt_stub_completion_ms": [
+        0.45,
+        0.21
+      ],
+      "tool_events": [],
+      "local_trace": {
+        "source": "completed_live_call",
+        "carrier": "exotel",
+        "status": "completed",
+        "turns_recorded": 2,
+        "turns_exported": 2,
+        "turns_truncated": false,
+        "turns": [
+          {
+            "stt_endpoint_delay_ms": 0.11900000390596688,
+            "retrieval_ms": 0.00890000956133008,
+            "rag_retrieval_ms": 0.7316000119317323,
+            "llm_ttft_ms": 0.009500014130026102,
+            "first_tts_ttfa_ms": 0.017900019884109497,
+            "carrier_framing_delay_ms": 184.94569999165833,
+            "final_transcript_to_first_audio_sent_ms": 187.4348999990616,
+            "last_vad_speech_to_first_audio_sent_ms": 187.55390000296757,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": true
+          },
+          {
+            "retrieval_ms": 0.038300000596791506,
+            "rag_retrieval_ms": 0.7708999910391867,
+            "llm_ttft_ms": 0.0213000166695565,
+            "first_tts_ttfa_ms": 0.05210001836530864,
+            "carrier_framing_delay_ms": 0.2238999877590686,
+            "final_transcript_to_first_audio_sent_ms": 8.115300006465986,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          }
+        ],
+        "errors": 0,
+        "cache_hits": 0,
+        "barge_in_count": 1,
+        "tool_summary": {
+          "invocations": 0,
+          "succeeded": 0,
+          "failed": 0,
+          "confirmation_required": 0,
+          "committed": 0,
+          "failed_commits": 0,
+          "unknown_outcome": 0,
+          "cache_hits": 0,
+          "cancelled": 0,
+          "duration_ms_total": 0.0,
+          "invalid_tool_requests": 0,
+          "action_end_to_end_ms_total": 0.0
+        }
+      },
+      "qualitative": {
+        "response_relevance": "scripted_assertion_passed",
+        "groundedness": "synthetic_fixture_only",
+        "fake_capability_claim": "not_observed_in_scripted_output",
+        "confirmation_clarity": "not_applicable",
+        "interruption_handling": "asserted",
+        "repetition_or_awkwardness": "not_human_rated",
+        "task_continuity": "scripted_assertion_passed"
+      }
+    },
+    {
+      "scenario": "confirmation_barge_in",
+      "passed": true,
+      "turn_count": 4,
+      "frame_count": 9,
+      "frame_bytes": 3200,
+      "input_pcm16k_bytes": 25600,
+      "booking_count": 0,
+      "action_statuses": [
+        "cancelled"
+      ],
+      "tool_choices": [
+        "lookup_lead",
+        "check_demo_slots",
+        "schedule_demo"
+      ],
+      "barge_in_count": 1,
+      "tts_cancel_count": 1,
+      "spoken_success": false,
+      "stt_stub_completion_ms": [
+        0.61,
+        0.83,
+        1.01,
+        0.53
+      ],
+      "tool_events": [
+        {
+          "event": "tool.requested",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "lookup_lead",
+          "kind": "read",
+          "duration_ms": 1.8554999842308462,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.requested",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.started",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.succeeded",
+          "tool": "check_demo_slots",
+          "kind": "read",
+          "duration_ms": 0.8614000107627362,
+          "outcome": "ok",
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.requested",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        },
+        {
+          "event": "tool.confirmation_required",
+          "tool": "schedule_demo",
+          "kind": "write",
+          "duration_ms": null,
+          "outcome": null,
+          "action_end_to_end_ms": null
+        }
+      ],
+      "local_trace": {
+        "source": "completed_live_call",
+        "carrier": "exotel",
+        "status": "completed",
+        "turns_recorded": 4,
+        "turns_exported": 4,
+        "turns_truncated": false,
+        "turns": [
+          {
+            "stt_endpoint_delay_ms": 0.1613999775145203,
+            "retrieval_ms": 0.027400004910305142,
+            "rag_retrieval_ms": 1.7042999970726669,
+            "llm_ttft_ms": 0.02300000051036477,
+            "first_tts_ttfa_ms": 0.04529999569058418,
+            "carrier_framing_delay_ms": 175.50179999670945,
+            "final_transcript_to_first_audio_sent_ms": 186.28940000780858,
+            "last_vad_speech_to_first_audio_sent_ms": 186.4507999853231,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.14799999189563096,
+            "retrieval_ms": 0.03460000152699649,
+            "rag_retrieval_ms": 0.6761000258848071,
+            "llm_ttft_ms": 0.008700008038431406,
+            "first_tts_ttfa_ms": 0.019500002963468432,
+            "carrier_framing_delay_ms": 190.9021000028588,
+            "final_transcript_to_first_audio_sent_ms": 195.3757000155747,
+            "last_vad_speech_to_first_audio_sent_ms": 195.52370000747032,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          },
+          {
+            "stt_endpoint_delay_ms": 0.38640000275336206,
+            "retrieval_ms": 0.024200009647756815,
+            "rag_retrieval_ms": 1.680399989709258,
+            "first_tts_ttfa_ms": 0.16160000814124942,
+            "carrier_framing_delay_ms": 162.0157999859657,
+            "final_transcript_to_first_audio_sent_ms": 182.99329999717884,
+            "last_vad_speech_to_first_audio_sent_ms": 183.3796999999322,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": true
+          },
+          {
+            "stt_endpoint_delay_ms": 4.1523000109009445,
+            "retrieval_ms": 0.01069999416358769,
+            "rag_retrieval_ms": 0.4172000044491142,
+            "llm_ttft_ms": 0.010299991117790341,
+            "first_tts_ttfa_ms": 0.02300000051036477,
+            "carrier_framing_delay_ms": 0.09419998968951404,
+            "final_transcript_to_first_audio_sent_ms": 3.5217999829910696,
+            "last_vad_speech_to_first_audio_sent_ms": 7.674099993892014,
+            "response_segment_count": 1,
+            "tts_segment_count": 1,
+            "path": "foreground_rag",
+            "interrupted": false
+          }
+        ],
+        "errors": 0,
+        "cache_hits": 0,
+        "barge_in_count": 1,
+        "tool_summary": {
+          "invocations": 3,
+          "succeeded": 3,
+          "failed": 0,
+          "confirmation_required": 1,
+          "committed": 0,
+          "failed_commits": 0,
+          "unknown_outcome": 0,
+          "cache_hits": 0,
+          "cancelled": 0,
+          "duration_ms_total": 16.118999978061765,
+          "invalid_tool_requests": 0,
+          "action_end_to_end_ms_total": 0.0
+        }
+      },
+      "qualitative": {
+        "response_relevance": "scripted_assertion_passed",
+        "groundedness": "synthetic_fixture_only",
+        "fake_capability_claim": "not_observed_in_scripted_output",
+        "confirmation_clarity": "asserted",
+        "interruption_handling": "asserted",
+        "repetition_or_awkwardness": "not_human_rated",
+        "task_continuity": "scripted_assertion_passed"
+      }
+    }
+  ],
+  "summary": {
+    "count": 12,
+    "passed": 12
+  },
+  "stage_latency_ms": {
+    "stt_stub_completion": {
+      "samples": 33,
+      "p50_ms": 0.66,
+      "p95_ms": 1.25
+    },
+    "llm_first_token": {
+      "samples": 20,
+      "p50_ms": 0.02,
+      "p95_ms": 0.03
+    },
+    "tool_execution": {
+      "samples": 14,
+      "p50_ms": 1.88,
+      "p95_ms": null
+    },
+    "confirmed_action_execution": {
+      "samples": 2,
+      "p50_ms": 5.27,
+      "p95_ms": null
+    },
+    "tts_first_pcm": {
+      "samples": 32,
+      "p50_ms": 0.05,
+      "p95_ms": 0.17
+    },
+    "final_transcript_to_first_carrier_audio": {
+      "samples": 32,
+      "p50_ms": 184.55,
+      "p95_ms": 195.77
+    },
+    "last_vad_speech_to_first_carrier_audio": {
+      "samples": 31,
+      "p50_ms": 185.48,
+      "p95_ms": 196.05
+    }
+  },
+  "latency_boundary": "server-side synthetic loopback only; not mouth-to-ear"
+}
