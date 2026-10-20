@@ -4,7 +4,7 @@ This guide carries the implementation and setup details condensed from the repos
 
 ## Local environment
 
-Python 3.11 is used for native FAISS and ONNX dependencies. On Windows, `.\start.ps1` from the repository root creates a virtual environment when absent, installs from `requirements.lock`, calls `omnivoice init`, and starts the server. Install the local Silero model with `omnivoice.cli models` once before the first start; the startup script does not download it. The embedded operations console is at `http://127.0.0.1:8000`.
+Python 3.11 is used for native FAISS and ONNX dependencies. On Windows, `.\start.ps1` from the repository root creates a virtual environment when absent, installs from `requirements.lock`, calls `omnivoice init`, and starts the server. Install the local Silero model with `omnivoice.cli models` once before the first start; the startup script does not download it. The embedded operations console is at `http://127.0.0.1:8000`. Its frontend tokens, navigation, and responsive patterns are documented in the [Console V2 design system](CONSOLE_V2_DESIGN_SYSTEM.md).
 
 For a manual setup from the repository root:
 

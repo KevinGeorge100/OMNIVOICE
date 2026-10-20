@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light">
+<html lang="en" data-theme="dark">
 
 <head>
   <meta charset="utf-8">
@@ -8,13 +8,23 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 
-<body data-theme="light">
+<body class="console-locked" data-theme="dark">
+  <div id="auth-gate" class="auth-gate">
+    <div class="auth-panel">
+      <div class="auth-mark" aria-hidden="true">OV</div>
+      <p class="eyebrow">OMNIVOICE / OPERATIONS</p>
+      <h1>Connect to your workspace</h1>
+      <p>Use your configured admin or enterprise API token to open the operations console.</p>
+      <button id="auth-connect" class="primary-btn" type="button">Connect console</button>
+      <small>Credentials are used for this console session.</small>
+    </div>
+  </div>
   <aside class="sidebar">
     <a class="brand" href="/">
-      <span class="brand-icon" aria-hidden="true">◖◗</span>
+      <span class="brand-icon" aria-hidden="true">OV</span>
       <div class="brand-info">
-        <span class="brand-text">omni<span>voice</span></span>
-        <span class="brand-sub">OPERATIONS CONSOLE</span>
+        <span class="brand-text">OmniVoice</span>
+        <span class="brand-sub">VOICE OPERATIONS</span>
       </div>
     </a>
 
@@ -59,7 +69,7 @@
           </svg></span>
         Overview
       </button>
-      <span class="nav-group">WORKSPACE</span>
+      <span class="nav-group">CONFIGURE</span>
       <button class="nav" data-page="workspace"><span class="nav-icon" aria-hidden="true">◇</span>Voice agent</button>
       <button class="nav" data-page="knowledge">
         <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
@@ -78,7 +88,7 @@
           </svg></span>
         Phone numbers
       </button>
-      <span class="nav-group">OPERATIONS</span>
+      <span class="nav-group">OPERATE</span>
       <button class="nav" data-page="live"><span class="nav-icon" aria-hidden="true">◉</span>Live calls <span id="live-nav-count" class="nav-count">0</span></button>
       <button class="nav" data-page="calls">
         <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
@@ -97,6 +107,7 @@
           </svg></span>
         Actions
       </button>
+      <span class="nav-group">INSIGHTS &amp; SYSTEM</span>
       <button class="nav" data-page="analytics"><span class="nav-icon" aria-hidden="true">▥</span>Analytics</button>
       <button class="nav" data-page="settings">
         <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
@@ -131,7 +142,8 @@
     <header>
       <div class="breadcrumb">OmniVoice Console <span>/</span> <b id="crumb">Overview</b></div>
       <div class="header-right">
-        <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-label="Toggle theme" title="Toggle between Light and Dark mode" data-active-theme="light">
+        <button id="command-trigger" class="command-trigger" type="button" aria-haspopup="dialog" aria-controls="command-palette" title="Navigate with Ctrl+K">Search pages <kbd>Ctrl K</kbd></button>
+        <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-label="Toggle theme" title="Toggle between Light and Dark mode" data-active-theme="dark">
           <span class="theme-toggle-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -154,236 +166,68 @@
     <div class="content">
       <section class="page-heading">
         <div>
-          <div class="eyebrow">TELEPHONY INFRASTRUCTURE</div>
-          <h1 id="page-title">System Overview</h1>
-          <p id="page-description">Real-time telephony orchestration, regional speech pipelines, and enterprise knowledge.</p>
+          <div class="eyebrow">WORKSPACE / OPERATIONS</div>
+          <h1 id="page-title">Operations overview</h1>
+          <p id="page-description">Current workspace activity and verified server status.</p>
         </div>
         <button id="primary-action" class="primary-btn">＋ New enterprise</button>
       </section>
 
-      <section id="overview" class="page active">
-        <!-- Live Voice Pipeline Operational Gateway Strip -->
-        <div class="system-health-banner">
-          <div class="health-header">
-            <div class="health-main">
-              <div class="health-badge"><span class="pulse-dot green" aria-hidden="true"></span> REAL-TIME VOICE PIPELINE</div>
-              <h2>Carrier Telephony &amp; Regional Inference Gateway</h2>
-              <p>Full-duplex speech orchestration for enterprise telephone lines. Low-latency streaming STT, neural VAD, and grounded retrieval.</p>
+      <section id="overview" class="page active" aria-labelledby="page-title">
+        <article class="panel runtime-overview ops-health">
+          <div class="runtime-overview-main">
+            <div>
+              <span class="eyebrow">RUNTIME STATUS</span>
+              <h2>Voice operations</h2>
+              <p>Configuration and tenant activity from this server. Provider availability requires a live call to verify.</p>
             </div>
-            <div class="health-actions">
-              <button id="setup-button" class="action-trigger-btn">Quickstart Setup <span>↗</span></button>
-            </div>
-          </div>
-          <div class="health-metrics-grid">
-            <div class="health-metric-item">
-              <span class="metric-label">SIP Ingress / Egress</span>
-              <span class="metric-val">Exotel / Twilio PSTN</span>
-              <small class="metric-sub">Full-duplex WebSocket</small>
-            </div>
-            <div class="health-metric-item">
-              <span class="metric-label">Speech Engine</span>
-              <span class="metric-val">Sarvam AI (11 Languages)</span>
-              <small class="metric-sub">Streaming STT + Neural TTS</small>
-            </div>
-            <div class="health-metric-item">
-              <span class="metric-label">Neural VAD &amp; Interruption</span>
-              <span class="metric-val">Silero ONNX (&lt;20ms)</span>
-              <small class="metric-sub">&lt;50ms playback silence</small>
-            </div>
-            <div class="health-metric-item">
-              <span class="metric-label">Mouth-to-Ear Target</span>
-              <span class="metric-val accent-val">&lt;500ms</span>
-              <small class="metric-sub">P95 SLA threshold</small>
+            <div class="runtime-overview-actions">
+              <span id="ops-health-badge" class="state-pill">Connect to inspect</span>
+              <button id="setup-button" class="secondary-btn" type="button">Create workspace</button>
             </div>
           </div>
-        </div>
+          <div id="ops-health-details" class="health-details"></div>
+        </article>
 
-        <!-- Telephony & Inference Ecosystem Partners Strip -->
-        <div class="ecosystem-strip" aria-label="Telephony and inference ecosystem">
-          <span class="ecosystem-label">TELEPHONY &amp; INFERENCE PLATFORM</span>
-          <div class="ecosystem-logos">
-            <span class="eco-item">EXOTEL</span>
-            <span class="eco-dot">·</span>
-            <span class="eco-item">TWILIO</span>
-            <span class="eco-dot">·</span>
-            <span class="eco-item">SARVAM AI</span>
-            <span class="eco-dot">·</span>
-            <span class="eco-item">GROQ</span>
-            <span class="eco-dot">·</span>
-            <span class="eco-item">SILERO ONNX</span>
-            <span class="eco-dot">·</span>
-            <span class="eco-item">FAISS RETRIEVAL</span>
-          </div>
-        </div>
-
-        <!-- High-Density Metric Cards / Telemetry Grid with Actionable Zero-States -->
-        <div class="stats">
-          <article class="stat-card" data-go="lines">
-            <div class="stat-meta">
-              <span>Active calls</span>
-              <span class="stat-tag" id="hint-active">No active calls</span>
-            </div>
+        <div class="stats" aria-label="Current workspace indicators">
+          <article class="stat-card" data-go="live" tabindex="0" role="button" aria-label="View live calls">
+            <div class="stat-meta"><span>Active now</span><span id="hint-active" class="stat-tag">No active calls</span></div>
             <strong id="stat-active" class="tabular-stat">0</strong>
-            <small>Concurrent live carrier sessions</small>
+            <small>Connected calls on this worker</small>
           </article>
-          <article class="stat-card" data-go="calls">
-            <div class="stat-meta">
-              <span>Response latency · p95</span>
-              <span class="stat-tag" id="hint-latency">Measured on calls</span>
-            </div>
+          <article class="stat-card" data-go="calls" tabindex="0" role="button" aria-label="View call history">
+            <div class="stat-meta"><span>Response latency · P95</span><span id="hint-latency" class="stat-tag">Measured on calls</span></div>
             <strong id="stat-latency" class="tabular-stat">—</strong>
-            <small>Final transcript → first audio packet</small>
+            <small>Final transcript to first outbound audio</small>
           </article>
-          <article class="stat-card" data-go="knowledge">
-            <div class="stat-meta">
-              <span>Knowledge entries</span>
-              <span class="stat-tag" id="hint-knowledge">+ Upload docs</span>
-            </div>
+          <article class="stat-card" data-go="knowledge" tabindex="0" role="button" aria-label="View knowledge">
+            <div class="stat-meta"><span>Knowledge entries</span><span id="hint-knowledge" class="stat-tag">Add knowledge</span></div>
             <strong id="stat-knowledge" class="tabular-stat">0</strong>
-            <small>Indexed private vectors &amp; approved FAQs</small>
+            <small>Documents and approved FAQs</small>
           </article>
-          <article class="stat-card" data-go="knowledge">
-            <div class="stat-meta">
-              <span>Fast-path hit rate</span>
-              <span class="stat-tag" id="hint-cache">+ Add approved FAQ</span>
-            </div>
+          <article class="stat-card" data-go="knowledge" tabindex="0" role="button" aria-label="View approved FAQs">
+            <div class="stat-meta"><span>Fast-path rate</span><span id="hint-cache" class="stat-tag">No recorded turns</span></div>
             <strong id="stat-cache" class="tabular-stat">0%</strong>
-            <small>Direct replies bypassing LLM inference</small>
+            <small>Recorded turns using approved direct answers</small>
           </article>
         </div>
         <div id="overview-real-metrics" class="ops-metrics" aria-label="Workspace call metrics"></div>
-        <article class="panel ops-health"><div class="panel-heading"><div><h3>Runtime health</h3><p>Current server configuration, not a production uptime guarantee.</p></div><span id="ops-health-badge" class="state-pill">Connect to inspect</span></div><div id="ops-health-details" class="health-details"></div></article>
 
-        <!-- Technical Pipeline & Architecture Trace -->
         <div class="overview-grid">
-          <article class="panel pipeline-panel">
-            <div class="panel-heading">
-              <div>
-                <h3>Voice Pipeline Execution Trace</h3>
-                <p>Real-time turn orchestration latency breakdown and component budget.</p>
-              </div>
-              <span class="tiny-label">SLAS &amp; TARGETS</span>
-            </div>
-            <div class="pipeline-trace-grid">
-              <div class="trace-step">
-                <div class="step-num">01</div>
-                <div class="step-body">
-                  <div class="step-head">
-                    <b>SIP Trunking &amp; Audio Ingress</b>
-                    <span class="step-sla">&lt;20ms</span>
-                  </div>
-                  <div class="step-desc">Exotel / Twilio Webhook bidirectional audio streaming.</div>
-                  <div class="step-tech">Exotel / Twilio PSTN</div>
-                </div>
-              </div>
-              <div class="trace-step">
-                <div class="step-num">02</div>
-                <div class="step-body">
-                  <div class="step-head">
-                    <b>Neural VAD &amp; Interruption</b>
-                    <span class="step-sla">&lt;20ms VAD · &lt;50ms dispatch</span>
-                  </div>
-                  <div class="step-desc">Silero ONNX speech detection; immediate audio clearance on caller speech.</div>
-                  <div class="step-tech">Silero ONNX Model</div>
-                </div>
-              </div>
-              <div class="trace-step">
-                <div class="step-num">03</div>
-                <div class="step-body">
-                  <div class="step-head">
-                    <b>Streaming Regional STT</b>
-                    <span class="step-sla">p90 ~120ms</span>
-                  </div>
-                  <div class="step-desc">Chunked streaming speech-to-text supporting 11 Indian languages.</div>
-                  <div class="step-tech">Sarvam AI Streaming ASR</div>
-                </div>
-              </div>
-              <div class="trace-step">
-                <div class="step-num">04</div>
-                <div class="step-body">
-                  <div class="step-head">
-                    <b>Retrieval &amp; Fast-Path Cache</b>
-                    <span class="step-sla">&lt;2ms Cache · ~15ms FAISS</span>
-                  </div>
-                  <div class="step-desc">Approved FAQ exact match cache or FAISS vector semantic similarity.</div>
-                  <div class="step-tech">FAISS Dense Retrieval</div>
-                </div>
-              </div>
-              <div class="trace-step">
-                <div class="step-num">05</div>
-                <div class="step-body">
-                  <div class="step-head">
-                    <b>LLM Reasoning &amp; TTFT</b>
-                    <span class="step-sla">TTFT ~180ms</span>
-                  </div>
-                  <div class="step-desc">Grounded prompt execution, tool parameter extraction, and streaming tokens.</div>
-                  <div class="step-tech">Groq Llama 3 70B</div>
-                </div>
-              </div>
-              <div class="trace-step">
-                <div class="step-num">06</div>
-                <div class="step-body">
-                  <div class="step-head">
-                    <b>Neural TTS &amp; Audio Egress</b>
-                    <span class="step-sla">First frame ~120ms</span>
-                  </div>
-                  <div class="step-desc">Streaming regional speech synthesis sent to telephone carrier trunk.</div>
-                  <div class="step-tech">Sarvam Regional TTS</div>
-                </div>
-              </div>
-            </div>
-            <div class="panel-foot">
-              <span class="dot live-pulse"></span> Full-duplex voice orchestration &nbsp; · &nbsp; End-to-end turnaround budget: <strong>&lt;500ms</strong> mouth-to-ear
-            </div>
+          <article class="panel recent">
+            <div class="panel-heading"><div><h3>Recent calls</h3><p>Persisted sessions for the selected workspace.</p></div><button class="text-button" data-go="calls" type="button">View history →</button></div>
+            <div id="recent-calls" class="recent-calls-container"><div class="ops-empty"><h3>No call activity yet</h3><p>Connected phone sessions will appear here.</p></div></div>
           </article>
-
-          <!-- Interactive Launch Checklist with Progress -->
           <article class="panel checklist-panel">
-            <div class="panel-heading">
-              <div>
-                <h3>Launch Checklist</h3>
-                <p id="checklist-progress-label">0 of 4 steps completed</p>
-              </div>
-              <span class="tiny-label" id="checklist-pct">0%</span>
-            </div>
-            <div class="checklist-bar-track" aria-hidden="true">
-              <div class="checklist-bar-fill" id="checklist-fill" style="width: 0%;"></div>
-            </div>
-            <div id="checklist" class="checklist">
-              <p class="subtle">Connect console to inspect workspace status.</p>
-            </div>
+            <div class="panel-heading"><div><h3>Workspace setup</h3><p id="checklist-progress-label">0 of 4 steps completed</p></div><span id="checklist-pct" class="tiny-label">0%</span></div>
+            <div class="checklist-bar-track" aria-hidden="true"><div id="checklist-fill" class="checklist-bar-fill" style="width:0%"></div></div>
+            <div id="checklist" class="checklist"><p class="subtle">Connect the console to inspect setup.</p></div>
           </article>
-        </div>
-
-        <!-- Recent Activity & Live Turn Sandbox -->
-        <article class="panel recent">
-          <div class="panel-heading">
-            <div>
-              <h3>Recent Conversations &amp; Live Sandbox</h3>
-              <p>Live session traces and interactive conversational turn simulator.</p>
-            </div>
-            <div class="panel-actions">
-              <button class="secondary-btn btn-sm" id="test-sandbox-btn">Simulate Test Turn ↗</button>
-              <button class="text-button" data-go="calls">View all calls ↗</button>
-            </div>
-          </div>
-          <div id="recent-calls" class="recent-calls-container">
-            <div class="empty compact">
-              <span>⌁</span>
-              <h4>Your next conversation starts here.</h4>
-              <p>Connect the console and select an enterprise to see call activity.</p>
-            </div>
-          </div>
-        </article>
-
-        <div class="target-note">
-          <span>ENGINEERING TARGETS</span> &lt;500ms voice turnaround <b>·</b> &lt;50ms interruption dispatch <b>·</b>
-          Performance is unverified until measured on live calls.
         </div>
       </section>
 
       <section id="workspace" class="page">
-        <div class="section-banner"><span class="banner-icon">◇</span><div><h3>Voice agent workspace</h3><p>Configuration currently supported by this tenant. Editing is read-only until a safe update API exists.</p></div></div>
+        <div class="section-banner"><div><h3>Current configuration</h3><p>Workspace settings available from the existing tenant record. This view is read-only.</p></div></div>
         <div id="workspace-details" class="ops-grid"></div>
       </section>
 
@@ -391,8 +235,8 @@
         <div class="section-banner">
           <span class="banner-icon">▤</span>
           <div>
-            <h3>Enterprise Knowledge &amp; Grounding</h3>
-            <p>Upload business documents or approve FAQ answers for direct, inference-free replies.</p>
+            <h3>Knowledge sources</h3>
+            <p>Manage business documents and approved answers available to the voice agent.</p>
           </div>
           <button class="secondary-btn" id="add-faq">＋ Add FAQ</button>
         </div>
@@ -404,7 +248,7 @@
         <div class="section-banner">
           <span class="banner-icon">⌁</span>
           <div>
-            <h3>Telephony Lines &amp; Carrier Trunks</h3>
+            <h3>Registered numbers</h3>
             <p>Connect an existing Exotel or Twilio number to your enterprise agent.</p>
           </div>
         </div>
@@ -417,13 +261,13 @@
         <button id="calls-load-more" class="secondary-btn load-more" type="button" hidden>Load more calls</button>
       </section>
 
-      <section id="live" class="page"><div class="section-banner"><span class="banner-icon live-indicator">◉</span><div><h3>Live calls</h3><p>Single-worker event stream. Transcript previews appear only after a turn is recorded.</p></div><span id="live-connection" class="state-pill">Disconnected</span></div><div id="live-calls-list" class="live-grid"></div></section>
+      <section id="live" class="page"><div class="section-banner"><div><h3>Current sessions</h3><p>Authenticated single-worker event stream. Transcript previews appear after a turn is recorded.</p></div><span id="live-connection" class="state-pill">Disconnected</span></div><div id="live-calls-list" class="live-grid"></div></section>
 
       <section id="actions" class="page">
         <div class="section-banner">
           <span class="banner-icon">⇄</span>
           <div>
-            <h3>Enterprise Tool Execution &amp; Safety</h3>
+            <h3>Business action history</h3>
             <p>Background reads run independently. Business writes wait for explicit caller confirmation.</p>
           </div>
         </div>
@@ -431,17 +275,24 @@
         <h3 class="section-title">Registered tools</h3>
         <div id="tools-list" class="panel"></div>
         <h3 class="section-title">Action audit trail</h3>
+        <div id="action-filters" class="segmented" role="group" aria-label="Filter actions by state">
+          <button type="button" data-action-filter="all" class="selected">All</button>
+          <button type="button" data-action-filter="staged">Staged</button>
+          <button type="button" data-action-filter="armed">Awaiting confirmation</button>
+          <button type="button" data-action-filter="committed">Committed</button>
+          <button type="button" data-action-filter="cancelled">Cancelled</button>
+        </div>
         <div id="actions-list" class="panel"></div>
       </section>
 
-      <section id="analytics" class="page"><div class="section-banner"><span class="banner-icon">▥</span><div><h3>Call analytics</h3><p>Aggregated from persisted tenant call records. Server first-audio values are not mouth-to-ear measurements.</p></div></div><div id="analytics-summary" class="ops-metrics"></div><div id="analytics-charts" class="ops-grid"></div></section>
+      <section id="analytics" class="page"><div class="section-banner"><div><h3>Usage and performance</h3><p>Aggregated from persisted tenant calls. Server first-audio values exclude carrier transit and acoustic playback.</p></div></div><div id="analytics-summary" class="ops-metrics"></div><div id="analytics-charts" class="ops-grid"></div></section>
 
       <section id="settings" class="page">
         <div id="configuration" class="panel"></div>
         <article class="panel configuration-note">
-          <h3>Local development runtime</h3>
+          <h3>Runtime configuration</h3>
           <p>The audio engine runs in FastAPI. This console manages enterprise knowledge and phone operations. Provider credentials remain on the server.</p>
-          <p>Configure private values in <code>C:\Projects\OMNIVOICE\.env</code>, then restart the engine. Setup instructions and API contracts are in the project README.</p>
+          <p>Configure private provider values on the server, then restart the engine. Setup instructions and API contracts are in the project README.</p>
           <a href="/docs" target="_blank" rel="noopener">Open API reference ↗</a>
         </article>
       </section>
@@ -466,6 +317,13 @@
         <button class="primary-btn" type="submit" id="submit-modal">Save</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="command-palette" class="command-palette" aria-label="Navigate OmniVoice">
+    <div class="command-head"><label for="command-input">Go to a page</label><button id="command-close" type="button" aria-label="Close navigation">Esc</button></div>
+    <input id="command-input" type="search" autocomplete="off" placeholder="Search pages…" aria-controls="command-list">
+    <div id="command-list" class="command-list" role="listbox" aria-label="Pages"></div>
+    <p class="command-help">↑ ↓ to select · Enter to open · Esc to close</p>
   </dialog>
 
   <div id="toast" role="status" class="toast" hidden></div>

@@ -45,6 +45,7 @@
 | **OV-031** | Full Voice Sales-Agent Rehearsal & End-to-End Validation | Research | P1 | **Done** (local loopback; Level C not run) |
 | **OV-032** | Cloud Deployment & Validation | DevOps | P1 | Deferred (checkpoint branch; no Railway deployment) |
 | **OV-033** | Final Research Consolidation + Demo Readiness | Research | P1 | **Done** on task branch (pending independent review) |
+| **OV-034** | Operations Console V2 enterprise UI/UX redesign | Frontend | P1 | **Done** on task branch (pending review) |
 
 ---
 
@@ -91,6 +92,11 @@
 
 * **Status:** **Done** on `task/OV-033-final-research-demo-readiness`, pending independent review and merge. Local smoke and release checks passed; this does not complete OV-032.
 * **Scope:** Canonical contribution matrix, metric registry, bounded research conclusion, evidence index and 2–4 minute local demo script/checklist. Correct stale status/architecture claims; no product feature, cloud deployment, merge or push. [Evidence index](research/FINAL_EVIDENCE_INDEX.md).
+
+### [OV-034] Operations Console V2 enterprise UI/UX redesign
+
+* **Status:** **Done** on `task/OV-034-console-v2`, pending review and merge.
+* **Scope:** Dark-first operational shell, semantic light mode, all existing console views, read-only call/action inspectors, navigation palette, responsive tables, accessible feedback and masked on-screen Exotel stream credential. Existing API, authentication, telephony, database, and action behavior remain unchanged. [Design system](CONSOLE_V2_DESIGN_SYSTEM.md).
 
 ### [OV-001] Establish OmniVoice Engineering Project Control
 * **Type:** Task

@@ -135,6 +135,14 @@ def main():
                                 for index in range(26)
                             ],
                         )
+                        conn.execute(
+                            "INSERT INTO actions (id, tenant_id, call_id, tool, arguments, tool_config, summary, status, created, expires) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                            (
+                                "qaact123456789", tenant_row[0], "c1234567890abcdef",
+                                "schedule_demo", "{}", "{}", "Synthetic browser QA booking",
+                                "committed", now - 20, now + 1000,
+                            ),
+                        )
                         conn.commit()
                     finally:
                         conn.close()
@@ -174,6 +182,15 @@ def main():
                     page.get_by_role("heading", name="Exotel connection details", exact=True).wait_for()
                     exotel_content = page.locator("#modal-body").inner_text()
                     assert "wss://voice.example.com/ws/exotel/" in exotel_content
+                    assert "••••" in exotel_content
+                    verify_conn = sqlite3.connect(Path(directory) / "browser.db")
+                    try:
+                        stream_secret = verify_conn.execute(
+                            "SELECT stream_secret FROM lines WHERE number=?", ("+12025550199",)
+                        ).fetchone()[0]
+                    finally:
+                        verify_conn.close()
+                    assert stream_secret not in exotel_content
                     assert "/api/webhooks/" not in exotel_content
                     page.locator("#close-modal").click()
 
@@ -190,9 +207,10 @@ def main():
                     assert "/api/webhooks/" not in twilio_content
                     page.locator("#close-modal").click()
 
-                    for name in ["workspace", "live", "analytics", "calls", "actions", "settings", "overview"]:
+                    for name in ["workspace", "knowledge", "lines", "live", "analytics", "calls", "actions", "settings", "overview"]:
                         page.locator(f'[data-page="{name}"]').click()
                         assert page.locator(f"#{name}").is_visible()
+                        page.screenshot(path=str(artifacts / f"console-{name}.png"), full_page=True)
                         if name == "workspace":
                             workspace = page.locator("#workspace-details").inner_text()
                             assert "Browser QA — synthetic only" in workspace
@@ -204,6 +222,12 @@ def main():
                             assert "total calls" in charts
                             assert "average server first audio" in charts
                             assert "twilio" in page.locator("#analytics-charts").inner_text().lower()
+                        if name == "actions":
+                            page.locator('[data-action-filter="committed"]').click()
+                            page.locator('[data-action-id="qaact123456789"]').click()
+                            assert "Write committed after confirmation" in page.locator("#modal-body").inner_text()
+                            page.locator("#close-modal").click()
+                            page.locator('[data-action-filter="all"]').click()
                         if name == "calls":
                             page.locator("#call-provider").select_option("twilio")
                             page.locator('#calls-list [data-call="c1234567890abcdef"]').wait_for()
@@ -235,19 +259,36 @@ def main():
                             page.get_by_role("heading", name="Call Session c123456789", exact=True).wait_for()
                             assert page.locator(".speech-bubble.caller").is_visible()
                             assert page.locator(".speech-bubble.agent").is_visible()
-                            assert page.locator(".turn-technical").is_visible()
                             modal_text = page.locator("#modal-body").inner_text()
                             assert "What are your business hours?" in modal_text
                             assert "We are open 9am to 6pm Monday to Friday." in modal_text
                             assert "TURN 1" in modal_text
+                            page.screenshot(path=str(artifacts / "console-call-detail.png"), full_page=True)
+                            page.get_by_role("tab", name="Metrics").click()
+                            assert page.locator(".turn-technical").is_visible()
+                            modal_text = page.locator("#modal-body").inner_text()
                             assert "STT endpoint · VAD proxy 80 ms" in modal_text
                             assert "RAG 18 ms" in modal_text
                             assert "LLM TTFT 140 ms" in modal_text
                             assert "Carrier framing + send 200 ms" in modal_text
                             assert "Transcript → audio sent 320 ms" in modal_text
-                            assert "VAD → audio sent · proxy —" in modal_text
+                            assert "VAD → audio sent · proxy —" not in modal_text
                             assert page.evaluate("window.__xss") is None
                             page.locator("#close-modal").click()
+                    page.keyboard.press("Control+k")
+                    page.locator("#command-input").fill("Analytics")
+                    page.locator("#command-input").press("Enter")
+                    assert page.locator("#analytics").is_visible()
+                    page.locator('[data-page="overview"]').click()
+                    page.locator("#theme-toggle").click()
+                    assert page.locator("html").get_attribute("data-theme") == "light"
+                    page.wait_for_timeout(220)
+                    page.screenshot(path=str(artifacts / "console-overview-light.png"), full_page=True)
+                    page.locator("#theme-toggle").click()
+                    for width in (1920, 1024, 768, 390):
+                        page.set_viewport_size({"width": width, "height": 900})
+                        page.screenshot(path=str(artifacts / f"console-overview-{width}.png"), full_page=True)
+                        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
                     page.get_by_role("button", name="Disconnect", exact=True).click()
                     page.set_viewport_size({"width": 390, "height": 844})
                     page.screenshot(path=str(artifacts / "console-mobile.png"), full_page=True)

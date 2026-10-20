@@ -21,9 +21,11 @@ function showPage(page) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
   const activePage = $(page);
   if (activePage) activePage.classList.add("active");
-  document.querySelectorAll(".nav").forEach(b => b.classList.toggle("active", b.dataset.page === page));
-  const crumb = $("crumb");
-  if (crumb) crumb.textContent = page.charAt(0).toUpperCase() + page.slice(1);
+  document.querySelectorAll(".nav").forEach(b => {
+    b.classList.toggle("active", b.dataset.page === page);
+    if (b.dataset.page === page) b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
   const titles = {
     overview: ["Operations overview", "Current workspace activity and verified server status.", "＋ New enterprise"],
     workspace: ["Voice agent", "Current workspace configuration and line association.", "View knowledge"],
@@ -36,12 +38,19 @@ function showPage(page) {
     settings: ["Settings", "Runtime readiness, providers, and retrieval mode.", "Refresh status"]
   };
   const [title, desc, action] = titles[page] || titles.overview;
+  const crumb = $("crumb");
+  if (crumb) crumb.textContent = title;
   const pageTitle = $("page-title");
   if (pageTitle) pageTitle.textContent = title;
   const pageDesc = $("page-description");
   if (pageDesc) pageDesc.textContent = desc;
   const primaryAction = $("primary-action");
-  if (primaryAction) primaryAction.textContent = action;
+  if (primaryAction) {
+    primaryAction.textContent = action;
+    primaryAction.hidden = page === "knowledge";
+  }
+  const toast = $("toast");
+  if (toast) toast.hidden = true;
 }
 
 function modal(title, body, onSave, saveLabel = "Save") {
@@ -50,6 +59,7 @@ function modal(title, body, onSave, saveLabel = "Save") {
   $("modal-body").innerHTML = body;
   $("submit-modal").textContent = saveLabel;
   $("submit-modal").style.display = onSave ? "inline-block" : "none";
+  $("cancel-modal").textContent = onSave ? "Cancel" : "Close";
   $("form-error").textContent = "";
   submitHandler = onSave;
   $("modal").showModal();
@@ -228,148 +238,9 @@ function callRows(items) {
   });
 }
 
-function conversationPreview() {
-  return `
-    <div class="sandbox-card">
-      <div class="sandbox-head">
-        <div class="sandbox-tag">LIVE TEST SANDBOX · RUNTIME VERIFICATION</div>
-        <button class="secondary-btn btn-sm" data-preview-conversation type="button">
-          Explore Latency Waterfall ↗
-        </button>
-      </div>
-      <div class="sandbox-turns">
-        <div class="sandbox-turn caller-bubble">
-          <div class="turn-speaker">CALLER · AUDIO INGRESS (+0.00s)</div>
-          <div>“What languages does OmniVoice support for real-time customer calls?”</div>
-        </div>
-        <div class="sandbox-turn agent-bubble">
-          <div class="turn-speaker">OMNIVOICE AGENT · STREAMING SYNTHESIS</div>
-          <div>“OmniVoice supports 11 Indian regional languages including Hindi, Tamil, Telugu, and English, with streaming speech-to-speech intelligence.”</div>
-          <div class="turn-waterfall">
-            <span class="wf-chip">Silero VAD ~18ms</span>
-            <span class="wf-chip">Sarvam ASR ~110ms</span>
-            <span class="wf-chip hit">FAISS In-Memory Cache Hit &lt;2ms</span>
-            <span class="wf-chip">Groq TTFT ~175ms</span>
-            <span class="wf-chip">Sarvam Regional TTS ~115ms</span>
-            <span class="wf-chip hit">E2E Turnaround: 420ms</span>
-          </div>
-        </div>
-        <div class="sandbox-turn caller-bubble">
-          <div class="turn-speaker">CALLER · INTENT ACTION (+3.40s)</div>
-          <div>“Please update my delivery address to 42 MG Road, Bangalore.”</div>
-        </div>
-        <div class="sandbox-turn agent-bubble">
-          <div class="turn-speaker">OMNIVOICE AGENT · SAFETY CONFIRMATION GATE</div>
-          <div>“I have prepared the address update for 42 MG Road, Bangalore. To confirm and execute this change, please say: <em>‘Yes, confirm address change’</em>.”</div>
-          <div class="turn-waterfall">
-            <span class="wf-chip">Tool: update_delivery_address (Staged)</span>
-            <span class="wf-chip hit">Gate: Explicit Confirmation Required</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function openSimulationModal() {
-  modal("Turn Execution & Latency Waterfall", `
-    <div class="sim-modal-content">
-      <div class="sim-header-card">
-        <div class="sim-call-info">
-          <span class="sim-line-badge"><span class="signal-dot"></span> SCRIPTED VERIFICATION TEST</span>
-          <span class="sim-number">PSTN / SIP · Full-Duplex Audio Flow</span>
-        </div>
-        <div class="sim-live-meter">
-          <span class="meter-stat">&lt;500ms latency budget</span>
-        </div>
-      </div>
-      
-      <div class="sim-turns-list">
-        <div class="sim-turn caller-turn">
-          <div class="turn-avatar caller-avatar">C</div>
-          <div class="turn-content">
-            <div class="turn-meta">
-              <strong>Caller</strong>
-              <span class="turn-stamp">+0.00s</span>
-            </div>
-            <p>“What languages does OmniVoice support for real-time customer calls?”</p>
-          </div>
-        </div>
-
-        <div class="sim-turn agent-turn">
-          <div class="turn-avatar agent-avatar">⚡</div>
-          <div class="turn-content">
-            <div class="turn-meta">
-              <strong>OmniVoice Agent</strong>
-              <span class="turn-stamp highlighted">Example response</span>
-            </div>
-            <p>“OmniVoice supports 11 Indian regional languages including Hindi, Tamil, Telugu, and English, with streaming speech-to-speech intelligence.”</p>
-            <div class="turn-tags">
-              <span class="turn-pill">Sarvam Streaming STT</span>
-              <span class="turn-pill">FAISS In-Memory Cache Hit</span>
-              <span class="turn-pill">Groq inference</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="sim-turn caller-turn">
-          <div class="turn-avatar caller-avatar">C</div>
-          <div class="turn-content">
-            <div class="turn-meta">
-              <strong>Caller</strong>
-              <span class="turn-stamp">+3.40s</span>
-            </div>
-            <p>“Please update my delivery address to 42 MG Road, Bangalore.”</p>
-          </div>
-        </div>
-
-        <div class="sim-turn agent-turn write-turn">
-          <div class="turn-avatar agent-avatar warning-avatar">🔒</div>
-          <div class="turn-content">
-            <div class="turn-meta">
-              <strong>OmniVoice Agent</strong>
-              <span class="turn-stamp highlighted">Example confirmation</span>
-            </div>
-            <p>“I have prepared the address update for 42 MG Road, Bangalore. To confirm and execute this change, please say: <em>‘Yes, confirm address change’</em>.”</p>
-            <div class="turn-tags">
-              <span class="turn-pill write-pill">Write Action Staged</span>
-              <span class="turn-pill">Requires Explicit Confirmation</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="sim-summary-box">
-        <div class="summary-metric">
-          <span>Voice target</span>
-          <strong>&lt;500 ms</strong>
-          <small>Live validation required</small>
-        </div>
-        <div class="summary-metric">
-          <span>Interruption Dispatch</span>
-          <strong>&lt;50 ms</strong>
-          <small>Decision to clear dispatch</small>
-        </div>
-        <div class="summary-metric">
-          <span>Fast-path Cache</span>
-          <strong>Illustrative</strong>
-          <small>Approved FAQ bypass</small>
-        </div>
-      </div>
-      <p class="help text-center">This is an operational test simulation. Production SLAs require measurement on connected carrier phone calls.</p>
-    </div>
-  `, null);
-}
-
-document.addEventListener("click", event => {
-  if (event.target.closest("[data-preview-conversation]")) {
-    openSimulationModal();
-  }
-});
-
 function setupThemeToggle() {
   const toggleBtn = $("theme-toggle");
-  const savedTheme = localStorage.getItem("omni-theme") || "light";
+  const savedTheme = localStorage.getItem("omni-theme") || "dark";
 
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
@@ -400,6 +271,9 @@ function setupThemeToggle() {
 }
 
 function render() {
+  const authGate = $("auth-gate");
+  if (authGate) authGate.hidden = !!token;
+  document.body.classList.toggle("console-locked", !token);
   const isReady = !!(token && state.voice_ready);
   const statusKey = token ? (isReady ? "ready" : "setup") : "locked";
   const statusText = token ? (isReady ? "Voice engine ready" : "Setup required") : "Console locked";
@@ -478,7 +352,7 @@ function render() {
 
   const recentCalls = $("recent-calls");
   if (recentCalls) {
-    recentCalls.innerHTML = calls.length ? callTable(calls.slice(0, 4)) : conversationPreview();
+    recentCalls.innerHTML = calls.length ? callTable(calls.slice(0, 4)) : empty("No call activity yet", "Connected phone sessions will appear here.");
   }
   const callsList = $("calls-list");
   if (callsList) callsList.innerHTML = callTable(calls);
@@ -608,9 +482,6 @@ if (setupBtn) setupBtn.onclick = createTenant;
 const addFaqBtn = $("add-faq");
 if (addFaqBtn) addFaqBtn.onclick = addFAQ;
 
-const testSandboxBtn = $("test-sandbox-btn");
-if (testSandboxBtn) testSandboxBtn.onclick = openSimulationModal;
-
 document.addEventListener("click", async event => {
   const target = event.target.closest("button, article[data-go]");
   if (!target) return;
@@ -644,15 +515,22 @@ document.addEventListener("click", async event => {
             null
           );
         } else {
+          const streamAddress = new URL(info.stream_url);
+          const maskedStream = `${streamAddress.origin}/ws/exotel/••••/••••••••`;
           modal(
             "Exotel connection details",
             `<div class="code-box">
-              <strong>Voice Stream WebSocket URL</strong>
-              <code>${esc(info.stream_url)}</code>
-              <p class="help">Configure this WebSocket URL in your Exotel App Bazar / Voicebot flow applet.</p>
+              <strong>Voice stream endpoint</strong>
+              <code>${esc(maskedStream)}</code>
+              <p class="help">The stream credential is configured and hidden here. Copy the protected URL to configure your Exotel Voicebot flow.</p>
+              <button id="copy-connection-url" class="secondary-btn" type="button">Copy protected URL</button>
             </div>`,
             null
           );
+          $("copy-connection-url")?.addEventListener("click", async () => {
+            try { await navigator.clipboard.writeText(info.stream_url); notify("Protected URL copied."); }
+            catch (_) { notify("Clipboard unavailable. Use the authenticated connection API for carrier setup."); }
+          });
         }
       } catch (error) {
         modal(
@@ -700,8 +578,73 @@ document.addEventListener("click", async event => {
   }
 });
 
+function setupCommandPalette() {
+  const palette = $("command-palette");
+  const input = $("command-input");
+  const list = $("command-list");
+  const trigger = $("command-trigger");
+  const pages = [
+    ["overview", "Overview", "Operate"], ["live", "Live calls", "Operate"],
+    ["calls", "Call history", "Operate"], ["actions", "Actions", "Operate"],
+    ["workspace", "Voice agent", "Configure"], ["knowledge", "Knowledge", "Configure"],
+    ["lines", "Phone numbers", "Configure"], ["analytics", "Analytics", "Insights"],
+    ["settings", "Settings", "System"]
+  ];
+  let selected = 0;
+  const visible = () => pages.filter(([, title]) => title.toLowerCase().includes(input.value.trim().toLowerCase()));
+  function renderCommands() {
+    const matches = visible();
+    if (selected >= matches.length) selected = 0;
+    list.innerHTML = matches.length ? matches.map(([id, title, group], index) =>
+      `<button type="button" role="option" data-command-page="${id}" aria-selected="${index === selected}"><span>${title}</span><small>${group}</small></button>`
+    ).join("") : '<p class="ops-context">No matching page</p>';
+  }
+  function open() {
+    if (!token || $("modal").open || palette.open) return;
+    input.value = "";
+    selected = 0;
+    renderCommands();
+    palette.showModal();
+    input.focus();
+  }
+  trigger?.addEventListener("click", open);
+  $("command-close")?.addEventListener("click", () => palette.close());
+  input?.addEventListener("input", () => { selected = 0; renderCommands(); });
+  input?.addEventListener("keydown", event => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const count = visible().length;
+      if (count) selected = (selected + (event.key === "ArrowDown" ? 1 : -1) + count) % count;
+      renderCommands();
+    }
+    if (event.key === "Enter" && visible()[selected]) {
+      event.preventDefault();
+      showPage(visible()[selected][0]);
+      palette.close();
+    }
+  });
+  list?.addEventListener("click", event => {
+    const page = event.target.closest("[data-command-page]")?.dataset.commandPage;
+    if (page) { showPage(page); palette.close(); }
+  });
+  document.addEventListener("keydown", event => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+      event.preventDefault();
+      open();
+    }
+    if ((event.key === "Enter" || event.key === " ") && event.target.matches("article[data-go]")) {
+      event.preventDefault();
+      showPage(event.target.dataset.go);
+    }
+  });
+  palette?.addEventListener("close", () => trigger?.focus());
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   setupThemeToggle();
+  $("auth-connect")?.addEventListener("click", login);
+  setupCommandPalette();
+  showPage(currentPage);
   render();
   if (token) refresh();
 });
