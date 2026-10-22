@@ -40,8 +40,7 @@ async def media(ws: WebSocket, line_id: str, token: str):
                     message = await ws.receive()
                     if message["type"] == "websocket.disconnect":
                         logging.getLogger("omnivoice.gateway").warning(
-                            "Carrier disconnected code=%s reason=%s", message.get("code"),
-                            str(message.get("reason", ""))[:240],
+                            "Carrier disconnected code=%s", message.get("code"),
                         )
                         return
                     await upstream.send(message.get("text") or message.get("bytes", b""))

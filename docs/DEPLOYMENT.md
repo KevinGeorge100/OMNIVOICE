@@ -2,13 +2,13 @@
 
 **Document Version:** 1.0  
 **Task Reference:** OV-027  
-**Status:** Operational Deployment Standard  
+**Status:** Deployment preparation; Railway service and carrier cutover not yet validated
 
 ---
 
 ## 1. Deployment Architecture
 
-OmniVoice runs as a **single-service, single-worker asynchronous voice backend** serving management APIs, the Operations Console, Server-Sent Events (SSE), and bidirectional carrier WebSocket streams directly over HTTP/1.1 and WSS on port 8000.
+OmniVoice runs as a **single-service, single-worker asynchronous voice backend** serving management APIs, the Operations Console, Server-Sent Events (SSE), and bidirectional carrier WebSocket streams. The container binds to `0.0.0.0` on the platform-provided `PORT` (default 8000 locally); the public gateway terminates HTTPS/WSS.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -20,7 +20,7 @@ OmniVoice runs as a **single-service, single-worker asynchronous voice backend**
 ┌─────────────────────────────────────────────────────────────┐
 │            PERSISTENT CLOUD HOST (Railway / Fly.io)         │
 │                                                             │
-│   FastAPI + Uvicorn (Port 8000 -> HTTPS / WSS 443)          │
+│   FastAPI + Uvicorn (PORT -> HTTPS / WSS 443)               │
 │   ├── Operations Console (Static assets at /)               │
 │   ├── Operations Telemetry (SSE at /api/tenants/{id}/events)│
 │   ├── Carrier Media Streams (/ws/exotel/{id}/{secret})      │
@@ -70,6 +70,9 @@ OMNI_EXOTEL_ACCOUNT_SID=<exotel_sid>
 OMNI_EXOTEL_API_KEY=<exotel_key>
 OMNI_EXOTEL_API_TOKEN=<exotel_token>
 
+# For the Gnani demo variant, set STT_PROVIDER=gnani, TTS_PROVIDER=gnani,
+# and GNANI_API_KEY privately instead of relying on the Sarvam defaults.
+
 # Engine Models & Settings
 OMNI_GROQ_MODEL=llama-3.1-8b-instant
 OMNI_STT_MODEL=saaras:v3-realtime
@@ -93,7 +96,7 @@ OMNI_SEMANTIC_ENABLED=false
 3. **Configure Environment Variables**:
    - Add all variables listed in Section 3 under **Variables**.
 4. **Deploy Service**:
-   - Railway builds the container using [Dockerfile](file:///C:/Projects/OMNIVOICE-OV027/Dockerfile).
+   - Railway builds the container using the repository [Dockerfile](../Dockerfile).
    - Silero VAD weights are automatically baked during build (`python -m omnivoice.cli models`).
 5. **Set Public Domain**:
    - In service settings $\rightarrow$ **Networking** $\rightarrow$ **Generate Domain** (e.g. `https://omnivoice-production.up.railway.app`).
@@ -110,6 +113,10 @@ OMNI_SEMANTIC_ENABLED=false
    docker compose up -d
    ```
 3. Expose port 8000 via Caddy or Nginx with WebSocket upgrade and TLS certificate.
+
+### Temporary local fallback
+
+When Railway is unavailable, the [final demo runbook](FINAL_DEMO_RUNBOOK.md) documents a Cloudflare Quick Tunnel launcher. Its origin is temporary and the local computer must remain awake. It does not deploy a persistent service or change a carrier dashboard.
 
 ---
 
@@ -158,11 +165,11 @@ Do **not** alter Exotel telephony configuration until `/healthz` and `/readyz` r
 
 ## 7. Live PSTN Smoke Test
 
-Conduct a single controlled mobile telephone call to the virtual number (`+914954269065`):
+After the owner has verified carrier routing and credits, conduct one **user-initiated** controlled mobile telephone call to the number currently registered in the console:
 
 1. **Connection**: Carrier bridges PSTN call to `wss://<assigned-cloud-domain>/ws/exotel/...`.
 2. **Greeting**: Initial tenant greeting plays audibly and clearly.
-3. **Dialogue**: Speak a conversational query; verify speech detection, Sarvam STT transcription, Groq LLM inference, and Sarvam TTS synthesis.
+3. **Dialogue**: Speak a conversational query; verify speech detection, the configured STT provider, Groq inference, and the configured TTS provider.
 4. **Operations Console**: Verify live call appears in the Operations Console with active status, turn counter increments via SSE, and final turn metrics persist upon hangup.
 
 ---

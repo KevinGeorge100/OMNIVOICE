@@ -24,6 +24,18 @@ STT_FAILURE_REPLY = "I'm having trouble hearing you right now. Please try again.
 LLM_FAILURE_REPLY = "I'm having trouble responding right now. Please try again."
 
 
+def _log_call_end(metrics):
+    """Log only fixed numeric fields; persisted metrics can contain transcripts."""
+    errors = metrics.get("errors", 0)
+    errors = errors if type(errors) is int and errors >= 0 else 0
+    turns = metrics.get("turns", [])
+    turns = turns if isinstance(turns, list) else []
+    logging.getLogger("omnivoice.media").log(
+        logging.WARNING if errors else logging.INFO,
+        "Call ended errors=%d turns=%d", errors, len(turns),
+    )
+
+
 def provider_failure(error):
     if isinstance(error, ProviderError):
         return error
@@ -133,9 +145,7 @@ class CallSession:
         except Exception:
             self.metrics["errors"] += 1
         finally:
-            logging.getLogger("omnivoice.media").warning(
-                "Call ended id=%s metrics=%s", self.id, json.dumps(self.metrics)
-            )
+            _log_call_end(self.metrics)
             for task in (self.response, self.slow):
                 if task:
                     task.cancel()
@@ -167,8 +177,7 @@ class CallSession:
                     except asyncio.QueueFull:
                         self.metrics["end_reason"] = "audio_queue_overflow"
                         logging.getLogger("omnivoice.media").warning(
-                            "queue_overflow tenant_id=%s modality=audio reason=local_capacity_exhausted limit_bytes=32000",
-                            self.tenant["id"],
+                            "queue_overflow modality=audio reason=local_capacity_exhausted limit_bytes=32000",
                         )
                         await self.transport.ws.close(code=1013)
                         raise CallEnded() from None
@@ -707,7 +716,7 @@ class CallSession:
                         )
                     except Exception as error:
                         logging.getLogger("omnivoice.session").warning(
-                            "Failed to publish call.turn event: %s", error
+                            "Failed to publish call.turn event: %s", type(error).__name__
                         )
             if self.active_generation_id == gen_id:
                 self.active_generation_id = None

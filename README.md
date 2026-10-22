@@ -26,6 +26,8 @@ A phone conversation cannot wait for a chain of blocking transcription, retrieva
 
 ## Product preview
 
+For a repeatable presentation, use the [final demo runbook](docs/FINAL_DEMO_RUNBOOK.md). It keeps synthetic loopback, historical Exotel PSTN and future carrier validation clearly separated.
+
 The [product site](https://omnivoice-self.vercel.app/) presents the system and an illustrative browser audio experience. The actual caller path is **PSTN/SIP → carrier media WebSocket → OmniVoice**. The embedded [operations console](omnivoice/static/) manages tenants, knowledge, lines, calls, and action activity. No verified console screenshot is committed yet; the signal graphic above is an architectural illustration, not a product screenshot.
 
 <details>

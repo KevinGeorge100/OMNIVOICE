@@ -65,7 +65,7 @@ def create_app(settings=None, *, research_client=None):
             except Exception as exc:
                 services.model_error = "Semantic retrieval unavailable; falling back to lexical retrieval"
                 logging.getLogger("omnivoice.rag").warning(
-                    "Semantic retrieval disabled: %s", exc
+                    "Semantic retrieval disabled: %s", type(exc).__name__
                 )
         if settings.silero_model.is_file():
             try:
@@ -613,11 +613,6 @@ def create_app(settings=None, *, research_client=None):
             else:
                 stream_id = start.get("stream_sid") or message.get("stream_sid")
                 fmt = start.get("media_format", {})
-                logging.getLogger("omnivoice.media").warning(
-                    "Exotel start format: rate=%s encoding=%s",
-                    str(fmt.get("sample_rate", "missing"))[:32],
-                    str(fmt.get("encoding", "missing"))[:32],
-                )
                 if str(fmt.get("sample_rate", 8000)) != "8000" or fmt.get("encoding", "raw/slin") not in {
                     "base64",
                     "raw/slin",
@@ -658,7 +653,7 @@ def create_app(settings=None, *, research_client=None):
                 )
             except Exception as error:
                 logging.getLogger("omnivoice.media").warning(
-                    "Failed to publish call.started event: %s", error
+                    "Failed to publish call.started event: %s", type(error).__name__
                 )
             await session.run()
         except Exception as error:
@@ -688,7 +683,7 @@ def create_app(settings=None, *, research_client=None):
                         )
                     except Exception as error:
                         logging.getLogger("omnivoice.media").warning(
-                            "Failed to publish call.ended event: %s", error
+                            "Failed to publish call.ended event: %s", type(error).__name__
                         )
             finally:
                 if call_id:

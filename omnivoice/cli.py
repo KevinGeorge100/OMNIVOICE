@@ -1,6 +1,7 @@
 import argparse
 import hashlib
 import json
+import os
 import secrets
 import urllib.request
 from pathlib import Path
@@ -12,7 +13,7 @@ def main():
     sub.add_parser("init", help="Create a private .env without printing secrets")
     serve = sub.add_parser("serve", help="Start the local enterprise console and media engine")
     serve.add_argument("--host", default="127.0.0.1")
-    serve.add_argument("--port", type=int, default=8000)
+    serve.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")))
     models = sub.add_parser("models", help="Download public Silero and optional embedding weights")
     models.add_argument("--semantic", action="store_true")
     args = parser.parse_args()
