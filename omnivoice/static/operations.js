@@ -20,6 +20,10 @@ const opsDuration = seconds => {
   const total = Math.max(0, Math.floor(seconds));
   return `${Math.floor(total / 60)}m ${String(total % 60).padStart(2, "0")}s`;
 };
+const opsCallDuration = call => {
+  const ended = Number.isFinite(call.ended) ? call.ended : call.status === "active" ? Date.now() / 1000 : null;
+  return Number.isFinite(call.started) && Number.isFinite(ended) ? ended - call.started : null;
+};
 const opsNumber = value => Number.isFinite(value) ? Math.round(value).toLocaleString() : "—";
 const opsLatency = value => Number.isFinite(value) ? `${Math.round(value)} ms` : "—";
 const opsMetric = (label, value, note = "") => `<article class="ops-metric"><span>${opsEsc(label)}</span><strong>${opsEsc(value)}</strong><small>${opsEsc(note)}</small></article>`;
@@ -69,6 +73,11 @@ function renderOperations() {
 }
 
 function renderOverviewOperations() {
+  const hasLive = !!(tenantId && liveCalls.size);
+  const overview = $("overview");
+  overview?.classList.toggle("overview-idle", !hasLive);
+  overview?.classList.toggle("overview-busy", hasLive);
+  document.querySelector(".live-hero")?.classList.toggle("is-idle", !hasLive);
   const metrics = $("overview-real-metrics");
   const summary = operationAnalytics || {};
   if (metrics) metrics.innerHTML = [
@@ -79,6 +88,8 @@ function renderOverviewOperations() {
   ].join("");
   $("stat-active").textContent = tenantId ? String(liveCalls.size) : "0";
   $("live-nav-count").textContent = String(liveCalls.size);
+  const activeHint = $("hint-active");
+  if (activeHint) activeHint.textContent = !token ? "Connect the console to inspect calls" : !tenantId ? "Select an enterprise to monitor calls" : hasLive ? `${liveCalls.size} connected session${liveCalls.size === 1 ? "" : "s"}` : "No calls in progress";
   const health = $("ops-health-badge");
   if (health) {
     health.textContent = !token ? "Connect to inspect" : state.voice_ready ? "Configured" : "Setup required";
@@ -92,15 +103,18 @@ function renderOverviewOperations() {
     ["Capacity", state.max_calls ? `${liveCalls.size} / ${state.max_calls} calls` : "Unavailable"]
   ].map(([label, value]) => `<div><span>${opsEsc(label)}</span><b>${opsEsc(value)}</b></div>`).join("");
   const runtime = $("runtime-title");
-  if (runtime) runtime.textContent = !token ? "Status unavailable" : state.voice_ready ? "Voice configured" : "Setup required";
+  if (runtime) runtime.textContent = !token ? "Status unavailable" : state.voice_ready ? "Voice configured" : "Voice setup required";
   const runtimeDot = document.querySelector(".runtime-status .pulse-dot");
   if (runtimeDot) runtimeDot.classList.toggle("green", !!(token && state.voice_ready));
   const retrieval = $("runtime-retrieval");
   if (retrieval) retrieval.textContent = state.retrieval_mode || "Connect to inspect retrieval";
   const recent = $("recent-calls");
-  if (recent) recent.innerHTML = calls.length ? opsTable(
-    ["Session", "Carrier", "Status", "Started", ""], calls.slice(0, 5).map(call => `<tr><td><b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b></td><td>${opsEsc(call.provider)}</td><td>${opsPill(call.status, call.status === "active" ? "good" : call.status === "failed" ? "danger" : "neutral")}</td><td>${opsDate(call.started)}</td><td><button class="secondary-btn btn-sm" data-call="${opsEsc(call.id)}" type="button">Inspect</button></td></tr>`)
-  ) : opsEmpty("No call activity yet", "Connected phone sessions will appear here. No sample calls are shown.");
+  if (recent) recent.innerHTML = calls.length ? `<div class="recent-list">${calls.slice(0, 5).map(call => `<div class="recent-row"><div class="recent-row-icon" aria-hidden="true">↗</div><div class="recent-row-main"><b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b><span>${opsEsc(call.provider)} · ${opsDate(call.started)}</span></div>${opsPill(call.status, call.status === "active" ? "good" : call.status === "failed" ? "danger" : "neutral")}<button class="secondary-btn btn-sm" data-call="${opsEsc(call.id)}" type="button">Inspect</button></div>`).join("")}</div>` : opsEmpty("No call activity yet", "Connected phone sessions will appear here. No sample calls are shown.");
+  const overviewLive = $("overview-live-calls");
+  if (overviewLive) overviewLive.innerHTML = liveCalls.size ? [...liveCalls.values()].slice(0, 3).map(call => {
+    const latest = call.recent_transcript || call.metrics?.turns?.at(-1)?.user_transcript;
+    return `<button type="button" class="overview-live-row" data-live-inspect="${opsEsc(call.id)}"><span class="overview-live-row-dot" aria-hidden="true"></span><span><b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b><small>${opsEsc(latest || call.state || "Connected · awaiting first turn")}</small></span><span class="overview-live-row-arrow" aria-hidden="true">↗</span></button>`;
+  }).join("") : `<div class="overview-live-empty"><span class="overview-live-empty-mark" aria-hidden="true">◎</span><div><strong>All quiet right now</strong><p>Calls will appear here as soon as a connected session starts.</p></div></div>`;
   const setup = $("setup-button");
   if (setup) setup.hidden = !!tenantId;
 }
@@ -158,8 +172,8 @@ function opsCallRow(call) {
   const turns = call.metrics?.turns || [];
   const timings = turns.map(turn => turn.final_transcript_to_first_audio_sent_ms).filter(Number.isFinite);
   const mean = timings.length ? timings.reduce((sum, value) => sum + value, 0) / timings.length : null;
-  const duration = (call.ended || (call.status === "active" ? Date.now() / 1000 : null)) - call.started;
-  return `<tr><td><b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b></td><td>${opsEsc(call.provider)}</td><td class="mono">${opsDuration(duration)}</td><td>${turns.length}</td><td>${opsPill(call.status, call.status === "active" ? "good" : call.status === "failed" ? "danger" : "neutral")}</td><td>${opsDate(call.started)}</td><td><button class="secondary-btn btn-sm" data-call="${opsEsc(call.id)}" type="button" aria-label="Inspect call ${opsEsc((call.id || "").slice(0, 10))}">Inspect ↗</button></td><td class="mono">${opsLatency(mean)}</td></tr>`;
+  const duration = opsCallDuration(call);
+  return `<tr><td><div class="call-identity"><b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b><small>${opsEsc(call.provider || "Carrier not recorded")}</small></div></td><td>${opsDate(call.started)}</td><td><div class="call-duration"><b class="mono">${opsDuration(duration)}</b><small>${turns.length} recorded turn${turns.length === 1 ? "" : "s"}</small></div></td><td>${opsPill(call.status, call.status === "active" ? "good" : call.status === "failed" ? "danger" : "neutral")}</td><td class="mono">${opsLatency(mean)}</td><td><button class="secondary-btn btn-sm" data-call="${opsEsc(call.id)}" type="button" aria-label="Inspect call ${opsEsc((call.id || "").slice(0, 10))}">Inspect <span aria-hidden="true">↗</span></button></td></tr>`;
 }
 
 function renderHistory() {
@@ -167,9 +181,15 @@ function renderHistory() {
   if (!target) return;
   target.removeAttribute("data-loading");
   target.dataset.search = $("call-search")?.value.trim() || "";
-  target.innerHTML = historyRows.length ? opsTable(
-    ["Session ID", "Carrier", "Duration", "Turns", "Outcome", "Started", "Inspect", "First audio"], historyRows.map(opsCallRow)
-  ) : opsEmpty("No matching calls", "Adjust the filters or connect a phone line to begin recording sessions.");
+  const resultStatus = $("call-results-status");
+  if (resultStatus) resultStatus.textContent = historyRows.length ? `${historyRows.length} session${historyRows.length === 1 ? "" : "s"} shown${historyHasMore ? "; more available" : ""}` : "No matching sessions";
+  target.innerHTML = historyRows.length ? `${opsTable(
+    ["Session", "Started", "Duration", "Outcome", "Avg. server first audio", ""], historyRows.map(opsCallRow)
+  )}<div class="mobile-call-list">${historyRows.map(call => {
+    const duration = opsCallDuration(call);
+    const turnCount = call.metrics?.turns?.length || 0;
+    return `<article class="mobile-call-row"><div><b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b>${opsPill(call.status, call.status === "active" ? "good" : call.status === "failed" ? "danger" : "neutral")}</div><p>${opsEsc(call.provider || "Carrier not recorded")} · ${opsDate(call.started)}</p><div class="mobile-call-facts"><span>${opsDuration(duration)} duration</span><span>${turnCount} turn${turnCount === 1 ? "" : "s"}</span></div><button class="secondary-btn btn-sm" data-mobile-call="${opsEsc(call.id)}" type="button" aria-label="Inspect call ${opsEsc((call.id || "").slice(0, 10))}">Inspect call <span aria-hidden="true">↗</span></button></article>`;
+  }).join("")}</div>` : opsEmpty("No matching calls", "Adjust the filters or connect a phone line to begin recording sessions.");
   $("calls-load-more").hidden = !historyHasMore;
   $("calls-load-more").disabled = false;
 }
@@ -333,14 +353,17 @@ function renderSettingsOperations() {
 
 function openCallInspector(call) {
   const turns = call.metrics?.turns || [];
-  const duration = (call.ended || (call.status === "active" ? Date.now() / 1000 : null)) - call.started;
+  const duration = opsCallDuration(call);
   const summary = [
-    ["Status", call.status], ["Carrier", call.provider], ["Duration", opsDuration(duration)],
-    ["Line", call.line_number || "Not recorded"], ["Started", opsDate(call.started)],
-    ["Ended", opsDate(call.ended)], ["Turns", turns.length], ["End reason", "Not recorded by current runtime"]
+    ["Outcome", call.status || "Not recorded"], ["Carrier", call.provider || "Not recorded"],
+    ["Duration", opsDuration(duration)], ["Recorded turns", turns.length]
   ].map(([label, value]) => `<div><small>${opsEsc(label)}</small><b>${opsEsc(value)}</b></div>`).join("");
+  const context = [
+    ["Started", opsDate(call.started)], ["Ended", opsDate(call.ended)],
+    ["Line", call.line_number || "Not recorded"]
+  ].map(([label, value]) => `<div><dt>${opsEsc(label)}</dt><dd>${opsEsc(value)}</dd></div>`).join("");
   const conversation = turns.map((turn, index) => `<article class="inspector-turn">
-    <div class="turn-index">TURN ${index + 1}${turn.interrupted ? " · INTERRUPTED" : ""}</div>
+    <h3 class="turn-index">TURN ${index + 1}${turn.interrupted ? " · INTERRUPTED" : ""}</h3>
     <div class="speech-bubble caller"><small>CALLER</small><p>${opsEsc(turn.user_transcript || "Transcript not recorded")}</p></div>
     <div class="speech-bubble agent"><small>AGENT</small><p>${opsEsc(turn.agent_response || "Response not recorded")}</p></div>
   </article>`).join("") || opsEmpty("No recorded turns", "The call may have ended before a transcript was available.");
@@ -358,8 +381,9 @@ function openCallInspector(call) {
   const callActions = actions.filter(action => action.call_id === call.id);
   const actionPane = callActions.length ? opsTable(["Tool", "State", "Created"], callActions.map(action => `<tr><td>${opsEsc(action.tool)}</td><td>${opsPill(action.status, action.status === "committed" ? "good" : "warning")}</td><td>${opsDate(action.created)}</td></tr>`)) : opsEmpty("No actions recorded", "No business action is attached to this call.");
   const tabs = [["conversation", "Conversation"], ["metrics", "Metrics"], ["actions", "Actions"], ["technical", "Technical"]];
-  const tabButtons = tabs.map(([id, title], index) => `<button id="inspector-tab-${id}" type="button" role="tab" aria-controls="inspector-pane-${id}" aria-selected="${index === 0}" data-inspector-tab="${id}">${title}</button>`).join("");
+  const tabButtons = tabs.map(([id, title], index) => `<button id="inspector-tab-${id}" type="button" role="tab" tabindex="${index === 0 ? 0 : -1}" aria-controls="inspector-pane-${id}" aria-selected="${index === 0}" data-inspector-tab="${id}">${title}</button>`).join("");
   modal(`Call Session ${opsEsc((call.id || "").slice(0, 10))}`, `<div class="inspector"><div class="inspector-summary">${summary}</div>
+    <dl class="inspector-context">${context}</dl>
     <div class="inspector-tabs" role="tablist" aria-label="Call details">${tabButtons}</div>
     <section id="inspector-pane-conversation" class="inspector-pane" role="tabpanel" aria-labelledby="inspector-tab-conversation">${conversation}</section>
     <section id="inspector-pane-metrics" class="inspector-pane" role="tabpanel" aria-labelledby="inspector-tab-metrics" hidden><p class="ops-context">Server timings; carrier transit and acoustic playback are excluded.</p>${metrics}</section>
@@ -368,9 +392,30 @@ function openCallInspector(call) {
       <div class="config-row"><span>Session ID</span><b class="mono">${opsEsc(call.id || "Not recorded")}</b></div>
       <div class="config-row"><span>Carrier</span><b>${opsEsc(call.provider || "Not recorded")}</b></div>
       <div class="config-row"><span>Line</span><b>${opsEsc(call.line_number || "Not recorded")}</b></div>
+      <div class="config-row"><span>End reason</span><b>Not recorded by current runtime</b></div>
       <div class="config-row"><span>Recorded response segments</span><b>${opsNumber(turns.reduce((total, turn) => total + (turn.response_segment_count || 0), 0))}</b></div>
     </section>
   </div>`, null);
+}
+
+function activateInspectorTab(id, moveFocus = false) {
+  const tabs = [...document.querySelectorAll("#modal [data-inspector-tab]")];
+  const selected = tabs.find(button => button.dataset.inspectorTab === id);
+  if (!selected) return;
+  tabs.forEach(button => {
+    const active = button === selected;
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+  });
+  document.querySelectorAll("#modal .inspector-pane").forEach(pane => { pane.hidden = pane.id !== `inspector-pane-${id}`; });
+  if (moveFocus) selected.focus();
+}
+
+function setLiveConnectionStatus(label) {
+  const status = $("live-connection");
+  if (status) status.textContent = label;
+  const overviewStatus = $("overview-stream-state");
+  if (overviewStatus) overviewStatus.textContent = `Event stream ${label.toLowerCase()}`;
 }
 
 function disconnectLiveStream() {
@@ -379,8 +424,7 @@ function disconnectLiveStream() {
   liveController = null;
   liveRetry = null;
   liveKey = "";
-  const status = $("live-connection");
-  if (status) status.textContent = "Disconnected";
+  setLiveConnectionStatus("Disconnected");
 }
 
 function connectLiveStream() {
@@ -391,14 +435,13 @@ function connectLiveStream() {
   liveKey = key;
   const controller = new AbortController();
   liveController = controller;
-  const status = $("live-connection");
-  if (status) status.textContent = "Connecting";
+  setLiveConnectionStatus("Connecting");
   (async () => {
     try {
       const response = await fetch(route("events"), { headers: { Authorization: `Bearer ${token}` }, signal: controller.signal, cache: "no-store" });
       if (response.status === 401 || response.status === 404) throw new Error("Authentication required");
       if (!response.ok || !response.body) throw new Error(`Event stream unavailable (${response.status})`);
-      if (status) status.textContent = "Connected · single worker";
+      setLiveConnectionStatus("Connected · single worker");
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
@@ -416,7 +459,7 @@ function connectLiveStream() {
         }
       }
     } catch (error) {
-      if (!controller.signal.aborted && status) status.textContent = error.message === "Authentication required" ? "Unauthorized" : "Reconnecting";
+      if (!controller.signal.aborted) setLiveConnectionStatus(error.message === "Authentication required" ? "Unauthorized" : "Reconnecting");
       if (error.message === "Authentication required") return;
     }
     if (!controller.signal.aborted && liveKey === key) {
@@ -446,10 +489,7 @@ function handleLiveEvent(type, event) {
 
 document.addEventListener("click", event => {
   const inspectorTab = event.target.closest("[data-inspector-tab]")?.dataset.inspectorTab;
-  if (inspectorTab) {
-    document.querySelectorAll("[data-inspector-tab]").forEach(button => button.setAttribute("aria-selected", String(button.dataset.inspectorTab === inspectorTab)));
-    document.querySelectorAll(".inspector-pane").forEach(pane => { pane.hidden = pane.id !== `inspector-pane-${inspectorTab}`; });
-  }
+  if (inspectorTab) activateInspectorTab(inspectorTab);
   const kind = event.target.closest("[data-knowledge-kind]")?.dataset.knowledgeKind;
   if (kind) { knowledgeKind = kind; renderKnowledgeOperations(); }
   const filter = event.target.closest("[data-action-filter]")?.dataset.actionFilter;
@@ -461,6 +501,15 @@ document.addEventListener("click", event => {
   }
   const liveId = event.target.closest("[data-live-inspect]")?.dataset.liveInspect;
   if (liveId && liveCalls.has(liveId)) openLiveInspector(liveCalls.get(liveId));
+});
+document.addEventListener("keydown", event => {
+  const current = event.target.closest("#modal [data-inspector-tab]");
+  if (!current || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+  const tabs = [...document.querySelectorAll("#modal [data-inspector-tab]")];
+  const index = tabs.indexOf(current);
+  const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+  event.preventDefault();
+  activateInspectorTab(tabs[next].dataset.inspectorTab, true);
 });
 document.addEventListener("DOMContentLoaded", () => {
   $("upload-document")?.addEventListener("click", upload);

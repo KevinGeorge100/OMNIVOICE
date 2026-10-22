@@ -210,7 +210,6 @@ def main():
                     for name in ["workspace", "knowledge", "lines", "live", "analytics", "calls", "actions", "settings", "overview"]:
                         page.locator(f'[data-page="{name}"]').click()
                         assert page.locator(f"#{name}").is_visible()
-                        page.screenshot(path=str(artifacts / f"console-{name}.png"), full_page=True)
                         if name == "workspace":
                             workspace = page.locator("#workspace-details").inner_text()
                             assert "Browser QA — synthetic only" in workspace
@@ -255,6 +254,7 @@ def main():
                             page.locator('#calls-list [data-call="c1234567890abcdef"]').wait_for()
                             page.locator("#calls-load-more").click()
                             page.locator('#calls-list [data-call="hist25aaaaaaaaaa"]').wait_for()
+                            assert "sessions shown" in page.locator("#call-results-status").inner_text()
                             page.locator('#calls-list [data-call="c1234567890abcdef"]').click()
                             page.get_by_role("heading", name="Call Session c123456789", exact=True).wait_for()
                             assert page.locator(".speech-bubble.caller").is_visible()
@@ -264,6 +264,12 @@ def main():
                             assert "We are open 9am to 6pm Monday to Friday." in modal_text
                             assert "TURN 1" in modal_text
                             page.screenshot(path=str(artifacts / "console-call-detail.png"), full_page=True)
+                            page.get_by_role("tab", name="Conversation").focus()
+                            page.keyboard.press("ArrowRight")
+                            assert page.get_by_role("tab", name="Metrics").get_attribute("aria-selected") == "true"
+                            assert page.locator("#inspector-pane-metrics").is_visible()
+                            page.keyboard.press("Home")
+                            assert page.get_by_role("tab", name="Conversation").get_attribute("aria-selected") == "true"
                             page.get_by_role("tab", name="Metrics").click()
                             assert page.locator(".turn-technical").is_visible()
                             modal_text = page.locator("#modal-body").inner_text()
@@ -275,20 +281,52 @@ def main():
                             assert "VAD → audio sent · proxy —" not in modal_text
                             assert page.evaluate("window.__xss") is None
                             page.locator("#close-modal").click()
+                        page.wait_for_timeout(220)
+                        page.screenshot(path=str(artifacts / f"console-{name}.png"), full_page=True)
                     page.keyboard.press("Control+k")
+                    assert page.evaluate("""() => { const box = document.querySelector('#command-palette').getBoundingClientRect(); return Math.abs((box.left + box.right) / 2 - innerWidth / 2) < 2 && Math.abs((box.top + box.bottom) / 2 - innerHeight / 2) < 2; }""")
                     page.locator("#command-input").fill("Analytics")
                     page.locator("#command-input").press("Enter")
                     assert page.locator("#analytics").is_visible()
                     page.locator('[data-page="overview"]').click()
-                    page.locator("#theme-toggle").click()
                     assert page.locator("html").get_attribute("data-theme") == "light"
                     page.wait_for_timeout(220)
                     page.screenshot(path=str(artifacts / "console-overview-light.png"), full_page=True)
                     page.locator("#theme-toggle").click()
+                    assert page.locator("html").get_attribute("data-theme") == "dark"
+                    page.wait_for_timeout(280)
+                    for width in (1440, 1024, 768, 390):
+                        page.set_viewport_size({"width": width, "height": 900})
+                        page.wait_for_timeout(280)
+                        page.screenshot(path=str(artifacts / f"console-overview-dark-{width}.png"), full_page=True)
+                        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+                    page.locator("#theme-toggle").click()
                     for width in (1920, 1024, 768, 390):
                         page.set_viewport_size({"width": width, "height": 900})
+                        page.wait_for_timeout(280)
                         page.screenshot(path=str(artifacts / f"console-overview-{width}.png"), full_page=True)
-                        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+                        assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), (
+                            f"Horizontal overflow at {width}px: "
+                            f"{page.evaluate('''() => ({scroll: document.documentElement.scrollWidth, offenders: [...document.querySelectorAll('*')].filter(el => el.getBoundingClientRect().right > innerWidth + 1).slice(0, 8).map(el => [el.tagName, el.id, el.className, Math.round(el.getBoundingClientRect().right)])})''')}"
+                        )
+                    page.keyboard.press("Control+k")
+                    assert page.evaluate("""() => { const box = document.querySelector('#command-palette').getBoundingClientRect(); return Math.abs((box.left + box.right) / 2 - innerWidth / 2) < 2 && Math.abs((box.top + box.bottom) / 2 - innerHeight / 2) < 2; }""")
+                    page.keyboard.press("Escape")
+                    page.locator("#mobile-menu-toggle").click()
+                    assert page.locator("#mobile-menu-toggle").get_attribute("aria-expanded") == "true"
+                    page.locator('[data-page="live"]').click()
+                    assert page.locator("#live").is_visible()
+                    assert page.locator("#mobile-menu-toggle").get_attribute("aria-expanded") == "false"
+                    page.locator("#nav-scrim").wait_for(state="hidden")
+                    page.locator("#mobile-menu-toggle").click()
+                    page.locator('[data-page="calls"]').click()
+                    assert page.locator(".mobile-call-list").is_visible()
+                    page.wait_for_timeout(280)
+                    page.screenshot(path=str(artifacts / "console-mobile-calls.png"), full_page=True)
+                    page.locator('[data-mobile-call="c1234567890abcdef"]').click()
+                    page.get_by_role("heading", name="Call Session c123456789", exact=True).wait_for()
+                    assert page.locator("#modal").is_visible()
+                    page.locator("#close-modal").click()
                     page.get_by_role("button", name="Disconnect", exact=True).click()
                     page.set_viewport_size({"width": 390, "height": 844})
                     page.screenshot(path=str(artifacts / "console-mobile.png"), full_page=True)
@@ -315,6 +353,8 @@ def main():
                         "technical latency metrics",
                         "legacy call compatibility",
                         "call details modal",
+                        "mobile navigation",
+                        "mobile call inspection",
                         "logout",
                         "mobile overflow",
                         "JavaScript errors",

@@ -1,14 +1,16 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="light">
 
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>OmniVoice — Operations Console</title>
+  <link rel="preload" href="/static/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/console-theme.css">
 </head>
 
-<body class="console-locked" data-theme="dark">
+<body class="console-locked" data-theme="light">
   <div id="auth-gate" class="auth-gate">
     <div class="auth-panel">
       <div class="auth-mark" aria-hidden="true">OV</div>
@@ -27,6 +29,7 @@
         <span class="brand-sub">VOICE OPERATIONS</span>
       </div>
     </a>
+    <button id="mobile-menu-close" class="mobile-menu-close" type="button" aria-label="Close navigation">×</button>
 
     <div class="workspace-section">
       <div class="workspace-label-row">
@@ -58,7 +61,8 @@
       </div>
     </div>
 
-    <nav aria-label="Main navigation">
+    <nav aria-label="Main navigation" id="main-navigation">
+      <span class="nav-group">OPERATIONS</span>
       <button class="nav active" data-page="overview">
         <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
             stroke-linejoin="round" aria-hidden="true">
@@ -69,27 +73,7 @@
           </svg></span>
         Overview
       </button>
-      <span class="nav-group">CONFIGURE</span>
-      <button class="nav" data-page="workspace"><span class="nav-icon" aria-hidden="true">◇</span>Voice agent</button>
-      <button class="nav" data-page="knowledge">
-        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-            stroke-linejoin="round" aria-hidden="true">
-            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z" />
-            <path d="M6 6h10" />
-            <path d="M6 10h10" />
-          </svg></span>
-        Knowledge
-      </button>
-      <button class="nav" data-page="lines">
-        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
-            stroke-linejoin="round" aria-hidden="true">
-            <path
-              d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
-          </svg></span>
-        Phone numbers
-      </button>
-      <span class="nav-group">OPERATE</span>
-      <button class="nav" data-page="live"><span class="nav-icon" aria-hidden="true">◉</span>Live calls <span id="live-nav-count" class="nav-count">0</span></button>
+      <button class="nav" data-page="live"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /></svg></span>Live calls <span id="live-nav-count" class="nav-count">0</span></button>
       <button class="nav" data-page="calls">
         <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
             stroke-linejoin="round" aria-hidden="true">
@@ -107,8 +91,27 @@
           </svg></span>
         Actions
       </button>
+      <span class="nav-group">CONFIGURE</span>
+      <button class="nav" data-page="workspace"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.2 8.3 8 10 4.8-1.7 8-5 8-10V6l-8-4Z" /><path d="m9 12 2 2 4-4" /></svg></span>Voice agent</button>
+      <button class="nav" data-page="knowledge">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2 2 0 0 1-2.5-2.5Z" />
+            <path d="M6 6h10" />
+            <path d="M6 10h10" />
+          </svg></span>
+        Knowledge
+      </button>
+      <button class="nav" data-page="lines">
+        <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+            stroke-linejoin="round" aria-hidden="true">
+            <path
+              d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 1 2.81.7A2 2 0 0 1 22 16.92z" />
+          </svg></span>
+        Phone numbers
+      </button>
       <span class="nav-group">INSIGHTS &amp; SYSTEM</span>
-      <button class="nav" data-page="analytics"><span class="nav-icon" aria-hidden="true">▥</span>Analytics</button>
+      <button class="nav" data-page="analytics"><span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V11m5 9V5m5 15v-7m5 7V9" /><path d="M2 20h20" /></svg></span>Analytics</button>
       <button class="nav" data-page="settings">
         <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
             stroke-linejoin="round" aria-hidden="true">
@@ -122,28 +125,33 @@
 
     <div class="side-bottom">
       <div class="runtime-card">
+        <span class="runtime-label">VOICE SYSTEM</span>
         <div class="runtime-status">
           <span class="pulse-dot green" aria-hidden="true"></span>
           <span class="runtime-title" id="runtime-title">Status unavailable</span>
         </div>
         <div class="runtime-meta">
-          <span>FastAPI · Port 8000</span>
+          <span>Voice engine status</span>
           <span id="runtime-retrieval">Connect to inspect retrieval</span>
         </div>
         <div class="runtime-foot">
-          <span class="runtime-version">v0.1.0-core</span>
+          <span class="runtime-version">OmniVoice</span>
           <a href="/docs" target="_blank" rel="noopener" class="runtime-link">API Docs ↗</a>
         </div>
       </div>
     </div>
   </aside>
 
+  <div id="nav-scrim" class="nav-scrim" hidden></div>
   <main>
     <header>
+      <button id="mobile-menu-toggle" class="mobile-menu-toggle" type="button" aria-label="Open navigation" aria-controls="main-navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
       <div class="breadcrumb">OmniVoice Console <span>/</span> <b id="crumb">Overview</b></div>
       <div class="header-right">
         <button id="command-trigger" class="command-trigger" type="button" aria-haspopup="dialog" aria-controls="command-palette" title="Navigate with Ctrl+K">Search pages <kbd>Ctrl K</kbd></button>
-        <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-label="Toggle theme" title="Toggle between Light and Dark mode" data-active-theme="dark">
+        <button id="theme-toggle" class="theme-toggle-btn" type="button" aria-label="Toggle theme" title="Toggle between Light and Dark mode" data-active-theme="light">
           <span class="theme-toggle-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
@@ -167,34 +175,15 @@
       <section class="page-heading">
         <div>
           <div class="eyebrow">WORKSPACE / OPERATIONS</div>
-          <h1 id="page-title">Operations overview</h1>
-          <p id="page-description">Current workspace activity and verified server status.</p>
+          <h1 id="page-title">Call operations</h1>
+          <p id="page-description">Live calls, recent sessions, and workspace readiness.</p>
         </div>
         <button id="primary-action" class="primary-btn">＋ New enterprise</button>
       </section>
 
       <section id="overview" class="page active" aria-labelledby="page-title">
-        <article class="panel runtime-overview ops-health">
-          <div class="runtime-overview-main">
-            <div>
-              <span class="eyebrow">RUNTIME STATUS</span>
-              <h2>Voice operations</h2>
-              <p>Configuration and tenant activity from this server. Provider availability requires a live call to verify.</p>
-            </div>
-            <div class="runtime-overview-actions">
-              <span id="ops-health-badge" class="state-pill">Connect to inspect</span>
-              <button id="setup-button" class="secondary-btn" type="button">Create workspace</button>
-            </div>
-          </div>
-          <div id="ops-health-details" class="health-details"></div>
-        </article>
-
+        <div class="overview-section-heading"><div><span class="eyebrow">WORKSPACE SIGNALS</span><h2>Recorded performance</h2></div><button class="text-button" data-go="analytics" type="button">View analytics <span aria-hidden="true">↗</span></button></div>
         <div class="stats" aria-label="Current workspace indicators">
-          <article class="stat-card" data-go="live" tabindex="0" role="button" aria-label="View live calls">
-            <div class="stat-meta"><span>Active now</span><span id="hint-active" class="stat-tag">No active calls</span></div>
-            <strong id="stat-active" class="tabular-stat">0</strong>
-            <small>Connected calls on this worker</small>
-          </article>
           <article class="stat-card" data-go="calls" tabindex="0" role="button" aria-label="View call history">
             <div class="stat-meta"><span>Response latency · P95</span><span id="hint-latency" class="stat-tag">Measured on calls</span></div>
             <strong id="stat-latency" class="tabular-stat">—</strong>
@@ -211,19 +200,51 @@
             <small>Recorded turns using approved direct answers</small>
           </article>
         </div>
-        <div id="overview-real-metrics" class="ops-metrics" aria-label="Workspace call metrics"></div>
+
+        <article class="panel live-hero" aria-label="Live operations">
+          <div class="live-hero-copy">
+            <div class="live-hero-label"><span class="live-indicator" aria-hidden="true"></span> CALL ACTIVITY</div>
+            <div class="live-hero-number"><strong id="stat-active" class="tabular-stat">0</strong><span>calls<br>in progress</span></div>
+            <p id="hint-active">No active calls</p>
+            <span id="overview-stream-state" class="overview-stream-state" role="status" aria-live="polite">Event stream disconnected</span>
+            <button class="primary-btn" data-go="live" type="button">Open live calls <span aria-hidden="true">↗</span></button>
+          </div>
+          <div class="live-hero-detail">
+            <div class="live-hero-detail-head"><span>Current sessions</span><span>Updates automatically</span></div>
+            <div id="overview-live-calls" class="overview-live-calls"><p>Connect a workspace to see live sessions.</p></div>
+          </div>
+        </article>
 
         <div class="overview-grid">
           <article class="panel recent">
-            <div class="panel-heading"><div><h3>Recent calls</h3><p>Persisted sessions for the selected workspace.</p></div><button class="text-button" data-go="calls" type="button">View history →</button></div>
+            <div class="panel-heading"><div><h3>Recent calls</h3><p>Latest recorded sessions for this workspace.</p></div><button class="text-button" data-go="calls" type="button">View all <span aria-hidden="true">↗</span></button></div>
             <div id="recent-calls" class="recent-calls-container"><div class="ops-empty"><h3>No call activity yet</h3><p>Connected phone sessions will appear here.</p></div></div>
           </article>
           <article class="panel checklist-panel">
-            <div class="panel-heading"><div><h3>Workspace setup</h3><p id="checklist-progress-label">0 of 4 steps completed</p></div><span id="checklist-pct" class="tiny-label">0%</span></div>
+            <div class="panel-heading"><div><h3>Workspace readiness</h3><p id="checklist-progress-label">0 of 4 steps completed</p></div><span id="checklist-pct" class="tiny-label">0%</span></div>
             <div class="checklist-bar-track" aria-hidden="true"><div id="checklist-fill" class="checklist-bar-fill" style="width:0%"></div></div>
             <div id="checklist" class="checklist"><p class="subtle">Connect the console to inspect setup.</p></div>
           </article>
         </div>
+
+        <details class="overview-details"><summary>Runtime configuration and additional metrics <span aria-hidden="true">⌄</span></summary>
+        <article class="panel runtime-overview ops-health">
+          <div class="runtime-overview-main">
+            <div>
+              <span class="eyebrow">RUNTIME STATUS</span>
+              <h2>Voice operations</h2>
+              <p>Configuration and tenant activity from this server. Provider availability requires a live call to verify.</p>
+            </div>
+            <div class="runtime-overview-actions">
+              <span id="ops-health-badge" class="state-pill">Connect to inspect</span>
+              <button id="setup-button" class="secondary-btn" type="button">Create workspace</button>
+            </div>
+          </div>
+          <div id="ops-health-details" class="health-details"></div>
+        </article>
+
+        <div id="overview-real-metrics" class="ops-metrics" aria-label="Workspace call metrics"></div>
+        </details>
       </section>
 
       <section id="workspace" class="page">
@@ -257,11 +278,12 @@
 
       <section id="calls" class="page">
         <div class="ops-toolbar history-toolbar"><label class="search-label">Search session ID<input id="call-search" type="search" placeholder="Session ID"></label><label>Carrier<select id="call-provider"><option value="">All carriers</option><option value="exotel">Exotel</option><option value="twilio">Twilio</option></select></label><label>Status<select id="call-status"><option value="">All statuses</option><option value="active">Active</option><option value="completed">Completed</option><option value="failed">Failed</option></select></label><label>Period<select id="call-period"><option value="">All time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select></label></div>
+        <p id="call-results-status" class="call-results-status" role="status" aria-live="polite" aria-atomic="true">No sessions loaded</p>
         <div id="calls-list" class="panel"></div>
         <button id="calls-load-more" class="secondary-btn load-more" type="button" hidden>Load more calls</button>
       </section>
 
-      <section id="live" class="page"><div class="section-banner"><div><h3>Current sessions</h3><p>Authenticated single-worker event stream. Transcript previews appear after a turn is recorded.</p></div><span id="live-connection" class="state-pill">Disconnected</span></div><div id="live-calls-list" class="live-grid"></div></section>
+      <section id="live" class="page"><div class="section-banner"><div><h3>Current sessions</h3><p>Authenticated single-worker event stream. Transcript previews appear after a turn is recorded.</p></div><span id="live-connection" class="state-pill" role="status" aria-live="polite">Disconnected</span></div><div id="live-calls-list" class="live-grid"></div></section>
 
       <section id="actions" class="page">
         <div class="section-banner">

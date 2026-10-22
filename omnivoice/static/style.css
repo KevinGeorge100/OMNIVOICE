@@ -1,5 +1,4 @@
 /* OmniVoice Console V2 — one semantic system for every operational view. */
-@font-face { font-family: 'JetBrains Mono'; src: url('/static/jetbrains-regular.ttf') format('truetype'); font-style: normal; font-weight: 400 600; font-display: swap; }
 :root {
   color-scheme: dark;
   --paper: #0b0d10; --navigation: #0f1115; --surface: #14171c; --surface-raised: #191d23;

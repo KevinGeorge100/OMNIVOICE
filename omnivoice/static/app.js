@@ -11,6 +11,7 @@ let tools = [];
 let submitHandler = null;
 let refreshInProgress = false;
 let modalReturnFocus = null;
+let navCloseTimer = null;
 
 const $ = id => document.getElementById(id);
 const esc = text => (text || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -27,7 +28,7 @@ function showPage(page) {
     else b.removeAttribute("aria-current");
   });
   const titles = {
-    overview: ["Operations overview", "Current workspace activity and verified server status.", "＋ New enterprise"],
+    overview: ["Call operations", "Live calls, recent sessions, and workspace readiness.", "＋ New enterprise"],
     workspace: ["Voice agent", "Current workspace configuration and line association.", "View knowledge"],
     knowledge: ["Knowledge", "Private documents and approved FAQ answers.", "Upload document"],
     lines: ["Phone numbers", "Existing Exotel and Twilio numbers registered for inbound routing.", "Connect number"],
@@ -240,12 +241,12 @@ function callRows(items) {
 
 function setupThemeToggle() {
   const toggleBtn = $("theme-toggle");
-  const savedTheme = localStorage.getItem("omni-theme") || "dark";
+  const savedTheme = localStorage.getItem("omni-theme-v3") || "light";
 
   function applyTheme(theme) {
     document.documentElement.setAttribute("data-theme", theme);
     document.body.setAttribute("data-theme", theme);
-    localStorage.setItem("omni-theme", theme);
+    localStorage.setItem("omni-theme-v3", theme);
     if (toggleBtn) {
       toggleBtn.setAttribute("data-active-theme", theme);
       const label = toggleBtn.querySelector(".theme-toggle-text");
@@ -274,9 +275,8 @@ function render() {
   const authGate = $("auth-gate");
   if (authGate) authGate.hidden = !!token;
   document.body.classList.toggle("console-locked", !token);
-  const isReady = !!(token && state.voice_ready);
-  const statusKey = token ? (isReady ? "ready" : "setup") : "locked";
-  const statusText = token ? (isReady ? "Voice engine ready" : "Setup required") : "Console locked";
+  const statusKey = token ? "ready" : "locked";
+  const statusText = token ? "Console connected" : "Console locked";
 
   const statusIcon = statusKey === "locked"
     ? `<svg class="badge-icon lock-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`
@@ -488,6 +488,7 @@ document.addEventListener("click", async event => {
   try {
     if (target.dataset.page) showPage(target.dataset.page);
     if (target.dataset.go) showPage(target.dataset.go);
+    if (target.dataset.page || target.dataset.go) closeMobileNavigation();
     if (target.dataset.checkAction === "createTenant") createTenant();
     if (target.dataset.checkAction === "upload") upload();
     if (target.dataset.checkAction === "addLine") addLine();
@@ -543,8 +544,9 @@ document.addEventListener("click", async event => {
         );
       }
     }
-    if (target.dataset.call) {
-      const call = (typeof findOperationCall === "function" ? findOperationCall(target.dataset.call) : null) || calls.find(c => c.id === target.dataset.call);
+    if (target.dataset.call || target.dataset.mobileCall) {
+      const callId = target.dataset.call || target.dataset.mobileCall;
+      const call = (typeof findOperationCall === "function" ? findOperationCall(callId) : null) || calls.find(c => c.id === callId);
       if (!call) return;
       if (typeof openCallInspector === "function") {
         openCallInspector(call);
@@ -577,6 +579,54 @@ document.addEventListener("click", async event => {
     notify(error.message);
   }
 });
+
+function closeMobileNavigation() {
+  document.body.classList.remove("nav-open");
+  const toggle = $("mobile-menu-toggle");
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-label", "Open navigation");
+  }
+  const scrim = $("nav-scrim");
+  if (navCloseTimer) clearTimeout(navCloseTimer);
+  if (scrim) navCloseTimer = setTimeout(() => {
+    if (!document.body.classList.contains("nav-open")) scrim.hidden = true;
+    const sidebar = document.querySelector(".sidebar");
+    if (sidebar && window.innerWidth <= 800 && !document.body.classList.contains("nav-open")) sidebar.inert = true;
+    navCloseTimer = null;
+  }, 240);
+}
+
+function setupMobileNavigation() {
+  const toggle = $("mobile-menu-toggle");
+  if (!toggle) return;
+  const sidebar = document.querySelector(".sidebar");
+  if (sidebar) sidebar.inert = window.innerWidth <= 800;
+  toggle.addEventListener("click", () => {
+    const open = !document.body.classList.contains("nav-open");
+    if (!open) return closeMobileNavigation();
+    if (navCloseTimer) clearTimeout(navCloseTimer);
+    navCloseTimer = null;
+    $("nav-scrim").hidden = false;
+    if (sidebar) sidebar.inert = false;
+    document.body.classList.toggle("nav-open", open);
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
+  });
+  $("nav-scrim")?.addEventListener("click", closeMobileNavigation);
+  $("mobile-menu-close")?.addEventListener("click", closeMobileNavigation);
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") closeMobileNavigation();
+  });
+  window.addEventListener("resize", () => {
+    if (window.innerWidth > 800) {
+      closeMobileNavigation();
+      if (sidebar) sidebar.inert = false;
+    } else if (sidebar && !document.body.classList.contains("nav-open")) {
+      sidebar.inert = true;
+    }
+  });
+}
 
 function setupCommandPalette() {
   const palette = $("command-palette");
@@ -641,6 +691,7 @@ function setupCommandPalette() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  setupMobileNavigation();
   setupThemeToggle();
   $("auth-connect")?.addEventListener("click", login);
   setupCommandPalette();
