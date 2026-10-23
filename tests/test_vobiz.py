@@ -21,6 +21,7 @@ from omnivoice.audio import mulaw_encode
 from omnivoice.config import Settings
 from omnivoice.session import CallEnded, CallSession
 from omnivoice.transport import MediaTransport
+from omnivoice.vobiz_url import public_https_origin, vobiz_answer_url
 
 ADMIN = {"Authorization": "Bearer synthetic-admin-token"}
 
@@ -72,6 +73,34 @@ def test_vobiz_registration_connection_is_tenant_scoped(client):
         headers={"Authorization": "Bearer " + other["api_token"]},
     ).status_code == 404
     assert client.get(prefix + "/calls?provider=vobiz", headers=ADMIN).status_code == 200
+
+
+def test_vobiz_answer_url_normalizes_origin_and_encodes_only_segments():
+    assert public_https_origin("https://voice.example.test///") == "https://voice.example.test"
+    assert vobiz_answer_url("https://voice.example.test/", "line+id", "secret/?#") == (
+        "https://voice.example.test/webhooks/vobiz/line%2Bid/secret%2F%3F%23"
+    )
+
+
+@pytest.mark.parametrize("base", [
+    "http://voice.example.test", "ws://voice.example.test", "wss://voice.example.test",
+    "https://localhost", "https://127.0.0.1", "https://voice.example.test/path",
+    "https://voice.example.test?x=1", "https://user@voice.example.test",
+    "https://voice.example.test ", "https://voice.example.test\n",
+    "https://voice.example.test:bad", "https://", "",
+])
+def test_vobiz_answer_url_rejects_invalid_public_origin(base):
+    with pytest.raises(ValueError):
+        vobiz_answer_url(base, "line", "secret")
+
+
+@pytest.mark.parametrize("line_id,secret", [
+    ("", "secret"), ("line", ""), ("line", "••••"), ("line", "***"),
+    ("line", "<REDACTED>"), ("line\n", "secret"), ("line", "secret "),
+])
+def test_vobiz_answer_url_rejects_missing_masked_or_whitespace_segments(line_id, secret):
+    with pytest.raises(ValueError):
+        vobiz_answer_url("https://voice.example.test", line_id, secret)
 
 
 def test_vobiz_webhook_auth_provider_xml_and_escaping(client):
@@ -136,6 +165,7 @@ def test_vobiz_public_base_url_must_be_safe_https_origin(tmp_path, monkeypatch):
             webhook = connection(client, prefix, line)["webhook_url"]
             path = "/webhooks/vobiz/" + "/".join(webhook.rsplit("/", 2)[-2:])
             settings.public_base_url = base
+            assert client.get(prefix + f"/lines/{line['id']}/connection", headers=ADMIN).status_code == 409
             assert client.post(path, data={}).status_code == 409
 
 

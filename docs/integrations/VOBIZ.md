@@ -44,6 +44,14 @@ Required for inbound: `OMNI_PUBLIC_BASE_URL=https://PUBLIC_HOST`, a running publ
 
 In the console, choose **Phone numbers → Connect a phone number → Vobiz**, enter the existing trial number in E.164 format, then open **Connection details → Copy protected URL**. The button copies the full Primary Answer URL to the Windows/browser clipboard without displaying the secret. The authenticated tenant `GET /api/tenants/{tenant_id}/lines/{line_id}/connection` API is an alternative for operators using an API client. Keep request paths out of reverse-proxy access logs; both carrier routes contain a routing secret. Do not paste the URL in tickets or screenshots.
 
+### Answer URL preflight
+
+Before copying into Vobiz, run `python scripts/check_vobiz_answer_url.py --copy` from a checkout with its private `.env`. In a separate worktree, pass `--env-file C:\path\to\your\.env`; pass `--line-id` if multiple Vobiz lines are registered. The command constructs the same URL as Connection details, tests public `GET /healthz`, and sends synthetic, non-PSTN form POSTs to the local and public Answer routes. It prints the scheme, host, masked route, syntax, health, and route results without printing the secret. It refuses clipboard copy unless both routes return valid XML and public health passes. The local app must be running on `127.0.0.1:8000`, or set `--local-base` to another loopback HTTP origin.
+
+The generated Answer URL requires a public HTTPS origin, no userinfo/path/query/fragment/whitespace, and nonempty unmasked line credentials. The builder percent-encodes individual path segments; normal OmniVoice line IDs and secrets are already URL-safe. Copy with the button or preflight script; do not copy the masked URL text shown in the modal. Set the Vobiz application Answer Method to **POST**.
+
+Vobiz's [application creation reference](https://www.vobiz.ai/docs/applications/create-application) requires `answer_url` and an `answer_method`, with a valid URL error for invalid input. Its [applications guide](https://www.vobiz.ai/docs/applications) requires HTTPS and an Answer callback that responds promptly with valid VobizXML. The current docs do not specify a maximum URL length, query-string ban, custom-port policy, or redirect acceptance rule. Vobiz's [Cloudflare tunnel example](https://www.vobiz.ai/integrations/zendesk/) uses a quick tunnel for development and warns that the hostname changes when restarted; it does not explicitly certify every `trycloudflare.com` hostname or guarantee Vobiz Console validation of one. Use a live tunnel or stable domain, then verify public `/healthz` before pasting. A syntactically valid URL with a dead tunnel is **not** ready for Vobiz callbacks.
+
 ## Vobiz Console setup after a public endpoint exists
 
 1. Verify `OMNI_PUBLIC_BASE_URL` is the actual HTTPS public origin and its WSS upgrade reaches this FastAPI process. `http://127.0.0.1:8000` cannot receive Vobiz calls.

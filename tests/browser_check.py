@@ -9,6 +9,7 @@ import threading
 import time
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import uvicorn
 from playwright.sync_api import sync_playwright
@@ -260,9 +261,15 @@ def main():
                       });
                     }""")
                     page.locator("#copy-connection-url").click()
-                    assert page.evaluate("window.__copiedConnection") == (
+                    copied = page.evaluate("window.__copiedConnection")
+                    assert copied == (
                         f"https://voice.example.com/webhooks/vobiz/{vobiz_line[0]}/{vobiz_line[2]}"
                     )
+                    parsed_copy = urlsplit(copied)
+                    assert parsed_copy.scheme == "https" and parsed_copy.hostname == "voice.example.com"
+                    assert parsed_copy.path.startswith("/webhooks/vobiz/")
+                    assert not any(char.isspace() for char in copied)
+                    assert not any(marker in copied for marker in ("•", "***", "<REDACTED>"))
                     page.locator("#close-modal").click()
 
                     for name in ["workspace", "knowledge", "lines", "live", "analytics", "calls", "actions", "settings", "overview"]:

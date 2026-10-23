@@ -522,7 +522,7 @@ document.addEventListener("click", async event => {
             `<div class="code-box">
               <strong>Primary Answer URL · HTTP POST</strong>
               <code>${esc(new URL(info.webhook_url).origin)}/webhooks/vobiz/••••/••••••••</code>
-              <p class="help">Create a Vobiz Voice Application, paste the protected Answer URL, then link your existing number. Keep this URL private.</p>
+              <p class="help">Verify the public endpoint is live before pasting this URL into a Vobiz Voice Application. Temporary tunnel addresses expire. Keep the copied URL private.</p>
               <button id="copy-connection-url" class="secondary-btn" type="button">Copy protected URL</button>
             </div>`,
             null

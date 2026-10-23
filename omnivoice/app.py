@@ -12,7 +12,6 @@ import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from types import SimpleNamespace
-from urllib.parse import urlsplit
 from uuid import uuid4
 from xml.sax.saxutils import escape, quoteattr
 
@@ -36,22 +35,14 @@ from .store import Store, token_hash
 from .tools import ToolRegistry, register_business_profile
 from .transport import MediaTransport
 from .vad import SileroFactory
+from .vobiz_url import public_https_origin, vobiz_answer_url
 
 
 def vobiz_public_origin(raw: str) -> str:
     try:
-        base = urlsplit(raw.rstrip("/"))
-        base.port  # Reject malformed/out-of-range port declarations.
-        valid = (
-            base.scheme == "https" and base.netloc and not base.username and not base.password
-            and not base.path and not base.query and not base.fragment
-            and base.hostname and re.fullmatch(r"[A-Za-z0-9.-]+", base.hostname)
-        )
+        return public_https_origin(raw)
     except ValueError:
-        valid = False
-    if not valid:
-        raise HTTPException(409, "Set OMNI_PUBLIC_BASE_URL to a public HTTPS origin")
-    return "https://" + base.netloc
+        raise HTTPException(409, "Set OMNI_PUBLIC_BASE_URL to a public HTTPS origin") from None
 
 
 def create_app(settings=None, *, research_client=None):
@@ -369,10 +360,13 @@ def create_app(settings=None, *, research_client=None):
         if line["provider"] == "twilio":
             return {"provider": "twilio", "webhook_url": base + "/telephony/twilio/" + line_id}
         if line["provider"] == "vobiz":
+            try:
+                answer_url = vobiz_answer_url(settings.public_base_url, line_id, line["stream_secret"])
+            except ValueError:
+                raise HTTPException(409, "Vobiz Answer URL configuration is invalid") from None
             return {
                 "provider": "vobiz",
-                "webhook_url": vobiz_public_origin(settings.public_base_url)
-                + "/webhooks/vobiz/" + line_id + "/" + line["stream_secret"],
+                "webhook_url": answer_url,
             }
         return {
             "provider": "exotel",
