@@ -109,7 +109,7 @@ function renderOverviewOperations() {
   const retrieval = $("runtime-retrieval");
   if (retrieval) retrieval.textContent = state.retrieval_mode || "Connect to inspect retrieval";
   const recent = $("recent-calls");
-  if (recent) recent.innerHTML = calls.length ? `<div class="recent-list">${calls.slice(0, 5).map(call => `<div class="recent-row"><div class="recent-row-icon" aria-hidden="true">↗</div><div class="recent-row-main"><b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b><span>${opsEsc(call.provider)} · ${opsDate(call.started)}</span></div>${opsPill(call.status, call.status === "active" ? "good" : call.status === "failed" ? "danger" : "neutral")}<button class="secondary-btn btn-sm" data-call="${opsEsc(call.id)}" type="button">Inspect</button></div>`).join("")}</div>` : opsEmpty("No call activity yet", "Connected phone sessions will appear here. No sample calls are shown.");
+  if (recent) recent.innerHTML = calls.length ? `<div class="recent-list">${calls.slice(0, 5).map(call => `<div class="recent-row"><div class="recent-row-icon" aria-hidden="true">↗</div><div class="recent-row-main"><b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b><span>${opsEsc(carrierLabel(call.provider))} · ${opsDate(call.started)}</span></div>${opsPill(call.status, call.status === "active" ? "good" : call.status === "failed" ? "danger" : "neutral")}<button class="secondary-btn btn-sm" data-call="${opsEsc(call.id)}" type="button">Inspect</button></div>`).join("")}</div>` : opsEmpty("No call activity yet", "Connected phone sessions will appear here. No sample calls are shown.");
   const overviewLive = $("overview-live-calls");
   if (overviewLive) overviewLive.innerHTML = liveCalls.size ? [...liveCalls.values()].slice(0, 3).map(call => {
     const latest = call.recent_transcript || call.metrics?.turns?.at(-1)?.user_transcript;
@@ -138,7 +138,7 @@ function renderWorkspace() {
       ${row("Speech", state.providers?.speech || "Unavailable")}
       ${row("Reasoning", state.providers?.reasoning || "Unavailable")}
       ${row("Knowledge", `${knowledge.length} entries`)}
-      ${row("Phone numbers", lines.length ? lines.map(l => `${l.provider.toUpperCase()} ${l.number}`).join(" · ") : "None")}</article>`;
+      ${row("Phone numbers", lines.length ? lines.map(l => `${carrierLabel(l.provider)} ${l.number}`).join(" · ") : "None")}</article>`;
 }
 
 function renderKnowledgeOperations() {
@@ -163,8 +163,8 @@ function renderLinesOperations() {
   if (!target) return;
   target.innerHTML = lines.length ? opsTable(
     ["Registered number", "Carrier", "State", "Language", "Setup"],
-    lines.map(line => `<tr><td><b class="mono">${opsEsc(line.number)}</b></td><td>${opsEsc(line.provider.toUpperCase())}</td><td>${opsPill("Registered")}</td><td>${opsEsc(operationTenant?.config?.language || "—")}</td><td><button class="secondary-btn btn-sm" data-connection="${opsEsc(line.id)}" type="button" aria-label="Connection details for ${opsEsc(line.number)}">Connection details ↗</button></td></tr>`)
-  ) : opsEmpty("No numbers registered", "Register an existing Exotel or Twilio number, then configure the carrier using its protected connection details.");
+    lines.map(line => `<tr><td><b class="mono">${opsEsc(line.number)}</b></td><td>${opsEsc(carrierLabel(line.provider))}</td><td>${opsPill("Registered")}</td><td>${opsEsc(operationTenant?.config?.language || "—")}</td><td><button class="secondary-btn btn-sm" data-connection="${opsEsc(line.id)}" type="button" aria-label="Connection details for ${opsEsc(line.number)}">Connection details ↗</button></td></tr>`)
+  ) : opsEmpty("No numbers registered", "Register an existing Exotel, Vobiz, or Twilio number, then configure the carrier using its protected connection details.");
   target.insertAdjacentHTML("afterbegin", `<p class="ops-context">Registration is local configuration. Carrier connection is verified only by a successful live call.</p>`);
 }
 
@@ -173,7 +173,7 @@ function opsCallRow(call) {
   const timings = turns.map(turn => turn.final_transcript_to_first_audio_sent_ms).filter(Number.isFinite);
   const mean = timings.length ? timings.reduce((sum, value) => sum + value, 0) / timings.length : null;
   const duration = opsCallDuration(call);
-  return `<tr><td><div class="call-identity"><b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b><small>${opsEsc(call.provider || "Carrier not recorded")}</small></div></td><td>${opsDate(call.started)}</td><td><div class="call-duration"><b class="mono">${opsDuration(duration)}</b><small>${turns.length} recorded turn${turns.length === 1 ? "" : "s"}</small></div></td><td>${opsPill(call.status, call.status === "active" ? "good" : call.status === "failed" ? "danger" : "neutral")}</td><td class="mono">${opsLatency(mean)}</td><td><button class="secondary-btn btn-sm" data-call="${opsEsc(call.id)}" type="button" aria-label="Inspect call ${opsEsc((call.id || "").slice(0, 10))}">Inspect <span aria-hidden="true">↗</span></button></td></tr>`;
+  return `<tr><td><div class="call-identity"><b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b><small>${opsEsc(carrierLabel(call.provider || "Carrier not recorded"))}</small></div></td><td>${opsDate(call.started)}</td><td><div class="call-duration"><b class="mono">${opsDuration(duration)}</b><small>${turns.length} recorded turn${turns.length === 1 ? "" : "s"}</small></div></td><td>${opsPill(call.status, call.status === "active" ? "good" : call.status === "failed" ? "danger" : "neutral")}</td><td class="mono">${opsLatency(mean)}</td><td><button class="secondary-btn btn-sm" data-call="${opsEsc(call.id)}" type="button" aria-label="Inspect call ${opsEsc((call.id || "").slice(0, 10))}">Inspect <span aria-hidden="true">↗</span></button></td></tr>`;
 }
 
 function renderHistory() {
@@ -188,7 +188,7 @@ function renderHistory() {
   )}<div class="mobile-call-list">${historyRows.map(call => {
     const duration = opsCallDuration(call);
     const turnCount = call.metrics?.turns?.length || 0;
-    return `<article class="mobile-call-row"><div><b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b>${opsPill(call.status, call.status === "active" ? "good" : call.status === "failed" ? "danger" : "neutral")}</div><p>${opsEsc(call.provider || "Carrier not recorded")} · ${opsDate(call.started)}</p><div class="mobile-call-facts"><span>${opsDuration(duration)} duration</span><span>${turnCount} turn${turnCount === 1 ? "" : "s"}</span></div><button class="secondary-btn btn-sm" data-mobile-call="${opsEsc(call.id)}" type="button" aria-label="Inspect call ${opsEsc((call.id || "").slice(0, 10))}">Inspect call <span aria-hidden="true">↗</span></button></article>`;
+    return `<article class="mobile-call-row"><div><b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b>${opsPill(call.status, call.status === "active" ? "good" : call.status === "failed" ? "danger" : "neutral")}</div><p>${opsEsc(carrierLabel(call.provider || "Carrier not recorded"))} · ${opsDate(call.started)}</p><div class="mobile-call-facts"><span>${opsDuration(duration)} duration</span><span>${turnCount} turn${turnCount === 1 ? "" : "s"}</span></div><button class="secondary-btn btn-sm" data-mobile-call="${opsEsc(call.id)}" type="button" aria-label="Inspect call ${opsEsc((call.id || "").slice(0, 10))}">Inspect call <span aria-hidden="true">↗</span></button></article>`;
   }).join("")}</div>` : opsEmpty("No matching calls", "Adjust the filters or connect a phone line to begin recording sessions.");
   $("calls-load-more").hidden = !historyHasMore;
   $("calls-load-more").disabled = false;
@@ -237,7 +237,7 @@ function renderLiveCalls() {
     const latest = call.recent_transcript || last.user_transcript;
     const reply = call.recent_response || last.agent_response;
     const firstAudio = call.first_audio_ms ?? last.final_transcript_to_first_audio_sent_ms;
-    return `<article class="panel live-card"><div class="live-card-top">${opsPill("Live", "good")}<b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b><span class="mono" data-live-duration="${opsEsc(call.started)}">${opsDuration(Date.now() / 1000 - call.started)}</span></div><div class="live-attributes"><span>${opsEsc(call.provider || "Carrier unavailable")}</span><span>Line: ${opsEsc(call.line_number || "Not recorded")}</span><span>Phase: ${opsEsc(call.state || "Connected")}</span><span>${opsNumber(call.turn_count ?? turns.length)} turns</span></div><div class="live-exchange"><p><small>CALLER · LAST RECORDED TURN</small>${opsEsc(latest || "No transcript recorded yet")}</p><p><small>AGENT · LAST RECORDED TURN</small>${opsEsc(reply || "No response recorded yet")}</p></div><div class="live-card-foot"><span>Server first audio: ${opsLatency(firstAudio)}</span><button class="text-button" type="button" data-live-inspect="${opsEsc(call.id)}">Inspect session →</button></div></article>`;
+    return `<article class="panel live-card"><div class="live-card-top">${opsPill("Live", "good")}<b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b><span class="mono" data-live-duration="${opsEsc(call.started)}">${opsDuration(Date.now() / 1000 - call.started)}</span></div><div class="live-attributes"><span>${opsEsc(carrierLabel(call.provider || "Carrier unavailable"))}</span><span>Line: ${opsEsc(call.line_number || "Not recorded")}</span><span>Phase: ${opsEsc(call.state || "Connected")}</span><span>${opsNumber(call.turn_count ?? turns.length)} turns</span></div><div class="live-exchange"><p><small>CALLER · LAST RECORDED TURN</small>${opsEsc(latest || "No transcript recorded yet")}</p><p><small>AGENT · LAST RECORDED TURN</small>${opsEsc(reply || "No response recorded yet")}</p></div><div class="live-card-foot"><span>Server first audio: ${opsLatency(firstAudio)}</span><button class="text-button" type="button" data-live-inspect="${opsEsc(call.id)}">Inspect session →</button></div></article>`;
   }).join("") : opsEmpty("No live calls", "This view updates automatically when a connected carrier session starts. No simulated calls are shown.");
 }
 
@@ -251,7 +251,7 @@ function openLiveInspector(call) {
     ["First outbound audio", call.first_audio_ms ?? last.final_transcript_to_first_audio_sent_ms]
   ].filter(([, value]) => Number.isFinite(value));
   modal(`Live call ${opsEsc((call.id || "").slice(0, 10))}`, `<div class="live-inspector">
-    <section><h3>Session</h3><div class="config-row"><span>Carrier</span><b>${opsEsc(call.provider || "Unavailable")}</b></div><div class="config-row"><span>Line</span><b>${opsEsc(call.line_number || "Not recorded")}</b></div><div class="config-row"><span>State</span><b>${opsEsc(call.state || "Connected")}</b></div><div class="config-row"><span>Turns</span><b>${opsNumber(call.turn_count ?? turns.length)}</b></div></section>
+    <section><h3>Session</h3><div class="config-row"><span>Carrier</span><b>${opsEsc(carrierLabel(call.provider || "Unavailable"))}</b></div><div class="config-row"><span>Line</span><b>${opsEsc(call.line_number || "Not recorded")}</b></div><div class="config-row"><span>State</span><b>${opsEsc(call.state || "Connected")}</b></div><div class="config-row"><span>Turns</span><b>${opsNumber(call.turn_count ?? turns.length)}</b></div></section>
     <section><h3>Latest recorded exchange</h3><div class="speech-bubble caller"><small>CALLER</small><p>${opsEsc(call.recent_transcript || last.user_transcript || "No transcript recorded yet")}</p></div><div class="speech-bubble agent"><small>AGENT</small><p>${opsEsc(call.recent_response || last.agent_response || "No response recorded yet")}</p></div></section>
     <section><h3>Latest server trace</h3>${trace.length ? trace.map(([label, value]) => `<div class="config-row"><span>${opsEsc(label)}</span><b class="mono">${opsLatency(value)}</b></div>`).join("") : '<p class="ops-context">No turn timing recorded yet.</p>'}<p class="help">Server timings exclude carrier transit and acoustic playback.</p></section>
   </div>`, null);
@@ -301,7 +301,7 @@ function openActionInspector(action) {
 function opsBars(rows, labelKey, valueKey) {
   if (!rows?.length) return `<p class="ops-context">No recorded values yet.</p>`;
   const max = Math.max(1, ...rows.map(row => row[valueKey]));
-  return rows.map(row => `<div class="bar-row"><span>${opsEsc(row[labelKey])}</span><div class="bar-track"><span style="width:${Math.round(100 * row[valueKey] / max)}%"></span></div><b>${opsNumber(row[valueKey])}</b></div>`).join("");
+  return rows.map(row => `<div class="bar-row"><span>${opsEsc(labelKey === "provider" ? carrierLabel(row[labelKey]) : row[labelKey])}</span><div class="bar-track"><span style="width:${Math.round(100 * row[valueKey] / max)}%"></span></div><b>${opsNumber(row[valueKey])}</b></div>`).join("");
 }
 
 function renderAnalyticsOperations() {
@@ -355,7 +355,7 @@ function openCallInspector(call) {
   const turns = call.metrics?.turns || [];
   const duration = opsCallDuration(call);
   const summary = [
-    ["Outcome", call.status || "Not recorded"], ["Carrier", call.provider || "Not recorded"],
+    ["Outcome", call.status || "Not recorded"], ["Carrier", carrierLabel(call.provider || "Not recorded")],
     ["Duration", opsDuration(duration)], ["Recorded turns", turns.length]
   ].map(([label, value]) => `<div><small>${opsEsc(label)}</small><b>${opsEsc(value)}</b></div>`).join("");
   const context = [
@@ -390,7 +390,7 @@ function openCallInspector(call) {
     <section id="inspector-pane-actions" class="inspector-pane" role="tabpanel" aria-labelledby="inspector-tab-actions" hidden>${actionPane}</section>
     <section id="inspector-pane-technical" class="inspector-pane" role="tabpanel" aria-labelledby="inspector-tab-technical" hidden>
       <div class="config-row"><span>Session ID</span><b class="mono">${opsEsc(call.id || "Not recorded")}</b></div>
-      <div class="config-row"><span>Carrier</span><b>${opsEsc(call.provider || "Not recorded")}</b></div>
+      <div class="config-row"><span>Carrier</span><b>${opsEsc(carrierLabel(call.provider || "Not recorded"))}</b></div>
       <div class="config-row"><span>Line</span><b>${opsEsc(call.line_number || "Not recorded")}</b></div>
       <div class="config-row"><span>End reason</span><b>Not recorded by current runtime</b></div>
       <div class="config-row"><span>Recorded response segments</span><b>${opsNumber(turns.reduce((total, turn) => total + (turn.response_segment_count || 0), 0))}</b></div>

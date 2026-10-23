@@ -120,6 +120,18 @@ def main():
                                 json.dumps({"turns": [{}]}),
                             ),
                         )
+                        conn.execute(
+                            "INSERT INTO calls (id, tenant_id, provider, status, started, ended, metrics) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            (
+                                "vobizcall0001",
+                                tenant_row[0],
+                                "vobiz",
+                                "completed",
+                                now - 75,
+                                now - 15,
+                                json.dumps({"turns": []}),
+                            ),
+                        )
                         conn.executemany(
                             "INSERT INTO calls (id, tenant_id, provider, status, started, ended, metrics) VALUES (?, ?, ?, ?, ?, ?, ?)",
                             [
@@ -175,7 +187,17 @@ def main():
 
                     # Register Exotel line and verify connection modal
                     page.get_by_role("button", name="Connect number").click()
-                    page.get_by_label("Phone number (E.164)").fill("+12025550199")
+                    page.get_by_role("heading", name="Connect a phone number", exact=True).wait_for()
+                    assert page.locator('select[name="provider"] option').evaluate_all(
+                        "options => options.map(option => [option.value, option.textContent])"
+                    ) == [
+                        ["exotel", "Exotel · India"],
+                        ["vobiz", "Vobiz · India"],
+                        ["twilio", "Twilio"],
+                    ]
+                    assert page.get_by_label("Phone number", exact=True).get_attribute("placeholder") == "+91 98765 43210"
+                    assert "OmniVoice does not purchase or provision carrier numbers" in page.locator("#modal-body").inner_text()
+                    page.get_by_label("Phone number", exact=True).fill("+12025550199")
                     page.locator("#submit-modal").click()
                     page.get_by_role("cell", name="+12025550199", exact=True).wait_for()
                     page.locator('tr:has-text("+12025550199") button:has-text("Connection details")').click()
@@ -197,7 +219,7 @@ def main():
                     # Register Twilio line and verify connection modal
                     page.get_by_role("button", name="Connect number").click()
                     page.locator('select[name="provider"]').select_option("twilio")
-                    page.get_by_label("Phone number (E.164)").fill("+12025550188")
+                    page.get_by_label("Phone number", exact=True).fill("+12025550188")
                     page.locator("#submit-modal").click()
                     page.get_by_role("cell", name="+12025550188", exact=True).wait_for()
                     page.locator('tr:has-text("+12025550188") button:has-text("Connection details")').click()
@@ -210,23 +232,26 @@ def main():
                     # Vobiz uses a protected HTTP Answer URL, not an Exotel stream URL.
                     page.get_by_role("button", name="Connect number").click()
                     page.locator('select[name="provider"]').select_option("vobiz")
-                    page.get_by_label("Phone number (E.164)").fill("+12025550177")
+                    page.get_by_label("Phone number", exact=True).fill("+919876543210")
                     page.locator("#submit-modal").click()
-                    page.get_by_role("cell", name="+12025550177", exact=True).wait_for()
-                    page.locator('tr:has-text("+12025550177") button:has-text("Connection details")').click()
+                    vobiz_row = page.locator('tr:has-text("+919876543210")')
+                    vobiz_row.get_by_role("cell", name="Vobiz", exact=True).wait_for()
+                    verify_conn = sqlite3.connect(Path(directory) / "browser.db")
+                    try:
+                        vobiz_line = verify_conn.execute(
+                            "SELECT id, provider, stream_secret FROM lines WHERE number=?", ("+919876543210",)
+                        ).fetchone()
+                    finally:
+                        verify_conn.close()
+                    assert vobiz_line and vobiz_line[1] == "vobiz"
+                    vobiz_row.get_by_role("button", name="Connection details", exact=False).click()
                     page.get_by_role("heading", name="Vobiz connection details", exact=True).wait_for()
                     vobiz_content = page.locator("#modal-body").inner_text()
                     assert "https://voice.example.com/webhooks/vobiz/" in vobiz_content
                     assert "HTTP POST" in vobiz_content
                     assert page.locator("#copy-connection-url").is_visible()
-                    verify_conn = sqlite3.connect(Path(directory) / "browser.db")
-                    try:
-                        vobiz_secret = verify_conn.execute(
-                            "SELECT stream_secret FROM lines WHERE number=?", ("+12025550177",)
-                        ).fetchone()[0]
-                    finally:
-                        verify_conn.close()
-                    assert vobiz_secret not in vobiz_content
+                    assert vobiz_line[2] not in vobiz_content
+                    assert vobiz_line[2] not in page.locator("#modal").inner_html()
                     page.evaluate("""() => {
                       window.__copiedConnection = null;
                       Object.defineProperty(navigator, 'clipboard', {
@@ -235,7 +260,9 @@ def main():
                       });
                     }""")
                     page.locator("#copy-connection-url").click()
-                    assert page.evaluate("window.__copiedConnection").endswith("/" + vobiz_secret)
+                    assert page.evaluate("window.__copiedConnection") == (
+                        f"https://voice.example.com/webhooks/vobiz/{vobiz_line[0]}/{vobiz_line[2]}"
+                    )
                     page.locator("#close-modal").click()
 
                     for name in ["workspace", "knowledge", "lines", "live", "analytics", "calls", "actions", "settings", "overview"]:
@@ -252,6 +279,7 @@ def main():
                             assert "total calls" in charts
                             assert "average server first audio" in charts
                             assert "twilio" in page.locator("#analytics-charts").inner_text().lower()
+                            assert "Vobiz" in page.locator("#analytics-charts").inner_text()
                         if name == "actions":
                             page.locator('[data-action-filter="committed"]').click()
                             page.locator('[data-action-id="qaact123456789"]').click()
@@ -259,6 +287,14 @@ def main():
                             page.locator("#close-modal").click()
                             page.locator('[data-action-filter="all"]').click()
                         if name == "calls":
+                            assert page.locator('#call-provider option[value="vobiz"]').inner_text() == "Vobiz"
+                            page.locator("#call-provider").select_option("vobiz")
+                            page.locator('#calls-list [data-call="vobizcall0001"]').wait_for()
+                            vobiz_call_row = page.locator('tr:has([data-call="vobizcall0001"])')
+                            assert "Vobiz" in vobiz_call_row.inner_text()
+                            vobiz_call_row.locator('[data-call="vobizcall0001"]').click()
+                            assert "Vobiz" in page.locator("#modal-body").inner_text()
+                            page.locator("#close-modal").click()
                             page.locator("#call-provider").select_option("twilio")
                             page.locator('#calls-list [data-call="c1234567890abcdef"]').wait_for()
                             page.locator("#call-status").select_option("completed")

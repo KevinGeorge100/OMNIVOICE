@@ -16,6 +16,7 @@ let navCloseTimer = null;
 const $ = id => document.getElementById(id);
 const esc = text => (text || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const route = path => `/api/tenants/${tenantId}/${path}`;
+const carrierLabel = provider => ({ exotel: "Exotel", vobiz: "Vobiz", twilio: "Twilio" })[provider] || provider;
 
 function showPage(page) {
   currentPage = page;
@@ -31,7 +32,7 @@ function showPage(page) {
     overview: ["Call operations", "Live calls, recent sessions, and workspace readiness.", "＋ New enterprise"],
     workspace: ["Voice agent", "Current workspace configuration and line association.", "View knowledge"],
     knowledge: ["Knowledge", "Private documents and approved FAQ answers.", "Upload document"],
-    lines: ["Phone numbers", "Existing Exotel and Twilio numbers registered for inbound routing.", "Connect number"],
+    lines: ["Phone numbers", "Existing Exotel, Vobiz, and Twilio numbers registered for inbound routing.", "Connect number"],
     live: ["Live calls", "Current single-worker call activity, updated by authenticated events.", "View history"],
     calls: ["Call history", "Search sessions and inspect persisted conversation and timing data.", "Place call"],
     actions: ["Actions", "Caller confirmation gates state-changing business operations.", "Register tool"],
@@ -166,7 +167,7 @@ function upload() {
 
 function addLine() {
   if (!requireTenant()) return;
-  modal("Connect a phone number", `<p class="help">Register a number you already own. This does not purchase or provision a carrier number.</p><label class="field">Carrier<select name="provider"><option value="exotel">Exotel · India</option><option value="twilio">Twilio</option><option value="vobiz">Vobiz</option></select></label>${field("Phone number (E.164)", "number", "tel", "+91…")}`, async form => {
+  modal("Connect a phone number", `<p class="help">Register a number you already own with a supported carrier. OmniVoice does not purchase or provision carrier numbers.</p><label class="field">Carrier<select name="provider"><option value="exotel">Exotel · India</option><option value="vobiz">Vobiz · India</option><option value="twilio">Twilio</option></select></label>${field("Phone number", "number", "tel", "+91 98765 43210")}<p class="help">Use E.164 format, for example +919876543210.</p>`, async form => {
     await api(route("lines"), {
       method: "POST",
       body: JSON.stringify(Object.fromEntries(form))
@@ -179,7 +180,7 @@ function addLine() {
 function dial() {
   if (!requireTenant()) return;
   if (!lines.length) return notify("Connect a phone number first.");
-  modal("Place an outbound call", `<label class="field">From line<select name="line_id">${lines.map(l => `<option value="${l.id}">${esc(l.number)} · ${esc(l.provider)}</option>`).join("")}</select></label>${field("Recipient number", "to", "tel", "+91…")}<label class="checkbox-label"><input type="checkbox" name="consent_confirmed" required> I have the recipient’s consent and intend to place this real phone call.</label><p class="help">Carrier charges apply. Outbound calling must be enabled on the server.</p>`, async form => {
+  modal("Place an outbound call", `<label class="field">From line<select name="line_id">${lines.map(l => `<option value="${l.id}">${esc(l.number)} · ${esc(carrierLabel(l.provider))}</option>`).join("")}</select></label>${field("Recipient number", "to", "tel", "+91…")}<label class="checkbox-label"><input type="checkbox" name="consent_confirmed" required> I have the recipient’s consent and intend to place this real phone call.</label><p class="help">Carrier charges apply. Outbound calling must be enabled on the server.</p>`, async form => {
     await api(route("dial"), {
       method: "POST",
       body: JSON.stringify({
@@ -230,7 +231,7 @@ function callRows(items) {
     const timings = turns.map(t => t.final_transcript_to_first_audio_sent_ms).filter(Number.isFinite);
     return `<tr>
       <td><b>${esc((c.id || "").slice(0, 10))}…</b></td>
-      <td>${esc(c.provider)}</td>
+      <td>${esc(carrierLabel(c.provider))}</td>
       <td>${badge(c.status)}</td>
       <td>${turns.length}</td>
       <td>${timings.length ? Math.round(timings.reduce((a, b) => a + b, 0) / timings.length) + " ms" : "--"}</td>
@@ -324,7 +325,7 @@ function render() {
   const steps = [
     { done: !!tenantId, label: "Create your enterprise workspace", action: "createTenant", btn: "Create" },
     { done: knowledge.length > 0, label: "Add business knowledge & approved FAQs", action: "upload", btn: "Upload" },
-    { done: lines.length > 0, label: "Connect an Exotel or Twilio phone line", action: "addLine", btn: "Connect" },
+    { done: lines.length > 0, label: "Connect an Exotel, Vobiz, or Twilio phone line", action: "addLine", btn: "Connect" },
     { done: !!state.voice_ready, label: "Configure regional speech & reasoning runtime", action: "settings", btn: "Configure" }
   ];
   const completed = steps.filter(s => s.done).length;
@@ -364,7 +365,7 @@ function render() {
 
   const linesList = $("lines-list");
   if (linesList) {
-    linesList.innerHTML = lines.length ? table(["Number", "Carrier", "Routing"], lines.map(l => `<tr><td><b>${esc(l.number)}</b></td><td>${esc(l.provider)}</td><td><button class="secondary-btn btn-sm" data-connection="${l.id}">Connection details ↗</button></td></tr>`)) : empty("Bring your existing number.", "Register an Exotel, Twilio, or Vobiz phone line to configure inbound routing.");
+    linesList.innerHTML = lines.length ? table(["Number", "Carrier", "Routing"], lines.map(l => `<tr><td><b>${esc(l.number)}</b></td><td>${esc(carrierLabel(l.provider))}</td><td><button class="secondary-btn btn-sm" data-connection="${l.id}">Connection details ↗</button></td></tr>`)) : empty("Bring your existing number.", "Register an Exotel, Vobiz, or Twilio phone line to configure inbound routing.");
   }
 
   const toolsList = $("tools-list");
