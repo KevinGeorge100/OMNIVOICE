@@ -88,6 +88,8 @@ class Settings(BaseSettings):
     exotel_api_token: SecretStr = SecretStr("")
     twilio_account_sid: str = ""
     twilio_auth_token: SecretStr = SecretStr("")
+    vobiz_auth_id: SecretStr = SecretStr("")
+    vobiz_auth_token: SecretStr = SecretStr("")
     enable_outbound: bool = False
 
     @model_validator(mode="after")

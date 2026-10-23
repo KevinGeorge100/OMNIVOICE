@@ -5,14 +5,16 @@ import hmac
 import io
 import json
 import logging
+import re
 import secrets
 import sqlite3
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import urlsplit
 from uuid import uuid4
-from xml.sax.saxutils import quoteattr
+from xml.sax.saxutils import escape, quoteattr
 
 import httpx
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile, WebSocket
@@ -34,6 +36,22 @@ from .store import Store, token_hash
 from .tools import ToolRegistry, register_business_profile
 from .transport import MediaTransport
 from .vad import SileroFactory
+
+
+def vobiz_public_origin(raw: str) -> str:
+    try:
+        base = urlsplit(raw.rstrip("/"))
+        base.port  # Reject malformed/out-of-range port declarations.
+        valid = (
+            base.scheme == "https" and base.netloc and not base.username and not base.password
+            and not base.path and not base.query and not base.fragment
+            and base.hostname and re.fullmatch(r"[A-Za-z0-9.-]+", base.hostname)
+        )
+    except ValueError:
+        valid = False
+    if not valid:
+        raise HTTPException(409, "Set OMNI_PUBLIC_BASE_URL to a public HTTPS origin")
+    return "https://" + base.netloc
 
 
 def create_app(settings=None, *, research_client=None):
@@ -350,6 +368,12 @@ def create_app(settings=None, *, research_client=None):
             raise HTTPException(409, "Set OMNI_PUBLIC_BASE_URL to your public HTTPS origin first")
         if line["provider"] == "twilio":
             return {"provider": "twilio", "webhook_url": base + "/telephony/twilio/" + line_id}
+        if line["provider"] == "vobiz":
+            return {
+                "provider": "vobiz",
+                "webhook_url": vobiz_public_origin(settings.public_base_url)
+                + "/webhooks/vobiz/" + line_id + "/" + line["stream_secret"],
+            }
         return {
             "provider": "exotel",
             "stream_url": base.replace("https://", "wss://", 1)
@@ -369,7 +393,7 @@ def create_app(settings=None, *, research_client=None):
         search: str = Query("", max_length=80),
         since: float | None = None,
     ):
-        if provider not in (None, "exotel", "twilio") or status not in (
+        if provider not in (None, "exotel", "twilio", "vobiz") or status not in (
             None, "active", "completed", "failed", "interrupted"
         ):
             raise HTTPException(422, "Invalid call filter")
@@ -543,14 +567,33 @@ def create_app(settings=None, *, research_client=None):
                 "StreamUrl": config["stream_url"],
                 "Record": "false",
             }
-        else:
+        elif line["provider"] == "twilio":
             if not settings.twilio_account_sid or not settings.twilio_auth_token.get_secret_value():
                 raise HTTPException(409, "Twilio credentials are missing")
             url = f"https://api.twilio.com/2010-04-01/Accounts/{settings.twilio_account_sid}/Calls.json"
             auth = (settings.twilio_account_sid, settings.twilio_auth_token.get_secret_value())
             data = {"To": body.to, "From": line["number"], "Url": config["webhook_url"]}
+        elif line["provider"] == "vobiz":
+            vobiz_auth_id = settings.vobiz_auth_id.get_secret_value()
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", vobiz_auth_id) or not settings.vobiz_auth_token.get_secret_value():
+                raise HTTPException(409, "Vobiz credentials are missing or invalid")
+            url = f"https://api.vobiz.ai/api/v1/Account/{vobiz_auth_id}/Call/"
+            data = {
+                "from": line["number"], "to": body.to,
+                "answer_url": config["webhook_url"], "answer_method": "POST",
+            }
+        else:
+            raise HTTPException(422, "Unsupported carrier")
         try:
-            response = await services.http.post(url, auth=auth, data=data, timeout=15)
+            if line["provider"] == "vobiz":
+                response = await services.http.post(
+                    url, json=data, headers={
+                        "X-Auth-ID": vobiz_auth_id,
+                        "X-Auth-Token": settings.vobiz_auth_token.get_secret_value(),
+                    }, timeout=15,
+                )
+            else:
+                response = await services.http.post(url, auth=auth, data=data, timeout=15)
             response.raise_for_status()
         except httpx.HTTPError:
             raise HTTPException(
@@ -586,7 +629,63 @@ def create_app(settings=None, *, research_client=None):
         )
         return Response(xml, media_type="application/xml")
 
+    @app.post("/webhooks/vobiz/{line_id}/{stream_secret}")
+    async def vobiz_answer(line_id: str, stream_secret: str, request: Request):
+        if not re.fullmatch(r"[a-f0-9]{32}", line_id) or len(stream_secret) > 128:
+            raise HTTPException(403, "Invalid carrier request")
+        line = await services.store.one(
+            "SELECT stream_secret FROM lines WHERE id=? AND provider='vobiz'", (line_id,)
+        )
+        if not line or not secrets.compare_digest(stream_secret, line["stream_secret"]):
+            raise HTTPException(403, "Invalid carrier request")
+        origin = vobiz_public_origin(settings.public_base_url)
+        # Vobiz signs the callback URL + nonce only when callback credentials are
+        # configured. The protected line URL remains mandatory in both cases.
+        signatures = (
+            ("v3", "x-vobiz-signature-v3", "x-vobiz-signature-v3-nonce", "."),
+            ("v2", "x-vobiz-signature-v2", "x-vobiz-signature-v2-nonce", ""),
+        )
+        if any(request.headers.get(key) for _, key, _, _ in signatures):
+            signing_key = settings.vobiz_auth_token.get_secret_value()
+            callback_url = origin + request.url.path
+            valid_signature = False
+            for _, key, nonce_key, separator in signatures:
+                provided = request.headers.get(key, "")
+                nonce = request.headers.get(nonce_key, "")
+                if signing_key and provided and re.fullmatch(r"\d{20}", nonce):
+                    expected = base64.b64encode(hmac.new(
+                        signing_key.encode(), (callback_url + separator + nonce).encode(), hashlib.sha256
+                    ).digest()).decode()
+                    valid_signature |= secrets.compare_digest(provided, expected)
+            if not valid_signature:
+                raise HTTPException(403, "Invalid carrier signature")
+        if request.headers.get("content-type", "").split(";", 1)[0] not in {
+            "application/x-www-form-urlencoded", "multipart/form-data",
+        }:
+            raise HTTPException(415, "Unsupported carrier request")
+        stream = (
+            origin.replace("https://", "wss://", 1)
+            + "/ws/vobiz/" + line_id + "/" + line["stream_secret"]
+        )
+        xml = (
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<Response><Stream bidirectional="true" keepCallAlive="true" '
+            'audioTrack="inbound" contentType="audio/x-mulaw;rate=8000">'
+            + escape(stream) + "</Stream></Response>"
+        )
+        return Response(xml, media_type="application/xml")
+
     async def serve_media(ws, provider, line_id=None, token=None):
+        if provider == "vobiz":
+            if not line_id or not re.fullmatch(r"[a-f0-9]{32}", line_id) or not token or len(token) > 128:
+                await ws.close(1008)
+                return
+            permitted = await services.store.one(
+                "SELECT stream_secret FROM lines WHERE id=? AND provider='vobiz'", (line_id,)
+            )
+            if not permitted or not secrets.compare_digest(token, permitted["stream_secret"]):
+                await ws.close(1008)
+                return
         await ws.accept()
         call_id = None
         try:
@@ -610,6 +709,19 @@ def create_app(settings=None, *, research_client=None):
                     await ws.close(1003)
                     return
                 stream_id = start["streamSid"]
+            elif provider == "vobiz":
+                stream_id = start.get("streamId")
+                carrier_call_id = start.get("callId")
+                fmt = start.get("mediaFormat", {})
+                if (
+                    not isinstance(stream_id, str) or not 1 <= len(stream_id) <= 128
+                    or not isinstance(carrier_call_id, str) or not 1 <= len(carrier_call_id) <= 128
+                    or fmt.get("sampleRate") != 8000
+                    or fmt.get("encoding") != "audio/x-mulaw"
+                    or "inbound" not in start.get("tracks", [])
+                ):
+                    await ws.close(1003)
+                    return
             else:
                 stream_id = start.get("stream_sid") or message.get("stream_sid")
                 fmt = start.get("media_format", {})
@@ -639,6 +751,9 @@ def create_app(settings=None, *, research_client=None):
                 return
             session = CallSession(call_id, tenant, MediaTransport(ws, provider, stream_id), services)
             session.line_number = line["number"]
+            if provider == "vobiz":
+                session.metrics["carrier_call_id_hash"] = hashlib.sha256(carrier_call_id.encode()).hexdigest()
+                session.metrics["carrier_stream_id_hash"] = hashlib.sha256(stream_id.encode()).hexdigest()
             services.active[call_id] = session
             started = time.time()
             await services.store.execute(
@@ -660,6 +775,8 @@ def create_app(settings=None, *, research_client=None):
             logging.getLogger("omnivoice.media").warning(
                 "Media session ended: %s", type(error).__name__
             )
+            if call_id and call_id in services.active:
+                services.active[call_id].metrics["errors"] += 1
         finally:
             try:
                 if call_id and call_id in services.active:
@@ -700,6 +817,10 @@ def create_app(settings=None, *, research_client=None):
     @app.websocket("/ws/exotel/{line_id}/{token}")
     async def exotel(ws: WebSocket, line_id: str, token: str):
         await serve_media(ws, "exotel", line_id, token)
+
+    @app.websocket("/ws/vobiz/{line_id}/{stream_secret}")
+    async def vobiz(ws: WebSocket, line_id: str, stream_secret: str):
+        await serve_media(ws, "vobiz", line_id, stream_secret)
 
     @app.websocket("/ws/audio/{line_id}/{token}")
     async def audio(ws: WebSocket, line_id: str, token: str):

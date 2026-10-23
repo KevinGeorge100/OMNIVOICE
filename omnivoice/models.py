@@ -83,7 +83,7 @@ class DemoSlotInput(BaseModel):
 
 
 class LineInput(BaseModel):
-    provider: Literal["exotel", "twilio"]
+    provider: Literal["exotel", "twilio", "vobiz"]
     number: str = Field(pattern=r"^\+[1-9]\d{7,14}$")
 
 

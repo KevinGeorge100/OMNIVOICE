@@ -162,6 +162,11 @@ class CallSession:
                 message = await self.transport.ws.receive_json()
                 event = message.get("event")
                 if event == "media":
+                    if self.transport.provider == "vobiz" and (
+                        message.get("streamId") != self.transport.stream_id
+                        or message.get("media", {}).get("track") != "inbound"
+                    ):
+                        raise ValueError("Invalid carrier media frame")
                     pcm = self.upsample.process(self.transport.decode(message))
                     # Never silently drop caller speech; overload terminates the call.
                     try:
@@ -181,14 +186,16 @@ class CallSession:
                         )
                         await self.transport.ws.close(code=1013)
                         raise CallEnded() from None
-                elif event == "mark":
-                    name = message.get("mark", {}).get("name")
+                elif event == "mark" or (event == "playedStream" and self.transport.provider == "vobiz"):
+                    name = message.get("name") if event == "playedStream" else message.get("mark", {}).get("name")
                     if name in self.marks:
                         action_id = self.marks.pop(name)
                         if not self.marks:
                             self.fsm.played()
                         if action_id:
                             await self.services.actions.arm(action_id, self.id)
+                elif event == "clearedAudio" and self.transport.provider == "vobiz":
+                    self.transport.acknowledge_clear(message)
                 elif event == "stop":
                     self.metrics["end_reason"] = "carrier_stop"
                     raise CallEnded()

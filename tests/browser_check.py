@@ -207,6 +207,37 @@ def main():
                     assert "/api/webhooks/" not in twilio_content
                     page.locator("#close-modal").click()
 
+                    # Vobiz uses a protected HTTP Answer URL, not an Exotel stream URL.
+                    page.get_by_role("button", name="Connect number").click()
+                    page.locator('select[name="provider"]').select_option("vobiz")
+                    page.get_by_label("Phone number (E.164)").fill("+12025550177")
+                    page.locator("#submit-modal").click()
+                    page.get_by_role("cell", name="+12025550177", exact=True).wait_for()
+                    page.locator('tr:has-text("+12025550177") button:has-text("Connection details")').click()
+                    page.get_by_role("heading", name="Vobiz connection details", exact=True).wait_for()
+                    vobiz_content = page.locator("#modal-body").inner_text()
+                    assert "https://voice.example.com/webhooks/vobiz/" in vobiz_content
+                    assert "HTTP POST" in vobiz_content
+                    assert page.locator("#copy-connection-url").is_visible()
+                    verify_conn = sqlite3.connect(Path(directory) / "browser.db")
+                    try:
+                        vobiz_secret = verify_conn.execute(
+                            "SELECT stream_secret FROM lines WHERE number=?", ("+12025550177",)
+                        ).fetchone()[0]
+                    finally:
+                        verify_conn.close()
+                    assert vobiz_secret not in vobiz_content
+                    page.evaluate("""() => {
+                      window.__copiedConnection = null;
+                      Object.defineProperty(navigator, 'clipboard', {
+                        configurable: true,
+                        value: {writeText: async value => { window.__copiedConnection = value; }}
+                      });
+                    }""")
+                    page.locator("#copy-connection-url").click()
+                    assert page.evaluate("window.__copiedConnection").endswith("/" + vobiz_secret)
+                    page.locator("#close-modal").click()
+
                     for name in ["workspace", "knowledge", "lines", "live", "analytics", "calls", "actions", "settings", "overview"]:
                         page.locator(f'[data-page="{name}"]').click()
                         assert page.locator(f"#{name}").is_visible()

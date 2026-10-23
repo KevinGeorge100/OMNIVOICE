@@ -14,6 +14,8 @@ class MediaTransport:
         self.timestamp = 0
         self.epoch = 0
         self.next_send_at = 0.0
+        self.clear_ack = asyncio.Event()
+        self.clear_ack.set()
 
     @property
     def frame_size(self):
@@ -23,7 +25,7 @@ class MediaTransport:
         payload = base64.b64decode(message["media"]["payload"], validate=True)
         if len(payload) > 16000:
             raise ValueError("Media packet exceeds one second")
-        pcm = mulaw_decode(payload) if self.provider == "twilio" else payload
+        pcm = mulaw_decode(payload) if self.provider in {"twilio", "vobiz"} else payload
         if len(pcm) % 2:
             raise ValueError("Incomplete PCM sample")
         return pcm
@@ -32,6 +34,8 @@ class MediaTransport:
         self.sequence += 1
         if self.provider == "exotel":
             return {"event": event, "stream_sid": self.stream_id}
+        if self.provider == "vobiz":
+            return {"event": event, "streamId": self.stream_id}
         return {"event": event, "streamSid": self.stream_id}
 
     async def audio(self, pcm8k, epoch, on_first_sent=None):
@@ -46,6 +50,8 @@ class MediaTransport:
     async def send_frame(self, frame, epoch, on_first_sent=None, owner_check=None):
         if len(frame) != self.frame_size:
             raise ValueError("Outbound carrier frame has incorrect size")
+        if self.provider == "vobiz":
+            await asyncio.wait_for(self.clear_ack.wait(), 1.5)
         # Pacing happens before each send so the final mark is not delayed by
         # an unnecessary post-frame sleep. Clear invalidates sleeping senders.
         delay = self.next_send_at - time.monotonic()
@@ -54,13 +60,15 @@ class MediaTransport:
         async with self.send_lock:
             if epoch != self.epoch or (owner_check is not None and not owner_check()):
                 return False
-            packet = self.envelope("media")
+            packet = self.envelope("playAudio" if self.provider == "vobiz" else "media")
             self.chunk += 1
             packet["media"] = {
                 "payload": base64.b64encode(
-                    mulaw_encode(frame) if self.provider == "twilio" else frame
+                    mulaw_encode(frame) if self.provider in {"twilio", "vobiz"} else frame
                 ).decode()
             }
+            if self.provider == "vobiz":
+                packet["media"].update({"contentType": "audio/x-mulaw", "sampleRate": 8000})
             self.timestamp += len(frame) // 16
             await asyncio.wait_for(self.ws.send_json(packet), 1)
             self.next_send_at = time.monotonic() + len(frame) / 16000
@@ -69,11 +77,16 @@ class MediaTransport:
             return True
 
     async def mark(self, name, epoch, owner_check=None):
+        if self.provider == "vobiz":
+            await asyncio.wait_for(self.clear_ack.wait(), 1.5)
         async with self.send_lock:
             if epoch != self.epoch or (owner_check is not None and not owner_check()):
                 return False
-            packet = self.envelope("mark")
-            packet["mark"] = {"name": name}
+            packet = self.envelope("checkpoint" if self.provider == "vobiz" else "mark")
+            if self.provider == "vobiz":
+                packet["name"] = name
+            else:
+                packet["mark"] = {"name": name}
             await asyncio.wait_for(self.ws.send_json(packet), 1)
             return True
 
@@ -81,4 +94,13 @@ class MediaTransport:
         self.epoch += 1
         async with self.send_lock:
             self.next_send_at = 0.0
-            await asyncio.wait_for(self.ws.send_json(self.envelope("clear")), 1)
+            if self.provider == "vobiz":
+                if self.clear_ack.is_set():
+                    self.clear_ack.clear()
+                    await asyncio.wait_for(self.ws.send_json(self.envelope("clearAudio")), 1)
+            else:
+                await asyncio.wait_for(self.ws.send_json(self.envelope("clear")), 1)
+
+    def acknowledge_clear(self, message):
+        if self.provider == "vobiz" and message.get("streamId") == self.stream_id:
+            self.clear_ack.set()

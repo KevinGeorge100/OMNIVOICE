@@ -166,7 +166,7 @@ function upload() {
 
 function addLine() {
   if (!requireTenant()) return;
-  modal("Connect a phone number", `<p class="help">Register a number you already own. This does not purchase or provision a carrier number.</p><label class="field">Carrier<select name="provider"><option value="exotel">Exotel · India</option><option value="twilio">Twilio</option></select></label>${field("Phone number (E.164)", "number", "tel", "+91…")}`, async form => {
+  modal("Connect a phone number", `<p class="help">Register a number you already own. This does not purchase or provision a carrier number.</p><label class="field">Carrier<select name="provider"><option value="exotel">Exotel · India</option><option value="twilio">Twilio</option><option value="vobiz">Vobiz</option></select></label>${field("Phone number (E.164)", "number", "tel", "+91…")}`, async form => {
     await api(route("lines"), {
       method: "POST",
       body: JSON.stringify(Object.fromEntries(form))
@@ -364,7 +364,7 @@ function render() {
 
   const linesList = $("lines-list");
   if (linesList) {
-    linesList.innerHTML = lines.length ? table(["Number", "Carrier", "Routing"], lines.map(l => `<tr><td><b>${esc(l.number)}</b></td><td>${esc(l.provider)}</td><td><button class="secondary-btn btn-sm" data-connection="${l.id}">Connection details ↗</button></td></tr>`)) : empty("Bring your existing number.", "Register an Exotel or Twilio phone line to configure inbound routing.");
+    linesList.innerHTML = lines.length ? table(["Number", "Carrier", "Routing"], lines.map(l => `<tr><td><b>${esc(l.number)}</b></td><td>${esc(l.provider)}</td><td><button class="secondary-btn btn-sm" data-connection="${l.id}">Connection details ↗</button></td></tr>`)) : empty("Bring your existing number.", "Register an Exotel, Twilio, or Vobiz phone line to configure inbound routing.");
   }
 
   const toolsList = $("tools-list");
@@ -515,6 +515,21 @@ document.addEventListener("click", async event => {
             </div>`,
             null
           );
+        } else if (line.provider === "vobiz") {
+          modal(
+            "Vobiz connection details",
+            `<div class="code-box">
+              <strong>Primary Answer URL · HTTP POST</strong>
+              <code>${esc(new URL(info.webhook_url).origin)}/webhooks/vobiz/••••/••••••••</code>
+              <p class="help">Create a Vobiz Voice Application, paste the protected Answer URL, then link your existing number. Keep this URL private.</p>
+              <button id="copy-connection-url" class="secondary-btn" type="button">Copy protected URL</button>
+            </div>`,
+            null
+          );
+          $("copy-connection-url")?.addEventListener("click", async () => {
+            try { await navigator.clipboard.writeText(info.webhook_url); notify("Protected URL copied."); }
+            catch (_) { notify("Clipboard unavailable. Use the authenticated connection API for carrier setup."); }
+          });
         } else {
           const streamAddress = new URL(info.stream_url);
           const maskedStream = `${streamAddress.origin}/ws/exotel/••••/••••••••`;
