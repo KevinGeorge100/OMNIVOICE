@@ -2,10 +2,10 @@
 
 Status: **synthetic validation only; no Vobiz PSTN call has been made**. This adapter is built on stable main. The KooKoo worktree is separate and is not a runtime carrier in this branch.
 
-## Protocol basis (checked 23 October 2026)
+## Protocol basis (rechecked 26 October 2026)
 
 - [Vobiz `<Stream>` reference](https://www.vobiz.ai/docs/xml/stream) defines the `Response`/`Stream` XML, `bidirectional`, `keepCallAlive`, `audioTrack`, inbound `contentType`, and WSS URL as element text.
-- [Stream events](https://www.vobiz.ai/docs/xml/stream/stream-events) defines inbound `start`, `media`, `playedStream`, `clearedAudio` and outbound `playAudio`, `checkpoint`, `clearAudio`, `stop`. It explicitly says **no inbound `stop` JSON is guaranteed**; the WebSocket close is the normal end signal. The adapter also accepts a `stop` event defensively if one arrives.
+- [Stream events](https://www.vobiz.ai/docs/xml/stream/stream-events) defines inbound `start`, `media`, `playedStream`, `clearedAudio` and outbound `playAudio`, `checkpoint`, `clearAudio`, `stop`. It says there is **no inbound `stop` JSON**; the WebSocket close is the local stream-end signal. The adapter also accepts a `stop` event defensively if one arrives.
 - [Checkpoint](https://www.vobiz.ai/docs/xml/stream/checkpoint-event) says `playedStream` carries `event` and `name` only and only arrives after uninterrupted queued playback. [Clear audio](https://www.vobiz.ai/docs/xml/stream/clear-audio) says new playback should wait for `clearedAudio`.
 - [Callbacks](https://www.vobiz.ai/docs/concepts/callbacks) document form-encoded POST and `CallUUID`, `From`, `To`, `Direction`/`Event`; [callback validation](https://www.vobiz.ai/docs/concepts/validating-callbacks) documents optional V2/V3 HMAC-SHA256 URL-and-nonce signatures. Signature headers are not guaranteed unless callback credentials are configured. OmniVoice always requires the per-line secret in both the Answer URL and WSS path, and validates V2/V3 when present and the Vobiz Auth Token is configured. A missing signature is **not** proof of carrier origin.
 - [Applications](https://www.vobiz.ai/docs/applications) and [create application](https://www.vobiz.ai/docs/applications/create-application) describe application Answer URL, POST method, and attaching an owned number. [Outbound call API](https://www.vobiz.ai/docs/call/make-call) specifies `POST /api/v1/Account/{auth_id}/Call/` with `X-Auth-ID`, `X-Auth-Token` and a JSON body. Generic API support is documented; **trial-account outbound permission and verified-recipient restrictions remain unverified**.
@@ -36,13 +36,19 @@ The generated XML has this shape; all URL text is XML-escaped and the actual sec
 <Response><Stream bidirectional="true" keepCallAlive="true" audioTrack="inbound" contentType="audio/x-mulaw;rate=8000">wss://PUBLIC_HOST/ws/vobiz/LINE_ID/STREAM_SECRET</Stream></Response>
 ```
 
-`keepCallAlive=true` runs the stream exclusively. We do not configure a status callback or a hangup URL because the WebSocket close is sufficient for live session cleanup and there is no separate status handler in this adapter. Vobiz's own docs distinguish an HTTP `StopStream` callback from the WebSocket close. Carrier-provided status events therefore are **not** a substitute for a real PSTN validation.
+`keepCallAlive=true` runs the stream exclusively. WebSocket close triggers local session cleanup and history persistence. It does **not** independently confirm the carrier's final call outcome. Current Vobiz documentation calls the application `hangup_url` callback authoritative for call termination; this adapter has no Hangup callback handler yet. During the first live call, compare local history with the Vobiz Console call log before describing carrier completion. Do not interpret a local `completed` status alone as carrier-confirmed success.
 
 ## Configuration and line registration
 
 Required for inbound: `OMNI_PUBLIC_BASE_URL=https://PUBLIC_HOST`, a running publicly reachable HTTPS/WSS endpoint, a tenant and registered `provider=vobiz` line, and working OmniVoice speech/LLM providers. `OMNI_VOBIZ_AUTH_ID` and `OMNI_VOBIZ_AUTH_TOKEN` are needed for outbound calls; the token is also used to verify a V2/V3 signature **if** Vobiz sends one. Credentials are `SecretStr` values and belong only in a private `.env`/process environment. `OMNI_ENABLE_OUTBOUND=false` remains the default.
 
-In the console, choose **Phone numbers → Connect a phone number → Vobiz**, enter the existing trial number in E.164 format, then open **Connection details → Copy protected URL**. The button copies the full Primary Answer URL to the Windows/browser clipboard without displaying the secret. The authenticated tenant `GET /api/tenants/{tenant_id}/lines/{line_id}/connection` API is an alternative for operators using an API client. Keep request paths out of reverse-proxy access logs; both carrier routes contain a routing secret. Do not paste the URL in tickets or screenshots.
+In the console, choose **Phone numbers → Connect a phone number → Vobiz · India**, enter the purchased Vobiz DID in E.164 format, save, then open **Connection details → Copy protected URL**. The button copies the full Primary Answer URL to the browser clipboard without displaying the secret. The authenticated tenant `GET /api/tenants/{tenant_id}/lines/{line_id}/connection` API is an alternative for operators using an API client. Keep request paths out of reverse-proxy access logs; both carrier routes contain a routing secret. Do not paste the URL in tickets or screenshots. A trial number that cannot be attached to a Voice Application does not prove DID routing.
+
+### Temporary local demo mode
+
+From this branch, run `powershell -ExecutionPolicy Bypass -File .\scripts\start_demo_local.ps1 -EnvFile C:\Projects\OMNIVOICE\.env`. The launcher requires an unused port 8000, starts one local FastAPI worker and a Cloudflare Quick Tunnel, applies the current HTTPS origin **only to the server process**, waits for local readiness, and executes the read-only Vobiz preflight. It never edits `.env`, registers a number, changes the Vobiz account, or places a call. The current public hostname is printed without any line secret. Keep the launcher running through the call; Ctrl+C stops its child processes. If multiple Vobiz lines exist, add `-LineId` with the selected line ID. If the local service is already running, stop it before using this launcher so its public origin cannot remain stale.
+
+For an already-running service and tunnel, run `.venv\Scripts\python.exe scripts/vobiz_demo_preflight.py --env-file C:\Projects\OMNIVOICE\.env --public-base https://CURRENT_HOST.trycloudflare.com`. This single command checks local/public `/healthz` and `/readyz`, global DNS, the selected line and hidden secret, synthetic POST/XML/WSS agreement, an actual public WSS upgrade that closes **before** a call starts, Gnani/Groq/TTS configuration, and the marked sales fixture. It prints `PASS`, `WARN`, or `FAIL` only; it never places a call. When several Vobiz lines exist, it selects the unique line belonging to the marked demo tenant; otherwise pass `--line-id`. `WARN` on missing or differently assigned sales-fixture data permits **basic media-path validation only**. Add `--require-business-demo` before any later booking rehearsal; all fixture checks and tenant association must then pass. A Quick Tunnel hostname changes on restart, so re-copy the protected URL into the Vobiz Voice Application after every restart.
 
 ### Answer URL preflight
 
@@ -55,10 +61,18 @@ Vobiz's [application creation reference](https://www.vobiz.ai/docs/applications/
 ## Vobiz Console setup after a public endpoint exists
 
 1. Verify `OMNI_PUBLIC_BASE_URL` is the actual HTTPS public origin and its WSS upgrade reaches this FastAPI process. `http://127.0.0.1:8000` cannot receive Vobiz calls.
-2. Register the existing trial number as a Vobiz line in the correct OmniVoice tenant. Copy the protected Answer URL from its Connection details.
+2. Register the purchased, attachable DID as a **new** Vobiz line in the intended OmniVoice tenant. For the first-call questions in this guide, select the marked **OmniVoice Synthetic Demo** tenant, which contains the approved OmniVoice FAQs; do not overwrite an existing MakeMyPass or trial line. Copy the protected Answer URL from its Connection details after the current tunnel is live.
 3. In **Voice Applications**, create an application with **Application name: `OmniVoice`**; **Primary Answer URL: the copied protected URL**; **Method: POST**. Leave **Hangup URL** and **Fallback URL** blank. Keep **Default endpoint app: OFF** and **Public URI: OFF** unless an operator has a separate documented need.
-4. Save, then link the already assigned trial number to the `OmniVoice` application. Do not buy another number or alter other applications.
-5. Make one manually authorized inbound test call. Check greeting, caller turn, response, barge-in, call history and capacity release. Check the Vobiz dashboard's own call log for its `CallUUID`; compare with locally retained hashes if correlation is needed. Do not infer latency or reliability from one call.
+4. Save, then attach the purchased DID to the `OmniVoice` application. Do not alter other applications.
+5. Make one manually initiated inbound test call using the basic script below. Check greeting, caller turns, response, call history and capacity release. Check the Vobiz dashboard's own call log for its `CallUUID`; compare with locally retained hashes if correlation is needed. Do not infer mouth-to-ear latency or reliability from one call.
+
+### First-call safe script
+
+For the **first real PSTN call**, use a line in a knowledge-equipped demo workspace and do not ask for a booking or any other write. Say **“Hello”**, then **“What is OmniVoice?”**, then **“What languages do you support?”**, and end the call. Observe the live Vobiz label, greeting, speech recognition, reply audio, turn counts, and transition into call history. Local server timings exclude carrier transit and handset playback. When the Answer callback supplies `From` and a `CallUUID` matching the stream `callId`, the Console can show only the masked last four digits; otherwise it says “Not recorded.” This caller label is callback data, not independent identity verification.
+
+Only after the basic call succeeds should a **second, separately initiated call** test lead lookup, slot lookup, a booking proposal, explicit verbal confirmation, and one commit. Before that call, run preflight with `--require-business-demo` and confirm the Vobiz line is registered to the marked fixture tenant. A first-call success is not evidence that business actions work over PSTN.
+
+Record the outcome in [Vobiz PSTN validation template](../research/VOBIZ_PSTN_VALIDATION_TEMPLATE.md). Leave the result pending until a real call and carrier-side log have been inspected.
 
 The protected URL has the **shape** `https://PUBLIC_HOST/webhooks/vobiz/LINE_ID/STREAM_SECRET`. Never paste a real secret into documentation. The console clipboard control is the safe way to obtain the exact URL.
 

@@ -237,7 +237,7 @@ function renderLiveCalls() {
     const latest = call.recent_transcript || last.user_transcript;
     const reply = call.recent_response || last.agent_response;
     const firstAudio = call.first_audio_ms ?? last.final_transcript_to_first_audio_sent_ms;
-    return `<article class="panel live-card"><div class="live-card-top">${opsPill("Live", "good")}<b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b><span class="mono" data-live-duration="${opsEsc(call.started)}">${opsDuration(Date.now() / 1000 - call.started)}</span></div><div class="live-attributes"><span>${opsEsc(carrierLabel(call.provider || "Carrier unavailable"))}</span><span>Line: ${opsEsc(call.line_number || "Not recorded")}</span><span>Phase: ${opsEsc(call.state || "Connected")}</span><span>${opsNumber(call.turn_count ?? turns.length)} turns</span></div><div class="live-exchange"><p><small>CALLER · LAST RECORDED TURN</small>${opsEsc(latest || "No transcript recorded yet")}</p><p><small>AGENT · LAST RECORDED TURN</small>${opsEsc(reply || "No response recorded yet")}</p></div><div class="live-card-foot"><span>Server first audio: ${opsLatency(firstAudio)}</span><button class="text-button" type="button" data-live-inspect="${opsEsc(call.id)}">Inspect session →</button></div></article>`;
+    return `<article class="panel live-card"><div class="live-card-top">${opsPill("Live", "good")}<b class="mono">${opsEsc((call.id || "").slice(0, 10))}</b><span class="mono" data-live-duration="${opsEsc(call.started)}">${opsDuration(Date.now() / 1000 - call.started)}</span></div><div class="live-attributes"><span>${opsEsc(carrierLabel(call.provider || "Carrier unavailable"))}</span><span>Caller: ${opsEsc(call.caller_masked || call.metrics?.caller_masked || "Not recorded")}</span><span>Line: ${opsEsc(call.line_number || "Not recorded")}</span><span>Phase: ${opsEsc(call.state || "Connected")}</span><span>${opsNumber(call.turn_count ?? turns.length)} turns</span></div><div class="live-exchange"><p><small>CALLER · LAST RECORDED TURN</small>${opsEsc(latest || "No transcript recorded yet")}</p><p><small>AGENT · LAST RECORDED TURN</small>${opsEsc(reply || "No response recorded yet")}</p></div><div class="live-card-foot"><span>Server first audio: ${opsLatency(firstAudio)}</span><button class="text-button" type="button" data-live-inspect="${opsEsc(call.id)}">Inspect session →</button></div></article>`;
   }).join("") : opsEmpty("No live calls", "This view updates automatically when a connected carrier session starts. No simulated calls are shown.");
 }
 
@@ -251,7 +251,7 @@ function openLiveInspector(call) {
     ["First outbound audio", call.first_audio_ms ?? last.final_transcript_to_first_audio_sent_ms]
   ].filter(([, value]) => Number.isFinite(value));
   modal(`Live call ${opsEsc((call.id || "").slice(0, 10))}`, `<div class="live-inspector">
-    <section><h3>Session</h3><div class="config-row"><span>Carrier</span><b>${opsEsc(carrierLabel(call.provider || "Unavailable"))}</b></div><div class="config-row"><span>Line</span><b>${opsEsc(call.line_number || "Not recorded")}</b></div><div class="config-row"><span>State</span><b>${opsEsc(call.state || "Connected")}</b></div><div class="config-row"><span>Turns</span><b>${opsNumber(call.turn_count ?? turns.length)}</b></div></section>
+    <section><h3>Session</h3><div class="config-row"><span>Carrier</span><b>${opsEsc(carrierLabel(call.provider || "Unavailable"))}</b></div><div class="config-row"><span>Caller</span><b>${opsEsc(call.caller_masked || call.metrics?.caller_masked || "Not recorded")}</b></div><div class="config-row"><span>Line</span><b>${opsEsc(call.line_number || "Not recorded")}</b></div><div class="config-row"><span>State</span><b>${opsEsc(call.state || "Connected")}</b></div><div class="config-row"><span>Turns</span><b>${opsNumber(call.turn_count ?? turns.length)}</b></div></section>
     <section><h3>Latest recorded exchange</h3><div class="speech-bubble caller"><small>CALLER</small><p>${opsEsc(call.recent_transcript || last.user_transcript || "No transcript recorded yet")}</p></div><div class="speech-bubble agent"><small>AGENT</small><p>${opsEsc(call.recent_response || last.agent_response || "No response recorded yet")}</p></div></section>
     <section><h3>Latest server trace</h3>${trace.length ? trace.map(([label, value]) => `<div class="config-row"><span>${opsEsc(label)}</span><b class="mono">${opsLatency(value)}</b></div>`).join("") : '<p class="ops-context">No turn timing recorded yet.</p>'}<p class="help">Server timings exclude carrier transit and acoustic playback.</p></section>
   </div>`, null);
@@ -360,7 +360,7 @@ function openCallInspector(call) {
   ].map(([label, value]) => `<div><small>${opsEsc(label)}</small><b>${opsEsc(value)}</b></div>`).join("");
   const context = [
     ["Started", opsDate(call.started)], ["Ended", opsDate(call.ended)],
-    ["Line", call.line_number || "Not recorded"]
+    ["Caller", call.metrics?.caller_masked || "Not recorded"]
   ].map(([label, value]) => `<div><dt>${opsEsc(label)}</dt><dd>${opsEsc(value)}</dd></div>`).join("");
   const conversation = turns.map((turn, index) => `<article class="inspector-turn">
     <h3 class="turn-index">TURN ${index + 1}${turn.interrupted ? " · INTERRUPTED" : ""}</h3>

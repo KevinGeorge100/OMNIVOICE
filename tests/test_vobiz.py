@@ -249,7 +249,9 @@ def test_vobiz_synthetic_non_pstn_websocket_rehearsal(client, monkeypatch):
     _, line, prefix = tenant_and_line(client)
     secret = connection(client, prefix, line)["webhook_url"].rsplit("/", 1)[-1]
     webhook = f"/webhooks/vobiz/{line['id']}/{secret}"
-    assert ElementTree.fromstring(client.post(webhook, data={"CallUUID": "synthetic"}).text).tag == "Response"
+    assert ElementTree.fromstring(client.post(webhook, data={
+        "CallUUID": "synthetic-call", "From": "+919000000002",
+    }).text).tag == "Response"
     completed = []
 
     async def synthetic_run(self):
@@ -295,7 +297,9 @@ def test_vobiz_synthetic_non_pstn_websocket_rehearsal(client, monkeypatch):
     calls = client.get(prefix + "/calls?provider=vobiz", headers=ADMIN).json()
     assert len(calls) == 1
     assert calls[0]["provider"] == "vobiz"
+    assert calls[0]["metrics"]["caller_masked"] == "••••0002"
     assert "synthetic-call" not in json.dumps(calls)
+    assert "+919000000002" not in json.dumps(calls)
 
 
 def test_vobiz_provider_failure_releases_capacity_and_marks_failed(client, monkeypatch):

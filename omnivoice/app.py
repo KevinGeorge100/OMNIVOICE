@@ -35,6 +35,7 @@ from .store import Store, token_hash
 from .tools import ToolRegistry, register_business_profile
 from .transport import MediaTransport
 from .vad import SileroFactory
+from .vobiz_callers import PendingVobizCallers
 from .vobiz_url import public_https_origin, vobiz_answer_url
 
 
@@ -49,7 +50,7 @@ def create_app(settings=None, *, research_client=None):
     settings = settings or Settings()
     services = SimpleNamespace(
         settings=settings, active={}, events=TenantEvents(), vad=None, model_error=None,
-        capacity=Capacity(settings),
+        capacity=Capacity(settings), vobiz_callers=PendingVobizCallers(),
     )
 
     @asynccontextmanager
@@ -210,7 +211,7 @@ def create_app(settings=None, *, research_client=None):
                 "tts": settings.tts_provider,
                 "reasoning": "Groq",
                 "reasoning_model": settings.groq_model,
-                "telephony": ["Exotel", "Twilio"],
+                "telephony": ["Exotel", "Twilio", "Vobiz"],
             },
         }
 
@@ -657,6 +658,8 @@ def create_app(settings=None, *, research_client=None):
             "application/x-www-form-urlencoded", "multipart/form-data",
         }:
             raise HTTPException(415, "Unsupported carrier request")
+        form = await request.form()
+        services.vobiz_callers.remember(line_id, form.get("CallUUID"), form.get("From"))
         stream = (
             origin.replace("https://", "wss://", 1)
             + "/ws/vobiz/" + line_id + "/" + line["stream_secret"]
@@ -748,6 +751,9 @@ def create_app(settings=None, *, research_client=None):
             if provider == "vobiz":
                 session.metrics["carrier_call_id_hash"] = hashlib.sha256(carrier_call_id.encode()).hexdigest()
                 session.metrics["carrier_stream_id_hash"] = hashlib.sha256(stream_id.encode()).hexdigest()
+                caller_masked = services.vobiz_callers.take(line_id, carrier_call_id)
+                if caller_masked:
+                    session.metrics["caller_masked"] = caller_masked
             services.active[call_id] = session
             started = time.time()
             await services.store.execute(
@@ -758,7 +764,8 @@ def create_app(settings=None, *, research_client=None):
                 services.events.publish(
                     tenant["id"], "call.started",
                     {"id": call_id, "provider": provider, "status": "active", "started": started,
-                     "line_number": line["number"], "state": session.fsm.state, "turn_count": 0},
+                     "line_number": line["number"], "state": session.fsm.state, "turn_count": 0,
+                     "caller_masked": session.metrics.get("caller_masked")},
                 )
             except Exception as error:
                 logging.getLogger("omnivoice.media").warning(

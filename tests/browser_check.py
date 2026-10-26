@@ -130,7 +130,7 @@ def main():
                                 "completed",
                                 now - 75,
                                 now - 15,
-                                json.dumps({"turns": []}),
+                                json.dumps({"turns": [], "caller_masked": "••••3210"}),
                             ),
                         )
                         conn.executemany(
@@ -301,6 +301,7 @@ def main():
                             assert "Vobiz" in vobiz_call_row.inner_text()
                             vobiz_call_row.locator('[data-call="vobizcall0001"]').click()
                             assert "Vobiz" in page.locator("#modal-body").inner_text()
+                            assert "••••3210" in page.locator("#modal-body").inner_text()
                             page.locator("#close-modal").click()
                             page.locator("#call-provider").select_option("twilio")
                             page.locator('#calls-list [data-call="c1234567890abcdef"]').wait_for()

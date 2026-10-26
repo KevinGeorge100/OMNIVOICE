@@ -14,6 +14,7 @@ def main():
     serve = sub.add_parser("serve", help="Start the local enterprise console and media engine")
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8000")))
+    serve.add_argument("--env-file", type=Path, help="Load private settings from an existing env file")
     models = sub.add_parser("models", help="Download public Silero and optional embedding weights")
     models.add_argument("--semantic", action="store_true")
     args = parser.parse_args()
@@ -33,10 +34,27 @@ def main():
     elif args.command == "serve":
         import uvicorn
 
+        target = "omnivoice.app:create_app"
+        if args.env_file:
+            from .app import create_app
+            from .config import Settings
+
+            env_file = args.env_file.expanduser().resolve()
+            if not env_file.is_file():
+                parser.error("The selected env file does not exist")
+            settings = Settings(_env_file=env_file)
+            if not settings.database.is_absolute():
+                settings.database = (env_file.parent / settings.database).resolve()
+            if not settings.silero_model.is_absolute():
+                settings.silero_model = (env_file.parent / settings.silero_model).resolve()
+            if not Path(settings.embedding_cache).is_absolute():
+                settings.embedding_cache = str((env_file.parent / settings.embedding_cache).resolve())
+            target = create_app(settings)
+
         # Carrier URLs can contain routing secrets. Never enable raw URL access logs.
         uvicorn.run(
-            "omnivoice.app:create_app",
-            factory=True,
+            target,
+            factory=not bool(args.env_file),
             host=args.host,
             port=args.port,
             workers=1,
