@@ -682,6 +682,44 @@ async def test_audio_queue_overflow_byte_limit_terminates_call():
     assert session.metrics["end_reason"] == "audio_queue_overflow"
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider", ["exotel", "vobiz"])
+async def test_buffered_carrier_frames_wait_for_audio_consumers(provider):
+    ws = MockWebSocket(messages=[{
+        "event": "media", "streamId": "stream-1",
+        "media": {"payload": "...", "track": "inbound"},
+    } for _ in range(40)] + [{"event": "stop"}])
+    settings = make_settings()
+    services = SimpleNamespace(
+        settings=settings,
+        vad=SimpleNamespace(session=lambda: SimpleNamespace(process=lambda _: [])),
+        capacity=Capacity(settings),
+    )
+    transport = MediaTransport(ws, provider, "stream-1")
+    tenant = {"id": "t-1", "config": {"language": "en-IN", "backchannels": []}}
+    session = CallSession("call-burst", tenant, transport, services)
+    transport.decode = lambda _: b"\x00\x00" * 160
+
+    async def drain(queue, backlog_name):
+        while True:
+            pcm = await queue.get()
+            setattr(session, backlog_name, getattr(session, backlog_name) - len(pcm))
+
+    consumers = [
+        asyncio.create_task(drain(session.audio_queue, "audio_backlog_bytes")),
+        asyncio.create_task(drain(session.vad_queue, "vad_backlog_bytes")),
+    ]
+    try:
+        with pytest.raises(CallEnded):
+            await session.receive()
+        assert session.metrics["end_reason"] == "carrier_stop"
+        assert ws.closed_code is None
+    finally:
+        for task in consumers:
+            task.cancel()
+        await asyncio.gather(*consumers, return_exceptions=True)
+
+
 def test_audio_queue_overflow_releases_capacity_slot(tmp_path):
     from unittest.mock import patch
 

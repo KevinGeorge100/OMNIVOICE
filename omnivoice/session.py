@@ -170,11 +170,18 @@ class CallSession:
                     pcm = self.upsample.process(self.transport.decode(message))
                     # Never silently drop caller speech; overload terminates the call.
                     try:
-                        if (
+                        if len(pcm) > 32000:
+                            raise asyncio.QueueFull
+                        deadline = asyncio.get_running_loop().time() + 0.25
+                        while (
                             self.audio_backlog_bytes + len(pcm) > 32000
                             or self.vad_backlog_bytes + len(pcm) > 32000
+                            or self.audio_queue.full()
+                            or self.vad_queue.full()
                         ):
-                            raise asyncio.QueueFull
+                            if asyncio.get_running_loop().time() >= deadline:
+                                raise asyncio.QueueFull
+                            await asyncio.sleep(0.005)
                         self.audio_queue.put_nowait(pcm)
                         self.vad_queue.put_nowait(pcm)
                         self.audio_backlog_bytes += len(pcm)
