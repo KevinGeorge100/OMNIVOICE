@@ -1,13 +1,15 @@
 # OmniVoice — Project Status
 
-**Current Maturity Level:** **MINIMUM VIABLE PRODUCT (MVP) — historical Exotel voice path verified on PSTN; latest agentic sales path validated locally**
+**Current Maturity Level:** **MINIMUM VIABLE PRODUCT (MVP) — historical Exotel PSTN path and one current Vobiz PSTN voice call verified; sales actions remain locally validated**
 **Document Status:** Living reality baseline
-**Last Updated:** 2026-10-17
-**Latest canonical main SHA at OV-033 branch creation:** `3e37f66c542917c346d3f86cc9eeb37920c6e146` (OV-033 is not merged or pushed)
+**Last Updated:** 2026-10-26
+**Historical OV-033 branch-creation base:** `3e37f66c542917c346d3f86cc9eeb37920c6e146` (OV-033 subsequently merged)
 
 ---
 
 ## 1. Executive Summary & Reality Statement
+
+> **First current-build Vobiz PSTN voice call (2026-10-26):** One controlled real inbound call reached the latest OmniVoice build through Vobiz. The operator heard a greeting and an answer to an OmniVoice overview question; local telemetry recorded two turns, one barge-in event, zero errors, and zero business actions. The Vobiz CDR records an answered 39-billed-second call with normal caller hangup. A preceding failed media session exposed transient queue overflow, corrected in `361e528` with bounded backpressure and regression coverage. The operator reported some stuttering and an unnatural conversational tone; conversation tuning is separate work. [First-call evidence](research/VOBIZ_PSTN_VALIDATION_TEMPLATE.md). **Repeated-call reliability, PSTN latency performance, and business-action execution over PSTN remain to be validated.**
 
 > **OV-033 evidence consolidation:** The core voice pipeline, Sarvam-default/Gnani-optional speech integrations, FlexDuo interruption, tenant-local FAQ/FAISS retrieval, natural dialogue, bounded provider recovery/capacity, tenant-scoped tools, confirmation-gated SQLite sales workflow, opt-in Langfuse research export and Operations Console are implemented. OV-030's 76-case synthetic live-model proposal evaluation and OV-031's local voice-sales rehearsal are complete. OV-031 retained **seven** real-provider loopback attempts (**five failures, two passes**) and no physical PSTN attempt. The historical OV-005 handset calls verify the earlier voice path, not the latest sales path. Railway OV-032 is checkpointed on its own branch and **deferred, not deployed**. See the [canonical metric registry](research/FINAL_METRICS_REGISTRY.md), [evidence index](research/FINAL_EVIDENCE_INDEX.md) and [demo checklist](FINAL_DEMO_CHECKLIST.md).
 
@@ -21,7 +23,7 @@
 
 > [!IMPORTANT]
 > **Real PSTN end-to-end telephone validation successfully completed (OV-005).**
-> Live telephone validation has been proven across 3 physical mobile telephone calls on the Exotel carrier network (`+914954269065`) via secure WebSocket tunnel. Inbound carrier lifecycle, greeting dispatch (~250 ms), STT -> RAG -> LLM -> TTS -> PSTN audio loop, true acoustic barge-in, backchannel suppression, and full SQLite telemetry persistence are operational and repeatable.
+> Live telephone validation was observed across 3 historical physical mobile telephone calls on an Exotel carrier line via secure WebSocket tunnel. Inbound carrier lifecycle, greeting dispatch (~250 ms), STT -> RAG -> LLM -> TTS -> PSTN audio loop, true acoustic barge-in, backchannel suppression, and full SQLite telemetry persistence were observed in that historical scope.
 > Realtime turn-taking has been stabilized via ADR-001 (0 false interrupted turns, 0 false carrier clears, and 0 false barge-in events in Call #3; Call #2 turn-thrashing regression eliminated).
 >
 > **OV-023 & OV-024 Validation Status:**
@@ -29,7 +31,7 @@
 
 > **OV-028 / OV-009 / OV-010 update (2026-10-08):** Gnani Prisma STT and Timbre TTS are optional alongside the default Sarvam speech path; their latest healthy-path validation used provider/gateway flows, not a physical PSTN call. OV-009 adds bounded provider retries, cancellation-aware reconnects, no-replay protection after partial TTS/LLM output, and safe session fallbacks. OV-010 adds single-process call admission (`MAX_CALLS`, `TENANT_MAX_CALLS`), provider concurrency semaphores with 50 ms bounded wait, audio/VAD queue backlog ceilings (32 packets / 32,000 bytes) with code 1013 teardown, standard HTTP 429 `Retry-After` parsing, bounded-memory API throttling, and tenant-isolated capacity observability. All controls are validated deterministically locally; multi-worker and distributed Redis/PostgreSQL rate limiting remains future work.
 
-OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice application and media server**. It demonstrates a working integration between telephony WebSockets (Exotel/Twilio) and AI cloud providers (Sarvam or Gnani for speech, Groq for LLM reasoning). It features a local neural VAD (Silero ONNX), an in-memory document vector index (FAISS), and an embedded administrative console.
+OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice application and media server**. It demonstrates a working integration between telephony WebSockets (Exotel/Vobiz; Twilio adapter unverified on PSTN) and AI cloud providers (Sarvam or Gnani for speech, Groq for LLM reasoning). It features a local neural VAD (Silero ONNX), an in-memory document vector index (FAISS), and an embedded administrative console.
 
 ---
 
@@ -37,7 +39,8 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 
 ### Working Subsystems (Validation level stated per item)
 * **Real PSTN Inbound Telephony (`omnivoice/app.py`, `omnivoice/session.py`)**: Verified live over Exotel PSTN lines. Inbound audio ingress, causal transcoding, greeting synthesis (~250 ms), full-duplex session loop, and carrier hang-up handling validated across 3 physical mobile phone calls (OV-005).
-* **Capacity & Overload Controls (`omnivoice/capacity.py`, `omnivoice/session.py`)**: Process-level admission, tenant concurrency caps, provider semaphores with 50 ms timeout, audio backpressure with 32 KB ceiling and code 1013 close, Retry-After backoff, and API sliding-window rate limiters (OV-010).
+* **Current Vobiz PSTN Voice Path (`omnivoice/app.py`, `omnivoice/session.py`)**: One controlled inbound PSTN call on 2026-10-26 confirmed audible greeting and one spoken answer, two recorded turns, and normal termination. This does not verify repeatability, a latency SLA, or PSTN business-action execution. [Evidence](research/VOBIZ_PSTN_VALIDATION_TEMPLATE.md).
+* **Capacity & Overload Controls (`omnivoice/capacity.py`, `omnivoice/session.py`)**: Process-level admission, tenant concurrency caps, provider semaphores with 50 ms timeout, audio backpressure with 32 KB ceiling and code 1013 close, Retry-After backoff, and API sliding-window rate limiters (OV-010). A later Vobiz ingress fix allows up to 250 ms for transient queue drainage before the existing overload close.
 * **Neural VAD (`omnivoice/vad.py`)**: Local Silero ONNX model running on CPU via ONNX Runtime. Evaluates 32 ms PCM frames with isolated recurrent state per call; the model-version label is not used as a cross-milestone performance claim.
 * **Full-Duplex Interruption State Machine (`omnivoice/duplex.py`, `omnivoice/session.py`)**: `FlexDuo` acoustic candidate + transcript validation with backchannel suppression (e.g., *"yeah"*, *"mm hmm"*). Stabilized via ADR-001 with 750 ms bounded continuation coalescing and generation-stage control-intent suppression to prevent false interrupted turns and spurious carrier clears.
 * **Carrier Barge-in Clear Dispatch (`omnivoice/transport.py`)**: Transmits `{"event": "clear"}` envelopes to carrier WebSockets to purge pending audio buffers upon true acoustic interruption of active playback.
@@ -46,7 +49,7 @@ OmniVoice is currently an **asynchronous, single-worker Python 3.11 voice applic
 * **Customer Landing Website (`landing/`)**: Next.js 16 App Router website with Tailwind CSS v4, interactive Web Audio API acoustic synthesis demo, and ROI calculator. Marketing claims, code showcase, indicative pricing, and latency targets reconciled to match verified repository capabilities (OV-004). Premium enterprise visual design overhaul completed with editorial split hero, connected architectural pipeline, high-contrast dark developer console, structured ROI comparison, and light/mint/dark rhythmic sections (OV-022). Deployed live on Vercel at `https://omnivoice-self.vercel.app/`.
 
 ### Partial Subsystems
-* **Exotel & Twilio Integration**: Inbound Exotel WebSocket media stream is fully validated on physical PSTN lines (OV-005). Outbound dialing endpoint exists (`/api/tenants/{id}/dial`), but call progress analysis (answering machine detection, busy signals) remains unverified. Twilio live PSTN calls remain to be tested.
+* **Exotel, Vobiz & Twilio Integration**: Inbound Exotel WebSocket media stream was verified on three historical PSTN calls (OV-005); the current Vobiz adapter completed one controlled inbound PSTN voice call. Outbound dialing exists (`/api/tenants/{id}/dial`), but Vobiz outbound and call progress analysis (answering machine detection, busy signals) remain unverified. Twilio live PSTN calls remain to be tested.
 * **Regional Multilingual Speech**: The tenant validator accepts 11 locale codes, including `en-IN`, and provider adapters expose language mappings. That is interface support, not uniform speech-quality validation. System prompts, error fallbacks, and write-confirmation prompts remain English-centric (OV-008 planned).
 * **Enterprise Operations Console (`omnivoice/static/`)**: Dual-theme UI operational. Historical call details runtime error resolved (OV-002); carrier connection URLs aligned with real FastAPI endpoints (OV-003); call transcripts and turn metrics visible. Premium operations surface (workspace, live calls, paginated history, call inspector, analytics, authenticated tenant SSE, and defensive best-effort telemetry) complete in OV-026.
 * **Observability & Evaluation**: Structured JSON metrics logged upon call completion into SQLite (`data/omnivoice.db`). OV-006 server-observed per-stage latency instrumentation, benchmark collection tooling, and final baseline results are **COMPLETE** (56 valid turns / 6 sessions / 0 exclusions; `LIVE GATEWAY SERVER-LATENCY BENCHMARK`; see `docs/OV006_BENCHMARK_RESULTS.md`). Exotel live PSTN re-validation deferred due to credit/KYC constraints; physical acoustic mouth-to-ear latency and carrier transit not claimed. No live distributed tracing or OpenTelemetry instrumentation exists (OV-017 planned).
